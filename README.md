@@ -13,4 +13,4 @@ topic: /joint_states\
 type: sensor_msgs/msg/JointState\
 joints names: [joint_1, joint_2, joint_1_1, joint_1_2, joint_2_1, joint_2_2]\
 joint_1_2 = joint_1_1\
-joint_2_1 = joint_2_2\
+joint_2_1 = joint_2_2
