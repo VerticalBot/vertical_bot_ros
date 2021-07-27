@@ -22,6 +22,7 @@ setup(
     entry_points={
         'console_scripts': [
             'controller = controller.controller:main',
+            'test_control = controller.test_control:main'
         ],
     },
 )

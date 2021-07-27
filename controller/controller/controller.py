@@ -4,17 +4,24 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Pose
 from sensor_msgs.msg import JointState
+from std_msgs.msg import String
 
 class Controller(Node):
     def __init__(self):	
         super().__init__('controller')
-        self.sub = self.create_subscription(Twist, 'cmd_vel', self.cmd_cb, 10)
+        self.sub = self.create_subscription(String, '/cmd_move', self.cmd_cb, 10)
         self.joints_states_pub = self.create_publisher(JointState, "/joint_states", 4)
         self.pose_pub = self.create_publisher(Pose, "/robot_pose", 4)
+        self.up_robot_z = 0.08
+        self.down_robot_z = 0.04
         self.pose = Pose()
         self.pose.position.x = 0.0
         self.pose.position.y = 0.0
-        self.pose.position.z = 0.0
+        self.pose.position.z = self.up_robot_z
+        self.joint1_limit = [-0.05, 0.05]
+        self.joint2_limit = [-0.05, 0.05]
+        self.joint1_magnit_limit = [0.0, 0.04]
+        self.joint2_magnit_limit = [0.0, 0.04]
         self.msg = JointState()
         self.msg.name.append("joint_1")
         self.msg.name.append("joint_2")
@@ -26,64 +33,89 @@ class Controller(Node):
         self.msg.position.append(0)
         self.msg.position.append(0)
         self.msg.position.append(0)
-        self.msg.position.append(0)
-        self.msg.position.append(0)
+        self.msg.position.append(self.joint2_magnit_limit[1])
+        self.msg.position.append(self.joint2_magnit_limit[1])
+
+        self.joint_speed = 0.005
         
-        self.create_timer(0.5, self.timer_callback)
-        self.create_timer(1, self.timer1_callback)        
-        self.state_of_walk = 0
+        self.create_timer(0.1, self.timer_move_callback_callback)
+        self.create_timer(0.1, self.timer_joint_callback)
+        self.create_timer(0.1, self.robot_joint_controller)
+        self.state_of_walk = None
+
+    def robot_joint_controller(self):
+        if self.state_of_walk == "front":
+            if self.msg.position[2] == self.joint1_magnit_limit[0] and self.msg.position[4] == self.joint2_magnit_limit[1]:
+                self.pose.position.x -= abs(self.joint_speed)
+                self.msg.position[1] += self.joint_speed
+                if self.msg.position[1] > self.joint2_limit[1]:
+                    self.up_down_magnit(True)
+                
+            else:
+                self.msg.position[1] -= self.joint_speed
+                if self.msg.position[1] < self.joint2_limit[0]:
+                    self.up_down_magnit(False)
+            
+        if self.state_of_walk == "back":
+            if self.msg.position[2] == self.joint1_magnit_limit[0] and self.msg.position[4] == self.joint2_magnit_limit[1]:
+                self.pose.position.x += abs(self.joint_speed)
+                self.msg.position[1] -= self.joint_speed
+                if self.msg.position[1] < self.joint2_limit[0]:
+                    self.up_down_magnit(True)
+                
+            else:
+                self.msg.position[1] += self.joint_speed
+                if self.msg.position[1] > self.joint2_limit[1]:
+                    self.up_down_magnit(False)
+
+
+        if self.state_of_walk == "left":
+            if self.msg.position[2] == self.joint1_magnit_limit[1] and self.msg.position[4] == self.joint2_magnit_limit[0]:
+                self.pose.position.y += abs(self.joint_speed)
+                self.msg.position[0] -= self.joint_speed
+                if self.msg.position[0] < self.joint2_limit[0]:
+                    self.up_down_magnit(False)
+                
+            else:
+                self.msg.position[0] += self.joint_speed
+                if self.msg.position[0] > self.joint2_limit[1]:
+                    self.up_down_magnit(True)
+
+        if self.state_of_walk == "right":
+            if self.msg.position[2] == self.joint1_magnit_limit[1] and self.msg.position[4] == self.joint2_magnit_limit[0]:
+                self.pose.position.y -= abs(self.joint_speed)
+                self.msg.position[0] += self.joint_speed
+                if self.msg.position[0] > self.joint2_limit[1]:
+                    self.up_down_magnit(False)
+                
+            else:
+                self.msg.position[0] -= self.joint_speed
+                if self.msg.position[0] < self.joint2_limit[0]:
+                    self.up_down_magnit(True)
+
+    def timer_move_callback_callback(self):
+        self.pose_pub.publish(self.pose)
+
+    def timer_joint_callback(self):
+        self.msg.header.stamp = self.get_clock().now().to_msg()
+        self.joints_states_pub.publish(self.msg)
 
     def cmd_cb(self, data):
-        a = 1
-    def timer1_callback(self):
-        self.pose_pub.publish(self.pose)
-        print(self.pose.position.x)
-    def timer_callback(self):
-        if self.state_of_walk == 0:
-            self.control_x("front")
-            self.control_x_height("down")
-            self.control_y_height("up")
-            self.state_of_walk = 1
-        elif self.state_of_walk == 1:
-            self.control_x("back")
-            self.control_x_height("up")
-            self.control_y_height("down")
-            self.state_of_walk = 2
-        elif self.state_of_walk == 2:
-            self.control_x("back")
-            self.control_x_height("down")
-            self.control_y_height("up")
-            self.pose.position.x+=0.1
-            self.state_of_walk = 0
-
-    def control_x(self, side):
-        self.msg.header.stamp = self.get_clock().now().to_msg()
-        if side == 'front':
-            self.msg.position[0] = 0.05
-        elif side == 'back':
-            self.msg.position[0] = -0.05
-        self.joints_states_pub.publish(self.msg)
+        self.state_of_walk = data.data
     
-    def control_x_height(self, side):
-        if side == 'up':
-            self.msg.position[2] = 0.0
-            self.msg.position[3] = 0.0
-        elif side == 'down':
-            self.msg.position[2] = 0.04
-            self.msg.position[3] = 0.04
+    def up_down_magnit(self, flag):
 
-    def control_y_height(self, side):
-        if side == 'up':
-            self.msg.position[4] = 0.0
-            self.msg.position[5] = 0.0
-        elif side == 'down':
-            self.msg.position[4] = 0.04
-            self.msg.position[5] = 0.0
+        self.msg.position[2] = self.joint1_magnit_limit[int(flag)]
+        self.msg.position[3] = self.joint1_magnit_limit[int(flag)]
+        self.msg.position[4] = self.joint2_magnit_limit[int(not flag)]
+        self.msg.position[5] = self.joint2_magnit_limit[int(not flag)]
+
 def main():
 	rclpy.init()
 	controller = Controller()
 	rclpy.spin(controller)
 	rclpy.shutdown()
+
 if __name__ == '__main__':
     main()
     
