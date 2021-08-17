@@ -28,7 +28,7 @@ def generate_launch_description():
     rsp_params = {'robot_description': robot_desc}
 
     # print (robot_desc) # Printing urdf information.
-    rviz_config_file = path = os.path.join(get_package_share_directory('vertical_robot_base_pkg'),
+    rviz_config_file = os.path.join(get_package_share_directory('vertical_robot_base_pkg'),
                              'rviz', 'rviz.rviz')
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -40,11 +40,11 @@ def generate_launch_description():
             executable='robot_state_publisher',
             output='screen',
             parameters=[rsp_params, {'use_sim_time': use_sim_time}]),
-        # Node(
-        #     package='joint_state_publisher_gui',
-        #     executable='joint_state_publisher_gui',
-        #     output='screen',
-        #     parameters=[rsp_params, {'use_sim_time': use_sim_time}]),
+        Node(
+            package='joint_state_publisher_gui',
+            executable='joint_state_publisher_gui',
+            output='screen',
+            parameters=[rsp_params, {'use_sim_time': use_sim_time}]),
         Node(
             package='vertical_robot_base_pkg',
             executable='position_control.py',

@@ -28,8 +28,8 @@ class StatePublisher(Node):
             10)
 
         self.odom_trans = TransformStamped()
-        self.odom_trans.header.frame_id = 'world'
-        self.odom_trans.child_frame_id = 'base_link'
+        self.odom_trans.header.frame_id = 'world_our'
+        self.odom_trans.child_frame_id = 'world'
         self.msg = None
         self.subscription
 
