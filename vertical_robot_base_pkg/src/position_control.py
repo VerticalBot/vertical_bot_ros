@@ -20,33 +20,31 @@ class StatePublisher(Node):
         self.timer = self.create_timer(timer_period, self.update_pobot_pose)
         self.nodeName = self.get_name()
         self.get_logger().info("{0} started".format(self.nodeName))
-
         self.subscription = self.create_subscription(
             Pose,
             'robot_pose',
             self.listener_callback,
             10)
-
         self.odom_trans = TransformStamped()
-        self.odom_trans.header.frame_id = 'world_our'
+        self.odom_trans.header.frame_id = 'world_1'
         self.odom_trans.child_frame_id = 'world'
-        self.msg = None
+        self.msg = Pose()
         self.subscription
 
     def listener_callback(self, msg):
         self.msg = msg
-    
+        print(msg)
+
     def update_pobot_pose(self):
-        if self.msg != None:
-            now = self.get_clock().now()
-
-            self.odom_trans.header.stamp = now.to_msg()
-            self.odom_trans.transform.translation.x = self.msg.position.x
-            self.odom_trans.transform.translation.y = self.msg.position.y
-            self.odom_trans.transform.translation.z = self.msg.position.z
-            self.odom_trans.transform.rotation = self.msg.orientation
-
-            self.broadcaster.sendTransform(self.odom_trans)
+        # if self.msg != None:
+        now = self.get_clock().now()
+        # print(now)
+        self.odom_trans.header.stamp = now.to_msg()
+        self.odom_trans.transform.translation.x = self.msg.position.x
+        self.odom_trans.transform.translation.y = self.msg.position.y
+        self.odom_trans.transform.translation.z = self.msg.position.z
+        self.odom_trans.transform.rotation = self.msg.orientation
+        self.broadcaster.sendTransform(self.odom_trans)
 
 def main():
     node = StatePublisher()

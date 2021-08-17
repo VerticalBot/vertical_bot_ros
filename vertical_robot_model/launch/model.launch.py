@@ -50,6 +50,10 @@ def generate_launch_description():
             executable='position_control.py',
             output='screen'),
         Node(
+            package='controller',
+            executable='controller',
+            output='screen'),
+        Node(
             package='rviz2',
             executable='rviz2',
             arguments=['-d', rviz_config_file],
