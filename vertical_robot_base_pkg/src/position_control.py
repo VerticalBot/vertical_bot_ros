@@ -33,7 +33,6 @@ class StatePublisher(Node):
 
     def listener_callback(self, msg):
         self.msg = msg
-        print(msg)
 
     def update_pobot_pose(self):
         # if self.msg != None:

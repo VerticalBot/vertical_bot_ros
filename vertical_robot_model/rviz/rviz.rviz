@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /RobotModel1
+        - /RobotModel2
       Splitter Ratio: 0.5
     Tree Height: 549
   - Class: rviz_common/Selection
@@ -124,6 +125,93 @@ Visualization Manager:
         {}
       Update Interval: 0
       Value: false
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
+      Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /palletizer/robot_description
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        pal_link0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link4:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link4_1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link5:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link6:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link7:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link8:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pal_link9:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        prisos:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        world:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+      Name: RobotModel
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -185,10 +273,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3953983783721924
+      Pitch: 0.59539794921875
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.8203981518745422
+      Yaw: 0.4353981614112854
     Saved: ~
 Window Geometry:
   Displays:
@@ -206,5 +294,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1200
-  X: 556
-  Y: 69
+  X: 403
+  Y: 63

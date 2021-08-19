@@ -4,7 +4,7 @@
 	<joint name="pal_base" type="fixed">
 		<parent link="world"/>
 		<child link="pal_link0"/>
-		<origin xyz = "0 0 0" rpy="0 0 -1.57" />
+		<origin xyz = "0 0 0.05" rpy="0 0 -1.57" />
 		<axis xyz="0 1 0" />
 	</joint>
 

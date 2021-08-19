@@ -31,11 +31,11 @@ class ToPointNode(Node):
             return
         
         availJointState,goalJointState = self.roboticArm.InversProblem(cmd_point[0],cmd_point[1],cmd_point[2], 0.0)
-        print(availJointState, goalJointState)
-        msg = JointState()
-        msg.position = goalJointState
-        msg.header.stamp = self.get_clock().now().to_msg()
-        self.joint_state_publisher.publish(msg)
+        if availJointState:
+            msg = JointState()
+            msg.position = goalJointState
+            msg.header.stamp = self.get_clock().now().to_msg()
+            self.joint_state_publisher.publish(msg)
 
 def main():
     node = ToPointNode()
