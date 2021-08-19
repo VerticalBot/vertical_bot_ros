@@ -15,12 +15,12 @@ import os
 def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     
-    urdf_file_name = 'vertical_robot.urdf'
+    urdf_file_name = 'palletizer_model.urdf'
 
     print("urdf_file_name : {}".format(urdf_file_name))
     
     urdf = os.path.join(
-        get_package_share_directory('vertical_robot_model'),
+        get_package_share_directory('palletizer_model_pkg'),
         'urdf',
         urdf_file_name)
 
@@ -29,14 +29,11 @@ def generate_launch_description():
 
     rsp_params = {'robot_description': robot_desc}
 
-    # print (robot_desc) # Printing urdf information.
-    rviz_config_file = os.path.join(get_package_share_directory('vertical_robot_model'),
-                             'rviz', 'rviz.rviz')
-
     palletizer_pkg_dir = LaunchConfiguration(
         'palletizer_pkg_dir',
-        default=os.path.join(get_package_share_directory('palletizer_model_pkg'), 'launch'))
+        default=os.path.join(get_package_share_directory('palletizer_control_pkg'), 'launch'))
 
+    # print (robot_desc) # Printing urdf information.
     return LaunchDescription([
         DeclareLaunchArgument(
             'use_sim_time',
@@ -46,28 +43,24 @@ def generate_launch_description():
             package='robot_state_publisher',
             executable='robot_state_publisher',
             output='screen',
+            remappings=[
+            ("/robot_description", "/palletizer/robot_description")],
             parameters=[rsp_params, {'use_sim_time': use_sim_time}]),
         # Node(
         #     package='joint_state_publisher_gui',
         #     executable='joint_state_publisher_gui',
         #     output='screen',
+        #     remappings=[
+        #     ("joint_states", "joint_states_remap")],
         #     parameters=[rsp_params, {'use_sim_time': use_sim_time}]),
         Node(
-            package='vertical_robot_base_pkg',
-            executable='position_control.py',
-            output='screen'),
-        Node(
-            package='controller',
-            executable='controller',
-            output='screen'),
-        Node(
-            package='rviz2',
-            executable='rviz2',
-            arguments=['-d', rviz_config_file],
-            output='screen'),
+            package='palletizer_model_pkg',
+            executable='remap_pal_node.py',
+            output='screen',
+            parameters=[rsp_params, {'use_sim_time': use_sim_time}]),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
-                [palletizer_pkg_dir, '/model.launch.py']),
+                [palletizer_pkg_dir, '/controller.launch.py']),
             launch_arguments={'use_sim_time': use_sim_time}.items(),
         ),  
     ])

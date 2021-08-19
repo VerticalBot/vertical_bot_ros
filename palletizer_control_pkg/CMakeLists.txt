@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(vertical_robot_base_pkg)
+project(palletizer_control_pkg)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -22,13 +22,15 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(DIRECTORY src
-  DESTINATION share/${PROJECT_NAME}/
+install(DIRECTORY launch src
+  DESTINATION share/${PROJECT_NAME}
 )
 
 install(
   PROGRAMS
-  src/position_control.py
+  src/main_to_point_node.py
+  src/publish_joint_states.py
+  src/RoboticArmPalletizerClass.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
