@@ -37,7 +37,7 @@ def generate_launch_description():
         ("/robot_description", "/palletizer/robot_description")],
         parameters=[{'robot_description': Command(['xacro ', LaunchConfiguration('model')])}]
     )
-
+    
     palletizer_pkg_dir = LaunchConfiguration(
         'palletizer_pkg_dir',
         default=os.path.join(get_package_share_directory('palletizer_control_pkg'), 'launch'))
