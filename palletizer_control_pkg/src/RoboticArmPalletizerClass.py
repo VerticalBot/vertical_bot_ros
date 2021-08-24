@@ -4,14 +4,14 @@ from math import *
 import numpy as np
 
 class RoboticArm:
-    def __init__(self):
-        self.__l1 = 148.78
-        self.__l2 = 21.116
-        self.__l3 = 148.00
-        self.__l4 = 160.002
-        self.__l5 = 90.0
-        self.__l6 = 219.0
-        self.__l7 = 6.0
+    def __init__(self, scale):
+        self.__l1 = 148.78*scale
+        self.__l2 = 21.116*scale
+        self.__l3 = 148.00*scale
+        self.__l4 = 160.002*scale
+        self.__l5 = 90.0*scale
+        self.__l6 = 219.0*scale
+        self.__l7 = 6.0*scale
 
         self.__convert_const = 2048/pi
         self.__convert_const_AX = 512/pi

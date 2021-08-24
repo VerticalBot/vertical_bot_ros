@@ -15,7 +15,7 @@ class Test(Node):
 
         msg = Float32MultiArray()
 
-        msg.data = [350.0, 0.0, 0.0]
+        msg.data = [200.0, 0.0, 0.0]
         self.pub.publish(msg)
 
     def listener_callback(self, msg):
