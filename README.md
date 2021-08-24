@@ -28,6 +28,9 @@ ros2 launch vertical_robot_model model.launch.py
         robot state - topic: /palletizer_robot_state, type: std_msgs/msg/Int32, info: 0 - robot does not move, 1 - robot is moving
 
 Scale manipulator model:
+
         config file: urdf/config.xacro
+        
         <xacro:property name="scale_param" value="scale param type float" />
+        
         example: <xacro:property name="scale_param" value="1" />
