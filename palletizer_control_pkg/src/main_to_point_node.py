@@ -35,9 +35,9 @@ class ToPointNode(Node):
         if len(cmd_point)<3:
             print("invalid coordinate")
             return
-        
+        # self.get_logger().info("{0}".format(cmd_point))
         availJointState,goalJointState = self.roboticArm.InversProblem(cmd_point[0],cmd_point[1],cmd_point[2], 0.0)
-        print(goalJointState)
+        # self.get_logger().info("{0}".format(goalJointState))
         if availJointState:
             msg = JointState()
             msg.position = goalJointState

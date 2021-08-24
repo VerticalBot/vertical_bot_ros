@@ -43,7 +43,7 @@ class ToJointNode(Node):
         joint_state = msg.position
         way_list = self.way_compute(joint_state)
         max_way_new = self.max_way(way_list)
-        if(not max_way_new == 0):
+        if(abs(max_way_new) > 0.05):
             time_arr = 3*fabs(max_way_new)/(2*self.maxVelocity)
             self.realize_of_principle(joint_state, time_arr)
 

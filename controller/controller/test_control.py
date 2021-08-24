@@ -19,22 +19,22 @@ def main():
         while True:
             msg_manip.data = (200.0 ,0.0,0.0)
             t_node.pub_manip.publish(msg_manip)
+            time.sleep(5)
+            msg_manip.data = (0.0,0.0,0.0)
+            t_node.pub_manip.publish(msg_manip)
             time.sleep(3)
-            # msg_manip.data = (0.0,0.0,0.0)
-            # t_node.pub_manip.publish(msg_manip)
-            # time.sleep(3)
-            # msg.data = 'front'
-            # t_node.pub.publish(msg)
-            # time.sleep(time_move)
-            # msg.data = 'left'
-            # t_node.pub.publish(msg)
-            # time.sleep(time_move)
-            # msg.data = 'back'
-            # t_node.pub.publish(msg)
-            # time.sleep(time_move)
-            # msg.data = 'right'
-            # t_node.pub.publish(msg)
-            # time.sleep(time_move)
+            msg.data = 'front'
+            t_node.pub.publish(msg)
+            time.sleep(time_move)
+            msg.data = 'left'
+            t_node.pub.publish(msg)
+            time.sleep(time_move)
+            msg.data = 'back'
+            t_node.pub.publish(msg)
+            time.sleep(time_move)
+            msg.data = 'right'
+            t_node.pub.publish(msg)
+            time.sleep(time_move)
     except Exception as e:
         print(e)
         exit()
