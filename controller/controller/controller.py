@@ -36,7 +36,7 @@ class Controller(Node):
         self.msg.position.append(self.joint2_magnit_limit[1])
         self.msg.position.append(self.joint2_magnit_limit[1])
 
-        self.joint_speed = 0.005
+        self.joint_speed = 0.003
         
         self.create_timer(0.1, self.timer_move_callback_callback)
         self.create_timer(0.1, self.timer_joint_callback)

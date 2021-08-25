@@ -15,26 +15,37 @@ def main():
     t_node = TestControlPub()
     msg = String()
     msg_manip = Float32MultiArray()
+    msg_manip.data = (400.0 ,400.0,0.0)
+    t_node.pub_manip.publish(msg_manip)
+    time.sleep(1)
+    msg.data = 'left'
+    t_node.pub.publish(msg)
+                    
     try:
         while True:
-            msg_manip.data = (200.0 ,0.0,0.0)
+            # time.sleep(time_move)
+            msg_manip.data = (300.0,-300.0,0.0)
             t_node.pub_manip.publish(msg_manip)
-            time.sleep(5)
-            msg_manip.data = (0.0,0.0,0.0)
+            time.sleep(0.5)
+            msg_manip.data = (300.0,300.0,0.0)
             t_node.pub_manip.publish(msg_manip)
-            time.sleep(3)
-            msg.data = 'front'
-            t_node.pub.publish(msg)
-            time.sleep(time_move)
-            msg.data = 'left'
-            t_node.pub.publish(msg)
-            time.sleep(time_move)
-            msg.data = 'back'
-            t_node.pub.publish(msg)
-            time.sleep(time_move)
-            msg.data = 'right'
-            t_node.pub.publish(msg)
-            time.sleep(time_move)
+            time.sleep(0.5)
+            msg_manip.data = (400.0,400.0,0.0)
+            t_node.pub_manip.publish(msg_manip)
+            time.sleep(0.5)
+            
+            msg_manip.data = (400.0,-400.0,0.0)
+            t_node.pub_manip.publish(msg_manip)
+            time.sleep(0.5)
+            # msg.data = 'left'
+            # t_node.pub.publish(msg)
+            # time.sleep(time_move)
+            # msg.data = 'back'
+            # t_node.pub.publish(msg)
+            # time.sleep(time_move)
+            # msg.data = 'right'
+            # t_node.pub.publish(msg)
+            # time.sleep(time_move)
     except Exception as e:
         print(e)
         exit()
