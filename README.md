@@ -1,4 +1,23 @@
 # vertical_bot_ros
+
+## VerticalBot Studio (browser robot simulation & offline programming)
+
+`studio/` contains **VerticalBot Studio**: a browser-native RoboDK / Visual Components class platform with
+robot arms (FK/IK, programs, post processors for KUKA/ABB/Fanuc/UR/Motoman/Stäubli/Doosan/Mecademic/ROS 2),
+RoboDK project interoperability (API-compatible Python package, station import/export scripts), process
+simulation components, mobile robots, fleet management and agricultural robotics (orchards, greenhouses,
+missions). The robots of this repository can be imported from their URDF/xacro + STL files.
+
+```bash
+cd studio && npm install && npm run dev      # http://localhost:5173
+npm test                                     # unit tests
+npm run server                               # RoboDK-compatible API server (ws://localhost:20500)
+```
+
+See `studio/README.md` and `studio/docs/`.
+
+## ROS 2 packages
+
 start urdf model publisher:
 ros2 launch vertical_robot_model model.launch.py
 

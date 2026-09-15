@@ -143,7 +143,11 @@ export function inverseKinematics(chain: ChainDef, target: Mat4, opts: IKOptions
     return { ok: false, joints: q, iterations: it, posError: posErr, rotError: rotErr };
   };
 
-  const seeds: number[][] = [opts.seed ? [...opts.seed] : homeJoints(chain)];
+  const seed0 = opts.seed ? [...opts.seed] : homeJoints(chain);
+  const seeds: number[][] = [seed0];
+  // Small perturbations of the seed escape exact singular configurations (e.g. a fully stretched arm)
+  // while staying in the same joint-space neighbourhood.
+  for (let p = 1; p <= 2; p++) seeds.push(seed0.map((v, k) => Math.max(lower[k], Math.min(upper[k], v + (isRev[k] ? 2.5 : 5) * p * ((k % 2 ? 1 : -1) * (p % 2 ? 1 : -1))))));
   for (let r = 0; r < restarts; r++) {
     seeds.push(idx.map((i, k) => {
       const lo = Math.max(lower[k], isRev[k] ? -360 : lower[k]);

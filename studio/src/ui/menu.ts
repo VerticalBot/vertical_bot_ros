@@ -80,6 +80,12 @@ export class MenuBar {
         { label: 'Demo: apple orchard with harvesting fleet', action: () => { const d = demos.find((x) => x.id === 'orchard'); if (d) app.setStation(d.build()); } },
         { label: 'Demo: greenhouse tomato with rail robots', action: () => { const d = demos.find((x) => x.id === 'greenhouse'); if (d) app.setStation(d.build()); } },
       ]],
+      ['Connect', () => [
+        { label: 'ROS 2 via rosbridge…', action: () => this.rosDialog() },
+        { label: 'Disconnect rosbridge', action: () => { (app as any).ros?.disconnect(); (app as any).ros = null; } },
+        { separator: true },
+        { label: 'Studio server (Python RoboDK API clients)…', action: () => this.serverInfo() },
+      ]],
       ['View', () => [
         { label: 'Fit all', shortcut: 'F', action: () => app.renderer.fitAll() },
         { label: 'Top', action: () => app.renderer.setView('top') },
@@ -105,6 +111,29 @@ export class MenuBar {
       this.el.appendChild(b);
     }
     this.el.appendChild(h('span', { class: 'menu-title' }, 'VerticalBot Studio'));
+  }
+
+  async rosDialog(): Promise<void> {
+    const r = await dialog<{ url: string; mode: any; rate: number }>('Connect to ROS 2 (rosbridge_server)', [
+      { key: 'url', label: 'rosbridge websocket URL', type: 'text', value: 'ws://localhost:9090' },
+      { key: 'mode', label: 'Mode', type: 'select', value: 'both', options: [{ value: 'both', label: 'Publish sim state + follow /joint_states' }, { value: 'publish', label: 'Publish only (drive real robots)' }, { value: 'follow', label: 'Follow only (digital twin of real robots)' }] },
+      { key: 'rate', label: 'Publish rate (Hz)', type: 'number', value: 10 },
+    ], { body: h('p', { class: 'hint' }, 'Publishes /cmd_joint_state, /cmd_point, /tcp_pose per arm and /cmd_vel, /robot_pose, /battery_state per mobile robot (namespaced). Subscribes to /joint_states and /odom. Run: ros2 launch rosbridge_server rosbridge_websocket_launch.xml') });
+    if (!r) return;
+    const { RosBridge } = await import('../ros/rosbridge');
+    try {
+      const rb = new RosBridge(this.app, { url: r.url, mode: r.mode, rate: r.rate });
+      await rb.connect();
+      (this.app as any).ros = rb;
+    } catch (e: any) { toast(e.message, 'error'); }
+  }
+
+  serverInfo(): void {
+    const body = h('div', { class: 'help' },
+      h('p', null, 'The studio server exposes the RoboDK-compatible API over WebSocket (port 20500) and relays calls to this browser tab.'),
+      h('pre', { class: 'code-preview' }, `cd studio\nnpm run server              # ws://localhost:20500\n# open the studio with ?server=ws://localhost:20500\npython python/examples/hello_studio.py`),
+      h('p', null, 'Python: put studio/python on PYTHONPATH — `from robodk.robolink import *` then works without RoboDK installed. Existing RoboDK scripts run unchanged for the supported API subset (see docs/robodk-compatibility.md).'));
+    dialog('Studio server', [], { body, width: 640 });
   }
 
   save(): void {

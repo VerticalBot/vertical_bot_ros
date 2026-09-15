@@ -24,9 +24,9 @@ export interface RobotLibraryEntry {
 const ur = (d1: number, a2: number, a3: number, d4: number, d5: number, d6: number, vmax = 180): DHParams[] => [
   { theta: 0, d: d1, a: 0, alpha: 90, lower: -360, upper: 360, maxVelocity: vmax },
   { theta: 0, d: 0, a: a2, alpha: 0, lower: -360, upper: 360, maxVelocity: vmax, home: -90 },
-  { theta: 0, d: 0, a: a3, alpha: 0, lower: -360, upper: 360, maxVelocity: vmax },
+  { theta: 0, d: 0, a: a3, alpha: 0, lower: -360, upper: 360, maxVelocity: vmax, home: 90 },
   { theta: 0, d: d4, a: 0, alpha: 90, lower: -360, upper: 360, maxVelocity: vmax, home: -90 },
-  { theta: 0, d: d5, a: 0, alpha: -90, lower: -360, upper: 360, maxVelocity: vmax, home: 90 },
+  { theta: 0, d: d5, a: 0, alpha: -90, lower: -360, upper: 360, maxVelocity: vmax, home: -90 },
   { theta: 0, d: d6, a: 0, alpha: 0, lower: -360, upper: 360, maxVelocity: vmax },
 ];
 

@@ -99,7 +99,10 @@ export function planMoveL(robot: Robot, q0: number[], p1: Mat4, speedLinear: num
     const f = profLin.duration >= profRot.duration ? (d > 1e-9 ? profLin.s((t / duration) * profLin.duration) / d : k / steps) : (ang > 1e-9 ? profRot.s((t / duration) * profRot.duration) / (ang * RAD) : k / steps);
     const pose = slerpPose(p0, p1, f);
     const r = robot.solveIK(pose, { seed: q, restarts: 2, maxIterations: 100 });
-    if (!r.ok) return { samples, duration, length, ok: false, error: `MoveL unreachable at ${(f * 100).toFixed(0)}% (pos err ${r.posError.toFixed(2)} mm)` };
+    if (!r.ok) {
+      const near = r.posError < 1 && r.rotError < 0.01;
+      return { samples, duration, length, ok: false, error: near ? `MoveL crosses a singularity at ${(f * 100).toFixed(1)}% (residual ${r.posError.toFixed(2)} mm) — start from a non-singular configuration or use MoveJ` : `MoveL unreachable at ${(f * 100).toFixed(1)}% (pos err ${r.posError.toFixed(2)} mm)` };
+    }
     // detect joint jumps (singularity / configuration flip)
     const jump = Math.max(...r.joints.map((v, i) => Math.abs(v - q[i])));
     if (k > 0 && jump > 45) return { samples, duration, length, ok: false, error: `Joint jump of ${jump.toFixed(0)} deg (singularity) at ${(f * 100).toFixed(0)}%` };
