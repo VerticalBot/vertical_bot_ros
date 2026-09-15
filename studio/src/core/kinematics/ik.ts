@@ -19,6 +19,8 @@ export interface IKOptions {
   restarts?: number;
   /** Enforce joint limits. */
   respectLimits?: boolean;
+  /** Skip configuration-aware candidate selection (Robot.solveIK). */
+  keepFirstSolution?: boolean;
 }
 
 export interface IKResult {

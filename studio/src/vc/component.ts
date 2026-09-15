@@ -383,7 +383,7 @@ export class ProcessSimulator {
       name: c.name,
       type: c.behaviour.type,
       entered: c.stats.entered,
-      exited: c.behaviour.type === 'sink' ? c.behaviour.count : c.stats.exited,
+      exited: c.behaviour.type === 'sink' ? c.behaviour.count : c.behaviour.type === 'feeder' ? c.behaviour.created : c.stats.exited,
       utilization: this.time > 0 ? c.stats.busyTime / this.time : 0,
       blocked: this.time > 0 ? c.stats.blockedTime / this.time : 0,
       failures: c.stats.failures,

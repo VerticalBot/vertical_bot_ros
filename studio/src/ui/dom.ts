@@ -1,4 +1,5 @@
 /** Tiny DOM helpers (no framework). */
+import { t } from './i18n';
 export type Child = Node | string | number | null | undefined | false | Child[];
 
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, any> | null = null, ...children: Child[]): HTMLElementTagNameMap[K] {
@@ -61,7 +62,7 @@ export interface FieldSpec {
 export function formField(spec: FieldSpec, onChange?: (v: any) => void): { el: HTMLElement; get: () => any } {
   let input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
   if (spec.type === 'select') {
-    input = h('select', null, ...(spec.options ?? []).map((o) => h('option', { value: o.value, selected: o.value === String(spec.value) }, o.label)));
+    input = h('select', null, ...(spec.options ?? []).map((o) => h('option', { value: o.value, selected: o.value === String(spec.value) }, t(o.label))));
   } else if (spec.type === 'textarea') {
     input = h('textarea', { rows: 4 });
     input.value = spec.value ?? '';
@@ -77,7 +78,7 @@ export function formField(spec: FieldSpec, onChange?: (v: any) => void): { el: H
     return input.value;
   };
   if (onChange) input.addEventListener(spec.type === 'range' ? 'input' : 'change', () => onChange(get()));
-  const el = h('label', { class: `field field-${spec.type}` }, h('span', { class: 'field-label' }, spec.label), input, spec.hint ? h('small', { class: 'hint' }, spec.hint) : null);
+  const el = h('label', { class: `field field-${spec.type}` }, h('span', { class: 'field-label' }, t(spec.label)), input, spec.hint ? h('small', { class: 'hint' }, t(spec.hint)) : null);
   return { el, get };
 }
 
@@ -96,9 +97,9 @@ export function dialog<T extends Record<string, any>>(title: string, fields: Fie
     const close = (v: T | null) => { overlay.remove(); resolve(v); };
     const overlay = h('div', { class: 'overlay', onClick: (e: MouseEvent) => { if (e.target === overlay) close(null); } },
       h('div', { class: 'dialog', style: { width: `${opts.width ?? 460}px` } },
-        h('div', { class: 'dialog-title' }, title, h('button', { class: 'btn-icon', onClick: () => close(null) }, '✕')),
+        h('div', { class: 'dialog-title' }, t(title), h('button', { class: 'btn-icon', onClick: () => close(null) }, '✕')),
         form,
-        h('div', { class: 'dialog-actions' }, h('button', { class: 'btn', onClick: () => close(null) }, 'Cancel'), h('button', { class: 'btn primary', onClick: () => close(values() as T) }, opts.okLabel ?? 'OK'))));
+        h('div', { class: 'dialog-actions' }, h('button', { class: 'btn', onClick: () => close(null) }, t('Cancel')), h('button', { class: 'btn primary', onClick: () => close(values() as T) }, t(opts.okLabel ?? 'OK')))));
     document.body.appendChild(overlay);
     overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(null); if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') close(values() as T); });
     (form.querySelector('input,select,textarea') as HTMLElement | null)?.focus();
@@ -126,7 +127,7 @@ export function contextMenu(x: number, y: number, entries: MenuEntry[]): void {
   const onDoc = (e: PointerEvent) => { if (!menu.contains(e.target as Node)) close(); };
   for (const e of entries) {
     if (e.separator) { menu.appendChild(h('div', { class: 'ctx-sep' })); continue; }
-    const row = h('div', { class: `ctx-item ${e.disabled ? 'disabled' : ''}`, onClick: () => { if (!e.disabled && e.action) { close(); e.action(); } } }, e.checked ? '✓ ' : '', e.label ?? '', e.shortcut ? h('span', { class: 'shortcut' }, e.shortcut) : null, e.children ? h('span', { class: 'shortcut' }, '▸') : null);
+    const row = h('div', { class: `ctx-item ${e.disabled ? 'disabled' : ''}`, onClick: () => { if (!e.disabled && e.action) { close(); e.action(); } } }, e.checked ? '✓ ' : '', t(e.label ?? ''), e.shortcut ? h('span', { class: 'shortcut' }, e.shortcut) : null, e.children ? h('span', { class: 'shortcut' }, '▸') : null);
     if (e.children) {
       row.addEventListener('pointerenter', () => {
         const r = row.getBoundingClientRect();
@@ -134,7 +135,7 @@ export function contextMenu(x: number, y: number, entries: MenuEntry[]): void {
         const sub = h('div', { class: 'ctx-menu', style: { left: `${r.width - 4}px`, top: `${row.offsetTop}px` } });
         for (const c of e.children!) {
           if (c.separator) { sub.appendChild(h('div', { class: 'ctx-sep' })); continue; }
-          sub.appendChild(h('div', { class: `ctx-item ${c.disabled ? 'disabled' : ''}`, onClick: () => { if (!c.disabled && c.action) { close(); c.action(); } } }, c.label ?? ''));
+          sub.appendChild(h('div', { class: `ctx-item ${c.disabled ? 'disabled' : ''}`, onClick: () => { if (!c.disabled && c.action) { close(); c.action(); } } }, t(c.label ?? '')));
         }
         menu.appendChild(sub);
       });

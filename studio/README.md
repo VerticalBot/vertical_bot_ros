@@ -37,6 +37,9 @@ or the rosbridge connection.
 - Robot definition import/export from DH tables (`.dh` text / JSON, RoboDK "Robot Parameters" style), meshes
   from STL and OBJ.
 - Pose conventions: RoboDK XYZ-Rx-Ry-Rz, KUKA ABC, Fanuc/Motoman WPR, ABB quaternion, UR rotation vector, ZYZ.
+- Configuration-aware IK (keeps the seed's elbow-up/down and wrist-flip configuration, like RoboDK's
+  front/elbow/wrist flags), reach-sphere display, singularity diagnostics for linear moves.
+- UI in English and Russian (View › Language).
 
 **RoboDK project interoperability** (see `docs/robodk-compatibility.md`)
 - RoboDK-compatible scripting API (JavaScript in the built-in console and a **Python drop-in `robodk` package**

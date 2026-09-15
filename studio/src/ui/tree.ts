@@ -5,6 +5,7 @@ import { Program, Instruction } from '../core/items/program';
 import { MobileRobot } from '../mobile/items';
 import { h, clear, icon, contextMenu, MenuEntry, dialog } from './dom';
 import { itemContextMenu } from './dialogs';
+import { t } from './i18n';
 
 const ICON_OF: Partial<Record<ItemType, string>> = {
   [ItemType.STATION]: 'station', [ItemType.ROBOT]: 'robot', [ItemType.FRAME]: 'frame', [ItemType.TOOL]: 'tool', [ItemType.OBJECT]: 'object', [ItemType.TARGET]: 'target',
@@ -44,7 +45,7 @@ export class TreePanel {
   render(): void {
     clear(this.el);
     const head = h('div', { class: 'panel-head' },
-      h('span', null, icon('tree'), ' Station'),
+      h('span', null, icon('tree'), ' ' + t('Station')),
       h('input', { class: 'tree-filter', placeholder: 'filter…', value: this.filter, onInput: (e: Event) => { this.filter = (e.target as HTMLInputElement).value.toLowerCase(); this.render(); } }));
     this.el.appendChild(head);
     const list = h('div', { class: 'tree-list' });

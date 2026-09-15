@@ -57,8 +57,11 @@ export class SceneRenderer {
   private robotColors = ['#e8a33d', '#3d8ee8', '#e85d3d', '#7bc043', '#b25de8', '#3de8c9'];
   onSelect: SelectCallback | null = null;
   onPoseEdit: PoseEditCallback | null = null;
+  onGizmoEnd: (() => void) | null = null;
   showFrames = true;
   showTargets = true;
+  /** Draw a translucent reach sphere around each robot base. */
+  showReach = false;
   showTrajectory = true;
   frameSize = 150;
   private timer = new THREE.Timer();
@@ -94,6 +97,7 @@ export class SceneRenderer {
     this.transform.setSize(0.8);
     this.transform.addEventListener('dragging-changed', (e: any) => { this.controls.enabled = !e.value; });
     this.transform.addEventListener('objectChange', () => this.onGizmoChange());
+    this.transform.addEventListener('mouseUp', () => this.onGizmoEnd?.());
     this.scene.add(this.transform.getHelper());
     this.scene.add(this.gizmoProxy);
 
@@ -314,7 +318,7 @@ export class SceneRenderer {
   }
 
   private signature(item: Item): string {
-    if (item instanceof Robot) return `robot:${item.chain.joints.length}:${item.chain.links.map((l) => l.visuals.length).join(',')}:${item.color}`;
+    if (item instanceof Robot) return `robot:${item.chain.joints.length}:${item.chain.links.map((l) => l.visuals.length).join(',')}:${item.color}:${this.showReach}`;
     if (item instanceof Tool || item instanceof SceneObject) return `obj:${JSON.stringify((item as SceneObject).geometry)}:${item.color}:${(item as any).curves?.length}`;
     if (item instanceof MobileRobot) return `mob:${JSON.stringify(item.kin.footprint)}:${JSON.stringify(item.geometry)}:${item.color}`;
     if (item instanceof FieldItem) return `field:${JSON.stringify(item.polygon)}:${item.rows().map((r) => r.plants.length + ':' + r.plants.reduce((s, p) => s + p.fruit.filter((f) => f.picked).length, 0)).join(',')}:${item.crop.crop}`;
@@ -446,6 +450,18 @@ export class SceneRenderer {
     const baseTriad = makeTriad(this.frameSize);
     baseTriad.userData.isFrame = true;
     e.root.add(baseTriad);
+    if (this.showReach) {
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(robot.reach, 32, 20), new THREE.MeshBasicMaterial({ color: 0x4dabf7, transparent: true, opacity: 0.08, depthWrite: false, side: THREE.DoubleSide }));
+      const wire = new THREE.Mesh(new THREE.SphereGeometry(robot.reach, 24, 12), new THREE.MeshBasicMaterial({ color: 0x4dabf7, wireframe: true, transparent: true, opacity: 0.15 }));
+      // centre the sphere on the shoulder (first joint origin) for a better approximation
+      const j0 = chain.joints[0];
+      const c = j0 ? [j0.origin[12], j0.origin[13], j0.origin[14]] : [0, 0, 0];
+      sphere.position.set(c[0], c[1], c[2]);
+      wire.position.set(c[0], c[1], c[2]);
+      sphere.raycast = () => {};
+      wire.raycast = () => {};
+      e.root.add(sphere, wire);
+    }
   }
 
   /** Procedural link geometry: cylinders from the joint pivot to the link end and joint hubs. */

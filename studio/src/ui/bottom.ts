@@ -7,6 +7,7 @@ import { MobileRobot } from '../mobile/items';
 import { MissionItem } from '../agri/items';
 import { Robolink, robomath, RobolinkItem, Mat } from '../api/robolink';
 import * as RobolinkConsts from '../api/robolink';
+import { t } from './i18n';
 
 /** Bottom dock: Program | Simulation | Fleet | Process | Console | Log. */
 export class BottomPanel {
@@ -37,9 +38,9 @@ export class BottomPanel {
       ['log', 'Log', (this.logOut = h('div', { class: 'log-out' }))],
     ];
     for (const [id, label, el] of defs) {
-      const t = h('button', { class: `tab ${id === this.active ? 'active' : ''}`, onClick: () => this.show(id) }, label);
-      this.tabs[id] = t;
-      tabBar.appendChild(t);
+      const tab = h('button', { class: `tab ${id === this.active ? 'active' : ''}`, onClick: () => this.show(id) }, t(label));
+      this.tabs[id] = tab;
+      tabBar.appendChild(tab);
       el.classList.add('tab-page');
       el.dataset.tab = id;
       el.style.display = id === this.active ? '' : 'none';
@@ -53,7 +54,7 @@ export class BottomPanel {
 
   show(id: string): void {
     this.active = id;
-    for (const [k, t] of Object.entries(this.tabs)) t.classList.toggle('active', k === id);
+    for (const [k, tab] of Object.entries(this.tabs)) tab.classList.toggle('active', k === id);
     this.el.querySelectorAll<HTMLElement>('.tab-page').forEach((p) => { p.style.display = p.dataset.tab === id ? '' : 'none'; });
     if (id === 'fleet') this.renderFleet();
     if (id === 'process') this.renderProcess();

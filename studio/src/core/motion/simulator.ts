@@ -236,6 +236,22 @@ export class ProgramSimulator {
     const step = this.collisionOptions.sampleStep ?? 0.1;
     const saved = new Map<string, number[]>();
     for (const s of this.steps) if (s.robot && !saved.has(s.robot.id)) saved.set(s.robot.id, s.robot.joints());
+    // Resting contacts present before any motion (robot on its pedestal, part in a fixture) are not collisions:
+    // record them once as warnings and ignore those pairs along the trajectory.
+    const ignore: Array<[string, string]> = [...(this.collisionOptions.ignore ?? [])];
+    const reported = new Set<string>();
+    for (const [id] of saved) {
+      const robot = this.station.findById(id) as Robot | null;
+      if (!robot) continue;
+      for (const p of checkRobotCollisions(this.station, robot, this.collisionOptions)) {
+        const key = `${p.a.item.id}|${p.b.item.id}`;
+        if (reported.has(key)) continue;
+        reported.add(key);
+        ignore.push([p.a.item.id, p.b.item.id]);
+        problems.push({ instructionId: '', message: `Initial contact ignored: ${p.a.item.name} × ${p.b.item.name} (${p.depth.toFixed(0)} mm)`, severity: 'warning' });
+      }
+    }
+    const collOpts = { ...this.collisionOptions, ignore };
     for (const s of this.steps) {
       if (!s.robot || !s.trajectory || !s.trajectory.samples.length) continue;
       let lastT = -Infinity;
@@ -243,7 +259,7 @@ export class ProgramSimulator {
         if (sample.t - lastT < step && sample !== s.trajectory.samples[s.trajectory.samples.length - 1]) continue;
         lastT = sample.t;
         s.robot.setJoints(sample.joints);
-        const pairs = checkRobotCollisions(this.station, s.robot, this.collisionOptions);
+        const pairs = checkRobotCollisions(this.station, s.robot, collOpts);
         if (pairs.length) {
           this.collisions.push({ instructionId: s.instruction.id, t: s.t0 + sample.t, pairs });
           const p = pairs[0];

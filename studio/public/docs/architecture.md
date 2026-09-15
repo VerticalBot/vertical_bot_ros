@@ -44,6 +44,16 @@
 - **Rendering** (`src/scene`): flat map item → `THREE.Group`, matrices set from `poseAbs()` each frame; robots get
   per-link groups updated from FK; orchards use instanced meshes; maps are canvas textures.
 
+## Collision model
+
+`src/core/collision`: every collidable item yields `Collider`s — capsules for procedural links (mirroring the
+renderer), oriented boxes for boxes/short cylinders/mesh bounds, capsules for long cylinders, spheres. Pairs are
+tested with analytic distance functions (capsule/capsule, capsule/box, box/box SAT, sphere/…); mesh/mesh pairs can
+be confirmed triangle-by-triangle. Same-robot neighbouring links, tools vs their wrist, attached objects and a
+robot's base vs the item it is mounted on are excluded. `ProgramSimulator` samples each trajectory (default every
+0.1 s) and reports the first colliding sample per instruction; contacts that already exist before motion (robot on
+its pedestal) are reported once as warnings and ignored along the trajectory.
+
 ## Extending
 
 - New robot: add DH/URDF-style entry in `src/core/items/library.ts` or import a URDF at runtime.

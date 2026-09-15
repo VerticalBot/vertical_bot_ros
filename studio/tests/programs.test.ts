@@ -69,7 +69,7 @@ describe('program simulation', () => {
     prog.addMoveL(far);
     const res = new ProgramSimulator(st).compile(prog);
     expect(res.ok).toBe(false);
-    expect(res.problems.some((p) => /unreachable|resolved|MoveL/.test(p.message))).toBe(true);
+    expect(res.problems.some((p) => /unreachable|resolved|MoveL|jump|singularity/.test(p.message))).toBe(true);
   });
 });
 

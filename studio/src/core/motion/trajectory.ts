@@ -98,7 +98,7 @@ export function planMoveL(robot: Robot, q0: number[], p1: Mat4, speedLinear: num
     // use the dominant profile normalised to [0,1]
     const f = profLin.duration >= profRot.duration ? (d > 1e-9 ? profLin.s((t / duration) * profLin.duration) / d : k / steps) : (ang > 1e-9 ? profRot.s((t / duration) * profRot.duration) / (ang * RAD) : k / steps);
     const pose = slerpPose(p0, p1, f);
-    const r = robot.solveIK(pose, { seed: q, restarts: 2, maxIterations: 100 });
+    const r = robot.solveIK(pose, { seed: q, restarts: 2, maxIterations: 100, keepFirstSolution: true });
     if (!r.ok) {
       const near = r.posError < 1 && r.rotError < 0.01;
       return { samples, duration, length, ok: false, error: near ? `MoveL crosses a singularity at ${(f * 100).toFixed(1)}% (residual ${r.posError.toFixed(2)} mm) — start from a non-singular configuration or use MoveJ` : `MoveL unreachable at ${(f * 100).toFixed(1)}% (pos err ${r.posError.toFixed(2)} mm)` };
@@ -155,7 +155,7 @@ export function planMoveC(robot: Robot, q0: number[], pVia: Mat4, p1: Mat4, spee
     const pos = add(center, add(scale(u, radius * Math.cos(th)), scale(v, radius * Math.sin(th))));
     const pose = slerpPose(p0, p1, f);
     pose[12] = pos[0]; pose[13] = pos[1]; pose[14] = pos[2];
-    const r = robot.solveIK(pose, { seed: q, restarts: 2, maxIterations: 100 });
+    const r = robot.solveIK(pose, { seed: q, restarts: 2, maxIterations: 100, keepFirstSolution: true });
     if (!r.ok) return { samples, duration, length, ok: false, error: `MoveC unreachable at ${(f * 100).toFixed(0)}%` };
     q = r.joints;
     length += distance(pos, prevPos);

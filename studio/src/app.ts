@@ -66,6 +66,7 @@ export class App {
     this.renderer = new SceneRenderer(host, this.station, this.assets);
     this.renderer.onSelect = (item, additive) => this.select(item, additive);
     this.renderer.onPoseEdit = (item, pose) => { item.setPoseAbs(pose); if (item instanceof MobileRobot) item.syncStateFromPose(); };
+    this.renderer.onGizmoEnd = () => { this.snapshot(); this.previewProgram(); };
     this.renderer.onAnimate((dt) => this.tick(dt));
     this.snapshot();
   }

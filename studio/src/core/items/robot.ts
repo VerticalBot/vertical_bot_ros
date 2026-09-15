@@ -172,9 +172,48 @@ export class Robot extends Item {
     // Robots with fewer than 6 DOF cannot satisfy a full pose: relax orientation automatically.
     const dof = this.dof;
     const relax: IKOptions = dof <= 3 ? { positionOnly: true } : dof <= 5 ? { freeToolZ: true } : {};
-    const res = inverseKinematics(this.chain, flangeTarget, { seed: this._joints, ...relax, ...opts });
-    if (res.ok) res.joints = closestConfiguration(this.chain, res.joints, opts.seed ?? this._joints);
-    return res;
+    const seed = opts.seed ?? this._joints;
+    const res = inverseKinematics(this.chain, flangeTarget, { seed, ...relax, ...opts });
+    if (res.ok) res.joints = closestConfiguration(this.chain, res.joints, seed);
+    if (!res.ok || dof < 6 || opts.keepFirstSolution) return res;
+    // Close to the seed (continuous motion, jogging): keep the first solution.
+    if (Math.max(...res.joints.map((v, i) => Math.abs(v - seed[i]))) < 60) return res;
+    // Configuration-aware selection (like RoboDK's front/elbow/wrist flags): try flipped seeds and keep the
+    // solution whose configuration matches the seed's, then the closest in joint space.
+    const seedCfg = this.configFlags(seed);
+    const candidates: IKResult[] = [res];
+    const flips: number[][] = [
+      [seed[0], seed[1] + seed[2], -seed[2], seed[3] - seed[2], seed[4], seed[5]],              // elbow flip
+      [seed[0], seed[1], seed[2], seed[3] + 180, -seed[4], seed[5] + 180],                       // wrist flip
+      [seed[0], seed[1] + seed[2], -seed[2], seed[3] - seed[2] + 180, -seed[4], seed[5] + 180],  // both
+    ];
+    const { lower, upper } = this.jointLimits();
+    for (const f of flips) {
+      const sd = f.map((v, i) => Math.max(lower[i] ?? -360, Math.min(upper[i] ?? 360, v)));
+      const r = inverseKinematics(this.chain, flangeTarget, { ...relax, ...opts, seed: sd, restarts: 0, maxIterations: 120 });
+      if (r.ok) { r.joints = closestConfiguration(this.chain, r.joints, seed); candidates.push(r); }
+    }
+    const dist = (q: number[]) => q.reduce((acc, v, i) => acc + Math.abs(v - seed[i]) * (i < 3 ? 1.5 : 1), 0);
+    let best = candidates[0], bestScore = Infinity;
+    for (const c of candidates) {
+      const cfg = this.configFlags(c.joints);
+      const score = (cfg.elbowUp !== seedCfg.elbowUp ? 1000 : 0) + (cfg.wristFlip !== seedCfg.wristFlip ? 300 : 0) + dist(c.joints);
+      if (score < bestScore) { bestScore = score; best = c; }
+    }
+    return best;
+  }
+
+  /** Configuration flags of a 6-axis arm for a joint vector: elbow up/down and wrist flip (sign of q5). */
+  configFlags(q: number[]): { elbowUp: boolean; wristFlip: boolean; front: boolean } {
+    const fk = this.fk(q);
+    const lp = fk.linkPoses;
+    const shoulder = lp[Math.min(1, lp.length - 1)], elbow = lp[Math.min(2, lp.length - 1)], wrist = lp[Math.min(4, lp.length - 1)];
+    // elbow above the shoulder->wrist chord, measured along the base Z axis
+    const chordDir = [wrist[12] - shoulder[12], wrist[13] - shoulder[13], wrist[14] - shoulder[14]];
+    const l2 = chordDir[0] ** 2 + chordDir[1] ** 2 + chordDir[2] ** 2 || 1;
+    const t = ((elbow[12] - shoulder[12]) * chordDir[0] + (elbow[13] - shoulder[13]) * chordDir[1] + (elbow[14] - shoulder[14]) * chordDir[2]) / l2;
+    const chordZ = shoulder[14] + chordDir[2] * t;
+    return { elbowUp: elbow[14] >= chordZ, wristFlip: (q[4] ?? 0) < 0, front: Math.abs(((q[0] ?? 0) + 540) % 360 - 180) < 90 };
   }
 
   /** Multiple IK solutions (different seeds), deduplicated. */

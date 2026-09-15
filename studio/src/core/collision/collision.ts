@@ -24,6 +24,8 @@ export interface Collider {
   part: string;
   /** Index of the link in the robot chain (for adjacency filtering). */
   linkIndex?: number;
+  /** Procedural (approximate) geometry — self-collision rules are more lenient. */
+  approx?: boolean;
   shape: Shape;
 }
 
@@ -78,21 +80,22 @@ export function collidersOf(item: Item, opts: CollisionOptions = {}): Collider[]
         const radius = 0.85 * r0 * (1 - 0.55 * (i / Math.max(1, chain.joints.length)));
         if (i === 0) {
           const j0 = chain.joints[0];
-          if (j0) out.push({ item, part: link.name, linkIndex: 0, shape: { kind: 'capsule', a: getPos(base), b: transformPoint(base, [j0.origin[12], j0.origin[13], j0.origin[14]]), r: r0 * 1.1 } });
+          // start the base capsule above the mounting plane so its end cap does not sink into the pedestal/floor
+          if (j0) { const rb = r0 * 1.1; const top = transformPoint(base, [j0.origin[12], j0.origin[13], j0.origin[14]]); const bot = transformPoint(base, [0, 0, Math.min(rb, Math.hypot(j0.origin[12], j0.origin[13], j0.origin[14]))]); out.push({ item, part: link.name, linkIndex: 0, approx: true, shape: { kind: 'capsule', a: bot, b: top, r: rb } }); }
           continue;
         }
         const j = chain.joints[i - 1];
         const pivot = j.post ? getPos(invert(j.post)) : [0, 0, 0] as [number, number, number];
         const a = transformPoint(linkPose, pivot);
         const b = getPos(linkPose);
-        if (norm(sub(a, b)) > 1) out.push({ item, part: link.name, linkIndex: i, shape: { kind: 'capsule', a, b, r: radius } });
+        if (norm(sub(a, b)) > 1) out.push({ item, part: link.name, linkIndex: i, approx: true, shape: { kind: 'capsule', a, b, r: radius } });
         const next = chain.joints[i];
         if (next) {
           const c = transformPoint(linkPose, [next.origin[12], next.origin[13], next.origin[14]]);
-          if (norm(sub(b, c)) > 1) out.push({ item, part: link.name, linkIndex: i, shape: { kind: 'capsule', a: b, b: c, r: radius * 0.95 } });
+          if (norm(sub(b, c)) > 1) out.push({ item, part: link.name, linkIndex: i, approx: true, shape: { kind: 'capsule', a: b, b: c, r: radius * 0.95 } });
         } else {
           const f = transformPoint(linkPose, [chain.flange[12], chain.flange[13], chain.flange[14]]);
-          if (norm(sub(b, f)) > 1) out.push({ item, part: link.name, linkIndex: i, shape: { kind: 'capsule', a: b, b: f, r: radius * 0.8 } });
+          if (norm(sub(b, f)) > 1) out.push({ item, part: link.name, linkIndex: i, approx: true, shape: { kind: 'capsule', a: b, b: f, r: radius * 0.8 } });
         }
       }
     }
@@ -104,7 +107,10 @@ export function collidersOf(item: Item, opts: CollisionOptions = {}): Collider[]
     else {
       const tcp = getPos(item.poseAbs());
       const fl = getPos(flange);
-      if (norm(sub(tcp, fl)) > 1) out.push({ item, part: item.name, shape: { kind: 'capsule', a: fl, b: tcp, r: 30 } });
+      const len = norm(sub(tcp, fl));
+      const r = 30;
+      // end the capsule at the TCP (cap inside), so a tool touching a part at its TCP is not a collision
+      if (len > r + 1) out.push({ item, part: item.name, shape: { kind: 'capsule', a: fl, b: add(fl, scale(sub(tcp, fl), (len - r) / len)), r } });
     }
     return out;
   }
@@ -132,7 +138,11 @@ function visualColliders(item: Item, part: string, linkIndex: number | undefined
   if (g.primitive) {
     const p = g.primitive;
     if (p.kind === 'box') return [{ item, part, linkIndex, shape: obbFromBox(pose, p.size) }];
-    if (p.kind === 'cylinder') return [{ item, part, linkIndex, shape: { kind: 'capsule', a: transformPoint(pose, [0, 0, -p.length / 2]), b: transformPoint(pose, [0, 0, p.length / 2]), r: p.radius } }];
+    if (p.kind === 'cylinder') {
+      // long cylinders: capsule whose caps stay inside the cylinder ends; short/fat cylinders: oriented box
+      if (p.length > 2 * p.radius) return [{ item, part, linkIndex, shape: { kind: 'capsule', a: transformPoint(pose, [0, 0, -p.length / 2 + p.radius]), b: transformPoint(pose, [0, 0, p.length / 2 - p.radius]), r: p.radius } }];
+      return [{ item, part, linkIndex, shape: obbFromBox(pose, [2 * p.radius, 2 * p.radius, p.length]) }];
+    }
     if (p.kind === 'sphere') return [{ item, part, linkIndex, shape: { kind: 'sphere', c: getPos(pose), r: p.radius } }];
     if (p.kind === 'plane') return [{ item, part, linkIndex, shape: obbFromBox(pose, [p.size[0], p.size[1], 2]) }];
     if (p.kind === 'cone') return [{ item, part, linkIndex, shape: { kind: 'capsule', a: transformPoint(pose, [0, 0, -p.length / 2]), b: transformPoint(pose, [0, 0, p.length / 2]), r: p.radius * 0.7 } }];
@@ -324,7 +334,7 @@ export function checkColliders(colliders: Collider[], opts: CollisionOptions = {
       const A = colliders[i], B = colliders[j];
       if (A.item === B.item) {
         // same robot: skip the same link and neighbours (approximate capsules overlap at the shoulder/wrist)
-        if (A.linkIndex !== undefined && B.linkIndex !== undefined && Math.abs(A.linkIndex - B.linkIndex) <= 2) continue;
+        if (A.linkIndex !== undefined && B.linkIndex !== undefined && Math.abs(A.linkIndex - B.linkIndex) <= (A.approx || B.approx ? 3 : 2)) continue;
         if (A.linkIndex === undefined || B.linkIndex === undefined) continue;
       }
       // tool vs its robot's last links; object attached to tool vs tool
@@ -336,7 +346,9 @@ export function checkColliders(colliders: Collider[], opts: CollisionOptions = {
       if ((A.linkIndex === 0 && A.item.parent === B.item) || (B.linkIndex === 0 && B.item.parent === A.item)) continue;
       if (opts.robotsOnly && !(rootOf(A.item) instanceof Robot) && !(rootOf(B.item) instanceof Robot)) continue;
       if (ignore.has(`${A.item.id}|${B.item.id}`) || ignore.has(`${B.item.id}|${A.item.id}`)) continue;
-      const d = shapeDistance(A.shape, B.shape) + margin;
+      let d = shapeDistance(A.shape, B.shape) + margin;
+      // self-collision with approximate capsules: shrink both radii by 30% to avoid false positives at the wrist/shoulder
+      if (A.item === B.item && A.shape.kind === 'capsule' && B.shape.kind === 'capsule') d -= 0.3 * (A.shape.r + B.shape.r);
       if (d <= 0) continue;
       if (A.shape.kind === 'mesh' && B.shape.kind === 'mesh' && opts.meshAccurate && !meshMesh(A.shape, B.shape)) continue;
       pairs.push({ a: A, b: B, depth: d });

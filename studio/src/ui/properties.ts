@@ -9,6 +9,7 @@ import { Component } from '../vc/component';
 import { h, clear, formField, fmt, icon } from './dom';
 import { poseToXyzrpw, xyzrpwToPose, poseToKuka, kukaToPose, poseToQuat, poseToUr, getPos, multiply, invert, Mat4 } from '../core/math/pose';
 import { robotParametersDialog, runMissionPlan, exportDialog } from './dialogs';
+import { t } from './i18n';
 
 type EulerMode = 'xyzrpw' | 'kuka' | 'ur' | 'abb';
 
@@ -48,8 +49,8 @@ export class PropertiesPanel {
     this.liveFields = [];
     const item = this.app.station.selection[0] ?? null;
     this.current = item;
-    this.el.appendChild(h('div', { class: 'panel-head' }, h('span', null, icon('gear'), ' Properties')));
-    if (!item) { this.el.appendChild(h('div', { class: 'panel-body hint' }, 'Select an item in the tree or the 3D view.')); return; }
+    this.el.appendChild(h('div', { class: 'panel-head' }, h('span', null, icon('gear'), ' ' + t('Properties'))));
+    if (!item) { this.el.appendChild(h('div', { class: 'panel-body hint' }, t('Select an item in the tree or the 3D view.'))); return; }
     const body = h('div', { class: 'panel-body' });
     body.appendChild(h('div', { class: 'prop-title' }, h('b', null, item.name), h('small', null, ` ${item.typeName()}`)));
     if (item.type !== ItemType.STATION && item.type !== ItemType.INSTRUCTION && item.type !== ItemType.PROGRAM && item.type !== ItemType.CROP_ROW) body.appendChild(this.poseEditor(item));
@@ -74,7 +75,7 @@ export class PropertiesPanel {
   }
 
   private section(title: string, ...content: (Node | null)[]): HTMLElement {
-    return h('details', { class: 'section', open: true }, h('summary', null, title), ...content);
+    return h('details', { class: 'section', open: true }, h('summary', null, t(title)), ...content);
   }
 
   // -- Pose ----------------------------------------------------------------

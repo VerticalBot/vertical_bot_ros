@@ -3,6 +3,7 @@ import { h, contextMenu, MenuEntry, downloadText, toast, dialog } from './dom';
 import { robotLibraryDialog, mobileRobotDialog, orchardDialog, fleetDialog, missionDialog, mapDialog, zoneDialog, componentDialog, exportDialog, importDialog, harvestArmDialog, curveFollowDialog, railIKDialog } from './dialogs';
 import { ItemType, Folder } from '../core/items/item';
 import { demos } from '../demos';
+import { t, getLang, setLang } from './i18n';
 import { Robot } from '../core/items/robot';
 
 export class MenuBar {
@@ -103,6 +104,9 @@ export class MenuBar {
         { label: 'Gizmo: translate', shortcut: 'T', action: () => app.renderer.setGizmoMode('translate') },
         { label: 'Gizmo: rotate', shortcut: 'R', action: () => app.renderer.setGizmoMode('rotate') },
         { label: 'Toggle bottom panel', action: () => onToggleBottom() },
+        { label: 'Show robot reach', checked: app.renderer.showReach, action: () => { app.renderer.showReach = !app.renderer.showReach; app.renderer.rebuildAll(); } },
+        { separator: true },
+        { label: 'Language: Русский', action: () => { setLang(getLang() === 'ru' ? 'en' : 'ru'); location.reload(); } },
       ]],
       ['Help', () => [
         { label: 'Quick start', action: () => this.help() },
@@ -111,7 +115,7 @@ export class MenuBar {
       ]],
     ];
     for (const [label, build] of menus) {
-      const b = h('button', { class: 'menu-btn' }, label);
+      const b = h('button', { class: 'menu-btn' }, t(label));
       b.addEventListener('click', () => { const r = b.getBoundingClientRect(); contextMenu(r.left, r.bottom, build()); });
       this.el.appendChild(b);
     }
