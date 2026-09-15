@@ -69,3 +69,18 @@ Programs can also be exported individually with the `RoboDK_Python` post.
 JSON-RPC over WebSocket: `{ "id", "method", "params", "target" }` where `target` is an item id. Items are
 encoded as `{"$item": id, "name", "type"}`, poses as `{"$pose": [[...4 rows...]]}`. The server relays to a
 browser "host" session when one is connected, otherwise executes against a headless station.
+
+## Robot library and project import
+
+RoboDK's online library (`.robot` files) and stations (`.rdk`) are proprietary binary containers. The studio offers
+three import paths, tried in this order when a file is dropped:
+
+| Path | Needs | Fidelity |
+|---|---|---|
+| `POST /convert/rdk` on the studio server → `python/rdk2vbs.py` opens the file in a hidden RoboDK instance and exports it with `rdk_export.py` | RoboDK installed next to the server, `STUDIO_ROBODK_PYTHON` pointing at a Python with the `robodk` package | lossless: items, poses, robot kinematics (DH), tools, targets, programs, meshes |
+| `rdk_export.py` run inside RoboDK (Tools › Run script) | RoboDK on the user's machine | lossless, manual |
+| Best-effort binary scan (`src/io/robodk/rdk_container.ts`) | nothing | names, poses and embedded meshes recovered heuristically; kinematics matched by name to the library |
+
+For the *robot library* itself no RoboDK is needed: the online library (`Add › Robot from online library`) provides the
+same industrial robots from the open ROS-Industrial / vendor URDF packages, with exact kinematics and meshes — see
+`docs/file-formats.md`.

@@ -12,7 +12,10 @@
  */
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'node:http';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { Station } from '../src/core/items/item.ts';
 import { Robolink } from '../src/api/robolink.ts';
 import { executeRpcAsync, RpcRequest } from '../src/api/rpc.ts';
@@ -57,8 +60,28 @@ const pending = new Map<string, { ws: WebSocket; id: number | string }>();
 let seq = 0;
 
 const httpServer = http.createServer((req, res) => {
-  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, host: !!host, station: station.name })); return; }
+  if (req.method === 'OPTIONS') { res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS' }); res.end(); return; }
+  res.setHeader('access-control-allow-origin', '*');
+  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify({ ok: true, host: !!host, station: station.name, rdkConverter: !!process.env.STUDIO_ROBODK_PYTHON || existsSync(path.join(process.cwd(), 'python', 'rdk2vbs.py')) })); return; }
   if (req.url === '/station.json' && req.method === 'GET') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(saveStation(station))); return; }
+  if (req.url === '/convert/rdk' && req.method === 'POST') {
+    // Convert an uploaded .rdk/.robot/.tool with a locally installed RoboDK (python + robodk package) -> .vbstation JSON
+    const python = process.env.STUDIO_ROBODK_PYTHON ?? process.env.PYTHON ?? 'python3';
+    const chunks: Buffer[] = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      const name = decodeURIComponent(String(req.headers['x-filename'] ?? 'station.rdk')).replace(/[^\w.-]/g, '_');
+      const dir = mkdtempSync(path.join(tmpdir(), 'vbs-rdk-'));
+      const src = path.join(dir, name), out = path.join(dir, 'out.vbstation');
+      writeFileSync(src, Buffer.concat(chunks));
+      execFile(python, [path.join(process.cwd(), 'python', 'rdk2vbs.py'), src, out], { timeout: 180000 }, (err, stdout, stderr) => {
+        if (err || !existsSync(out)) { res.writeHead(501, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'RoboDK conversion unavailable', detail: String(stderr || stdout || err?.message).slice(0, 2000) })); }
+        else { res.writeHead(200, { 'content-type': 'application/json' }); res.end(readFileSync(out)); }
+        rmSync(dir, { recursive: true, force: true });
+      });
+    });
+    return;
+  }
   if (req.url === '/station.json' && req.method === 'POST') {
     let body = '';
     req.on('data', (c) => (body += c));

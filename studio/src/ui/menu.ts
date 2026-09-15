@@ -1,6 +1,6 @@
 import { App } from '../app';
 import { h, contextMenu, MenuEntry, downloadText, toast, dialog } from './dom';
-import { robotLibraryDialog, mobileRobotDialog, orchardDialog, fleetDialog, missionDialog, mapDialog, zoneDialog, componentDialog, exportDialog, importDialog, harvestArmDialog, curveFollowDialog, railIKDialog } from './dialogs';
+import { robotLibraryDialog, onlineLibraryDialog, mobileRobotDialog, orchardDialog, fleetDialog, missionDialog, mapDialog, zoneDialog, componentDialog, exportDialog, importDialog, harvestArmDialog, curveFollowDialog, railIKDialog } from './dialogs';
 import { ItemType, Folder } from '../core/items/item';
 import { demos } from '../demos';
 import { t, getLang, setLang } from './i18n';
@@ -36,6 +36,7 @@ export class MenuBar {
       ]],
       ['Add', () => [
         { label: 'Robot from library…', action: () => robotLibraryDialog(app) },
+        { label: 'Robot from online library (ROS-Industrial)…', action: () => onlineLibraryDialog(app) },
         { label: 'Reference frame', action: () => app.addFrame() },
         { label: 'Target (teach)', action: () => app.addTarget() },
         { label: 'Program', action: () => app.addProgram() },
@@ -170,7 +171,7 @@ export class MenuBar {
     const body = h('div', { class: 'help' },
       h('p', null, h('b', null, 'Quick start')),
       h('ol', null,
-        h('li', null, 'Add > Robot from library (or drag a URDF + STL files onto the 3D view).'),
+        h('li', null, 'Add > Robot from library, or Add > Robot from online library (Fanuc/ABB/KUKA/Motoman/Stäubli/UR/… with meshes), or drag a URDF + STL files onto the 3D view.'),
         h('li', null, 'Move the robot with the joint sliders or the cartesian jog in Properties; press J / L to teach MoveJ / MoveL into the active program.'),
         h('li', null, 'Run the program (F5) and export it with a post processor (KUKA, ABB, Fanuc, UR, Motoman, Stäubli, Doosan, Mecademic, ROS 2, RoboDK API script).'),
         h('li', null, 'Agriculture > Create field / orchard, Mobile & Fleet > Create fleet, then Agriculture > Create mission and start the world simulation.'),

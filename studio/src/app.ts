@@ -11,6 +11,7 @@ import { EventBus } from './core/events';
 import { Mat4, multiply, invert, transl, identity, getPos } from './core/math/pose';
 import { saveStation, loadStation, StationFile } from './io/station-file';
 import { robotFromURDF, parseURDF } from './io/urdf/urdf';
+import { fetchOnlineRobot, fetchPackageMeshes, resolvePackageUri, OnlineRobotResult } from './io/library/online_library';
 import { importProgram, detectLanguage } from './io/programs/import';
 import { importTargets } from './io/robodk/targets';
 import { importRdkBestEffort } from './io/robodk/rdk_container';
@@ -199,6 +200,29 @@ export class App {
   }
 
   // -- Item creation --------------------------------------------------------
+  /**
+   * Download a robot from the online library (ROS-Industrial / vendor URDF packages on GitHub) and
+   * add it to the station with exact kinematics and meshes. Resolves once meshes are in.
+   */
+  async addOnlineRobot(id: string, parent: Item = this.station, opts: { meshes?: boolean; onProgress?: (msg: string, done?: number, total?: number) => void } = {}): Promise<OnlineRobotResult> {
+    const res = await fetchOnlineRobot(id, { assets: this.assets, meshes: opts.meshes ?? true, onProgress: opts.onProgress });
+    const r = res.robot;
+    this.cmd(() => {
+      const n = this.station.itemsOfType(ItemType.ROBOT).length;
+      if (n) r.setPose(transl(n * 1500, 0, 0));
+      parent.addChild(r);
+      const tool = new Tool('Tool 1');
+      tool.setPoseTool(transl(0, 0, 100));
+      r.addChild(tool);
+      r.setTool(tool);
+      this.setActiveRobot(r);
+      this.select(r);
+    });
+    for (const w of res.warnings.slice(0, 5)) this.log(w, 'warn');
+    this.log(`Online library: ${r.name} (${r.dof} DOF, ${res.meshes.loaded.length} meshes${res.meshes.failed.length ? `, ${res.meshes.failed.length} failed` : ''}) from ${res.url}`);
+    return res;
+  }
+
   addRobotFromLibrary(id: string, parent: Item = this.station): Robot {
     return this.cmd(() => {
       const r = createRobotFromLibrary(id);
@@ -391,12 +415,13 @@ export class App {
 
   async openFiles(files: File[]): Promise<void> {
     // Load meshes first so URDFs can resolve them
-    const meshes = files.filter((f) => /\.(stl|obj|glb|gltf)$/i.test(f.name));
+    const meshes = files.filter((f) => /\.(stl|obj|dae|glb|gltf)$/i.test(f.name));
     for (const f of meshes) {
       const buf = new Uint8Array(await f.arrayBuffer());
       const ext = f.name.split('.').pop()!.toLowerCase();
       if (ext === 'stl') this.assets.registerRaw(f.name, 'stl', buf, f.name);
       else if (ext === 'obj') this.assets.registerMesh(f.name, parseOBJ(new TextDecoder().decode(buf)), f.name);
+      else if (ext === 'dae') this.assets.registerRaw(f.name, 'dae', buf, f.name);
     }
     for (const f of files) {
       const name = f.name;
@@ -431,20 +456,24 @@ export class App {
           this.cmd(() => { this.station.addChild(robot); this.select(robot); this.setActiveRobot(robot); });
           const model = parseURDF(text, { resolveInclude: (fn) => cache.get(fn.split('/').pop()!) ?? null });
           const missing = model.meshes.filter((m) => !this.assets.get(m) && ![...this.assets.entries()].some(([id]) => id.split(/[\\/]/).pop()?.toLowerCase() === m.split(/[\\/]/).pop()?.toLowerCase()));
-          this.log(`Imported URDF ${robot.name} (${robot.dof} DOF)${missing.length ? `; ${missing.length} meshes missing — drop the STL files onto the viewport` : ''}`, missing.length ? 'warn' : 'info');
+          const online = missing.filter((m) => resolvePackageUri(m));
+          this.log(`Imported URDF ${robot.name} (${robot.dof} DOF)${missing.length ? `; ${missing.length} meshes missing${online.length ? ` — fetching ${online.length} from the online library` : ' — drop the STL files onto the viewport'}` : ''}`, missing.length && !online.length ? 'warn' : 'info');
+          if (online.length) fetchPackageMeshes(online, this.assets).then((r) => { this.log(`Online meshes for ${robot.name}: ${r.loaded.length} loaded${r.failed.length ? `, ${r.failed.length} failed` : ''}`, r.failed.length ? 'warn' : 'info'); }).catch((e) => this.log(`Mesh download failed: ${(e as Error).message}`, 'warn'));
         } else if (ext === 'dh' || (ext === 'json' && false)) {
           const robot = this.cmd(() => { const r = robotFromDH(parseDHText(await_text), name.replace(/\.dh$/i, '')); this.station.addChild(r); this.select(r); this.setActiveRobot(r); return r; });
           this.log(`Imported DH robot ${robot.name} (${robot.dof} DOF)`);
-        } else if (ext === 'stl' || ext === 'obj') {
+        } else if (ext === 'stl' || ext === 'obj' || ext === 'dae') {
           const a = this.assets.get(name)!;
           this.cmd(() => {
-            const o = new SceneObject(name.replace(/\.(stl|obj)$/i, ''));
+            const o = new SceneObject(name.replace(/\.(stl|obj|dae)$/i, ''));
             o.geometry = [{ mesh: name, origin: Array.from(identity()), color: '#a5b1c2' }];
             if (a.mesh) o.bbox = { min: a.mesh.min, max: a.mesh.max };
             this.station.addChild(o);
             this.select(o);
           });
           this.log(`Imported mesh ${name}`);
+        } else if ((ext === 'rdk' || ext === 'robot' || ext === 'tool') && (await this.convertWithRoboDK(f))) {
+          // converted losslessly by a RoboDK instance behind the studio server
         } else if (ext === 'robot' || ext === 'tool') {
           // proprietary RoboDK item files: best-effort scan for embedded meshes/poses, imported as objects
           const { station, report } = await importRdkBestEffort(await f.arrayBuffer(), name.replace(/\.(robot|tool)$/i, ''));
@@ -504,6 +533,31 @@ export class App {
       }
     }
     this.previewProgram();
+  }
+
+  /** Ask the studio server to convert a RoboDK file with a local RoboDK installation; returns true when loaded. */
+  private async convertWithRoboDK(f: File): Promise<boolean> {
+    const base = this.serverHttpBase();
+    if (!base) return false;
+    try {
+      const res = await fetch(`${base}/convert/rdk`, { method: 'POST', body: await f.arrayBuffer(), headers: { 'x-filename': encodeURIComponent(f.name) } });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); this.log(`RoboDK converter not available on the server (${j.error ?? res.status}); using best-effort import`, 'warn'); return false; }
+      const data = await res.json();
+      const st = loadStation(data, this.assets);
+      const { isRdkExport, postProcessRdkExport } = await import('./io/robodk/rdk_import');
+      if (isRdkExport(st)) postProcessRdkExport(st);
+      if (f.name.toLowerCase().endsWith('.rdk')) this.setStation(st);
+      else this.cmd(() => { for (const c of [...st.children]) this.station.addChild(c); });
+      this.log(`${f.name} converted with RoboDK (lossless)`);
+      return true;
+    } catch { return false; }
+  }
+
+  /** HTTP base of the studio server if the page was opened with ?server=ws://host:port. */
+  serverHttpBase(): string | null {
+    const p = new URLSearchParams(location.search).get('server');
+    if (!p || p === 'off') return null;
+    return p.replace(/^ws/, 'http').replace(/\/$/, '');
   }
 
   private async importGeoJSON(data: any, name: string) {

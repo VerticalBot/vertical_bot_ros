@@ -7,10 +7,10 @@ Legend: ✅ implemented · 🟡 partial / simplified · ❌ not implemented
 | RoboDK feature | Status | Notes |
 |---|---|---|
 | Station tree (frames, robots, tools, targets, programs, objects, folders) | ✅ | |
-| Robot library (online library with hundreds of robots, .robot files) | 🟡 | 22 built-in models (UR exact DH, others approximate) + URDF/DH import; no .robot file support |
-| Import geometry: STL, OBJ | ✅ | |
+| Robot library (online library with hundreds of robots, .robot files) | ✅ | 22 built-in models (UR exact DH) + **online library of 91 robots** (Fanuc, ABB, KUKA, Yaskawa/Motoman, Stäubli, UR, Franka, Kinova, Doosan) fetched as open URDF packages from GitHub with exact kinematics and meshes (`src/io/library/online_library.ts`); URDF/DH import; RoboDK `.robot` files are proprietary — convert with `rdk2vbs.py` / `POST /convert/rdk` |
+| Import geometry: STL, OBJ, COLLADA (.dae) | ✅ | COLLADA reader handles unit scale, Y-up conversion, node transforms |
 | Import geometry: STEP/IGES/BREP | ✅ | OpenCascade WebAssembly (occt-import-js), loaded on demand; SLDPRT/3DS/WRL ❌ |
-| .rdk station load/save | 🟡 | best-effort binary reader; lossless path is `rdk_export.py` + API script export |
+| .rdk station load/save | 🟡 | lossless import through a headless RoboDK behind the studio server (`python/rdk2vbs.py`, `POST /convert/rdk`, tried automatically when a `.rdk`/`.robot`/`.tool` is dropped); otherwise best-effort binary reader; export via `rdk_export.py` + API script |
 | .robot / .tool file build ("Robot builder") | ✅ | `BuildMechanism` (1R/1T/2R/2T/3R/3T/4R/4T/6DOF/7DOF/SCARA), `setRobotParams` (modified DH), DH import/export |
 | Targets: cartesian / joint, teach, configuration flags | ✅ | flags derived (elbow/wrist/front), no explicit conf editing |
 | Programs: MoveJ/MoveL/MoveC, speed, rounding, frame/tool, pause, IO, code, comment, message, call | ✅ | |

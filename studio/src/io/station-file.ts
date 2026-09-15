@@ -16,7 +16,7 @@ export interface StationFile {
   savedAt: string;
   app: string;
   station: SerializedItem;
-  assets: Record<string, { type: 'stl' | 'glb' | 'obj'; data: string; name?: string }>;
+  assets: Record<string, { type: 'stl' | 'glb' | 'obj' | 'dae'; data: string; name?: string; units?: 'mm' | 'm' }>;
 }
 
 export function saveStation(station: Station, assets?: AssetStore): StationFile {
@@ -30,7 +30,7 @@ export function saveStation(station: Station, assets?: AssetStore): StationFile 
   };
   if (assets) {
     for (const [id, a] of assets.entries()) {
-      if (a.source) file.assets[id] = { type: a.type, data: bytesToBase64(a.source), name: a.name };
+      if (a.source) file.assets[id] = { type: a.type, data: bytesToBase64(a.source), name: a.name, ...(a.units ? { units: a.units } : {}) };
     }
   }
   return file;
@@ -40,7 +40,7 @@ export function loadStation(file: StationFile | SerializedItem, assets?: AssetSt
   const data = (file as StationFile).format === 'vbstation' ? (file as StationFile) : null;
   const tree = data ? data.station : (file as SerializedItem);
   if (data && assets) {
-    for (const [id, a] of Object.entries(data.assets ?? {})) assets.registerRaw(id, a.type, base64ToBytes(a.data), a.name);
+    for (const [id, a] of Object.entries(data.assets ?? {})) assets.registerRaw(id, a.type, base64ToBytes(a.data), a.name, 1, a.units);
   }
   return Station.deserialize(tree);
 }

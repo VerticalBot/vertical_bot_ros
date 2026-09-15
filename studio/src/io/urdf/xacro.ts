@@ -14,6 +14,15 @@ export interface XacroOptions {
 
 type Scope = Map<string, any>;
 
+/** xacro strips matching quotes from string literals on lookup (`arm_id:='panda'` -> panda). */
+function literal(v: any): any {
+  if (typeof v === 'string') {
+    const m = /^\s*(['"])(.*)\1\s*$/s.exec(v);
+    if (m) return m[2];
+  }
+  return v;
+}
+
 function evalExpr(expr: string, scope: Scope): any {
   // Replace known identifiers with scope values; support pi, radians(), degrees(), math functions.
   const names: string[] = [];
@@ -21,7 +30,7 @@ function evalExpr(expr: string, scope: Scope): any {
   for (const [k, v] of scope) {
     if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) {
       names.push(k);
-      vals.push(v);
+      vals.push(literal(v));
     }
   }
   const helpers = {

@@ -11,6 +11,7 @@ import { Component, makeConveyor, makeFeeder, makeProcess, makeSink, makeBuffer 
 import { dialog, MenuEntry, toast, downloadText, h, pickFiles } from './dom';
 import { transl, mul, rotz, DEG, poseToXyzrpw, xyzrpwToPose, multiply, invert, getPos } from '../core/math/pose';
 import { ROBOT_LIBRARY } from '../core/items/library';
+import { ONLINE_ROBOT_LIBRARY, ONLINE_REPOS } from '../io/library/online_library';
 
 /** Context menu entries for an item (tree & viewport). */
 export function itemContextMenu(app: App, item: Item): MenuEntry[] {
@@ -23,6 +24,7 @@ export function itemContextMenu(app: App, item: Item): MenuEntry[] {
     { label: 'Program', action: () => app.addProgram() },
     { separator: true },
     { label: 'Robot from library…', action: () => robotLibraryDialog(app) },
+    { label: 'Robot from online library (ROS-Industrial)…', action: () => onlineLibraryDialog(app) },
     { label: 'Mobile robot…', action: () => mobileRobotDialog(app) },
     { label: 'Tool (on active robot)', action: () => { const r = app.activeRobot; if (!r) return toast('Select a robot', 'warn'); app.cmd(() => { const t = new Tool(`Tool ${r.tools().length + 1}`); t.setPoseTool(transl(0, 0, 150)); r.addChild(t); r.setTool(t); app.select(t); }); } },
     { separator: true },
@@ -87,6 +89,33 @@ export async function robotLibraryDialog(app: App): Promise<void> {
     { key: 'id', label: 'Robot', type: 'select', options: cats.flatMap((c) => ROBOT_LIBRARY.filter((x) => x.category === c).map((x) => ({ value: x.id, label: `[${c}] ${x.name} — ${x.dof} DOF, ${x.reach} mm, ${x.payload} kg${x.approximate ? ' (approx.)' : ''}` }))) },
   ], { width: 560, body: h('p', { class: 'hint' }, 'Robots marked approx. use representative DH geometry. Import a URDF (drag & drop) for exact kinematics and meshes.') });
   if (r) app.addRobotFromLibrary(r.id);
+}
+
+export async function onlineLibraryDialog(app: App): Promise<void> {
+  const brands = [...new Set(ONLINE_ROBOT_LIBRARY.map((r) => r.brand))];
+  const label = (x: (typeof ONLINE_ROBOT_LIBRARY)[number]) => `[${x.brand === 'Generic' ? 'Other' : x.brand}] ${x.name} — ${x.dof} DOF, ${x.reach} mm, ${x.payload} kg`;
+  const status = h('div', { class: 'hint', style: { minHeight: '1.2em' } });
+  const r = await dialog<{ id: string; meshes: boolean }>('Add robot from online library', [
+    { key: 'id', label: 'Robot', type: 'select', options: brands.flatMap((b) => ONLINE_ROBOT_LIBRARY.filter((x) => x.brand === b).map((x) => ({ value: x.id, label: label(x) }))) },
+    { key: 'meshes', label: 'Download 3D meshes', type: 'checkbox', value: true },
+  ], {
+    width: 620,
+    okLabel: 'Download',
+    body: h('div', null,
+      h('p', { class: 'hint' }, `${ONLINE_ROBOT_LIBRARY.length} robots with exact kinematics and meshes from the open URDF packages published by ROS-Industrial and the vendors (${ONLINE_REPOS.map((x) => `${x.owner}/${x.repo}`).filter((v, i, a) => a.indexOf(v) === i).length} GitHub repositories, BSD/Apache licences). Requires Internet access; files are fetched directly by the browser.`),
+      status),
+  });
+  if (!r) return;
+  const e = ONLINE_ROBOT_LIBRARY.find((x) => x.id === r.id);
+  if (!e) return;
+  toast(`Downloading ${e.name}…`, 'info', 2500);
+  try {
+    const res = await app.addOnlineRobot(e.id, app.station, { meshes: !!r.meshes, onProgress: (m) => app.log(m) });
+    toast(`${e.name}: ${res.robot.dof} DOF, ${res.meshes.loaded.length} meshes`, 'ok');
+  } catch (err) {
+    toast(`Download failed: ${(err as Error).message}`, 'error', 6000);
+    app.log(`Online library ${e.id}: ${(err as Error).message}`, 'error');
+  }
 }
 
 export async function mobileRobotDialog(app: App): Promise<void> {

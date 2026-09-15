@@ -18,7 +18,10 @@ or the rosbridge connection.
   relaxation for < 6-DOF robots (palletizers, SCARA, gantries), multi-solution IK.
 - Robot library: UR3e/5e/10e/16e/20 (official DH), KUKA Agilus/Cybertech/Quantec, ABB IRB 120/1200/2600/6700,
   Fanuc LR Mate/M-20iA/M-410iC, Yaskawa GP12, Stäubli TX2-60, Doosan M1013, Mecademic Meca500, generic palletizer,
-  SCARA, XYZ gantry, 7-DOF telescopic harvesting arm — plus any URDF/xacro import with STL meshes.
+  SCARA, XYZ gantry, 7-DOF telescopic harvesting arm — plus any URDF/xacro import with STL/DAE meshes.
+- Online robot library: 91 robots (Fanuc, ABB, KUKA, Yaskawa/Motoman, Stäubli, UR incl. e-Series, Franka, Kinova,
+  Doosan) downloaded on demand from the open ROS-Industrial / vendor URDF packages on GitHub — exact kinematics,
+  vendor meshes, `tool0` flange — the open counterpart of RoboDK's online library.
 - Programs: MoveJ/MoveL/MoveC, speed/acceleration, rounding (blending), frames/tools, pauses, digital IO,
   gripper/attach/detach events, raw code, comments/messages, sub-program calls, mobile navigation and signals.
 - Simulator: trapezoidal joint/cartesian trajectory generation, cycle time, TCP distance, reachability and
@@ -137,9 +140,12 @@ studio/
 
 ## Status and honest limits
 
-- Library robots not marked *(official DH)* use representative geometry; import the vendor URDF for exact kinematics.
-- The `.rdk` binary container is proprietary and undocumented; the reader is best-effort. Use `rdk_export.py`
-  (inside RoboDK) or the API bridge for lossless transfer.
+- Built-in library robots not marked *(official DH)* use representative geometry; use the online library or import
+  the vendor URDF for exact kinematics.
+- The `.rdk` / `.robot` binary containers are proprietary and undocumented. Lossless import needs a RoboDK
+  installation: run the studio server on a machine with RoboDK (`STUDIO_ROBODK_PYTHON=…`) and `.rdk` files dropped
+  into the browser are converted through `python/rdk2vbs.py`; without it the reader is best-effort. `rdk_export.py`
+  (inside RoboDK) and the API bridge remain the other lossless paths.
 - Collision checking is bounding-box based (attachment proximity, map rasterisation); mesh-level collision
   is on the roadmap (three-mesh-bvh).
 - ROS 2 integration is via rosbridge websocket; native DDS is out of scope for a browser.
