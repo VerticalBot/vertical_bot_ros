@@ -59,8 +59,11 @@ export function solveIKWithCarrier(carrier: Robot, robot: Robot, targetInCarrier
   }
   seeds.push([...best, ...robot.joints()], [...best, ...robot.jointsHome()]);
   let out: IKResult | null = null;
+  const { seed: _ignored, carrierWeight: _w, ...rest } = opts;
+  void _ignored; void _w;
+  if (opts.seed) seeds.unshift([...opts.seed]);
   for (const seed of seeds) {
-    const res = inverseKinematics(chain, flangeTarget, { seed, restarts: 2, ...relax, ...opts });
+    const res = inverseKinematics(chain, flangeTarget, { restarts: 2, ...relax, ...rest, seed });
     if (!out || res.ok || res.posError < out.posError) out = res;
     if (res.ok) break;
   }

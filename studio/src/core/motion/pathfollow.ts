@@ -8,6 +8,7 @@ import { Station, SceneObject, Frame, Target } from '../items/item';
 import { Robot } from '../items/robot';
 import { Program } from '../items/program';
 import { Mat4, poseFromZ, multiply, invert, transl, mul, normalize, sub, cross, norm, Vec3, transformPoint, transformDir, rotz, DEG } from '../math/pose';
+import { solveIKWithCarrier, applyCombined } from '../kinematics/combined';
 
 export interface FollowOptions {
   /** Approach/retract distance along -Z of the tool (mm). */
@@ -29,6 +30,14 @@ export interface FollowOptions {
   name?: string;
   /** Digital output to switch on while following (e.g. Arc, Spray). */
   io?: string;
+  /** Optimise the rotation about the tool Z axis per point (RoboDK "tool orientation optimisation"). */
+  optimizeToolZ?: boolean;
+  /** Candidate spin step (deg) for the optimisation. */
+  spinStep?: number;
+  /** Keep the elbow/wrist configuration of the start (default true). */
+  preferredConfig?: boolean;
+  /** Carrier mechanism (rail/turntable) moved jointly with the arm (RoboDK "optimise external axes"). */
+  carrier?: Robot | null;
 }
 
 export interface FollowResult {
@@ -102,36 +111,63 @@ export function generateCurveFollow(station: Station, robot: Robot, object: Scen
     poses.push({ abs, local: multiply(invert(objAbs), abs) });
   }
   const ikOpts = { freeToolZ: opts.freeToolZ ?? false, restarts: 1, maxIterations: 80 };
+  const spinStep = opts.spinStep ?? 30;
+  const spins = opts.optimizeToolZ ? Array.from({ length: Math.round(360 / spinStep) }, (_, i) => -180 + i * spinStep) : [0];
+  const carrier = opts.carrier ?? null;
+  const carrierBase = carrier ? carrier.poseAbs() : null;
+  /** Solve IK for an absolute pose, optionally over spin candidates and with the carrier. Returns joints or null. */
+  const solve = (absPose: Mat4, seed: number[], first: boolean): { q: number[]; abs: Mat4; carrierQ?: number[] } | null => {
+    let best: { q: number[]; abs: Mat4; carrierQ?: number[]; cost: number } | null = null;
+    for (const spin of spins) {
+      const cand = spin ? mul(absPose, rotz(spin * DEG)) : absPose;
+      if (carrier && carrierBase) {
+        const sol = solveIKWithCarrier(carrier, robot, multiply(invert(carrierBase), cand), { seed: [...carrier.joints(), ...seed], restarts: first ? 2 : 0, maxIterations: first ? 200 : 100, freeToolZ: ikOpts.freeToolZ });
+        if (!sol.ok) continue;
+        const cost = sol.robotJoints.reduce((a, v, i) => a + Math.abs(v - seed[i]), 0) + sol.carrierJoints.reduce((a, v, i) => a + Math.abs(v - carrier.joints()[i]) * 0.05, 0);
+        if (!best || cost < best.cost) best = { q: sol.robotJoints, abs: cand, carrierQ: sol.carrierJoints, cost };
+      } else {
+        const r = robot.solveIK(multiply(invert(base), cand), { seed, ...ikOpts, ...(first ? { restarts: 6, maxIterations: 200 } : {}), keepFirstSolution: !(opts.preferredConfig ?? true) });
+        if (!r.ok) continue;
+        const cost = r.joints.reduce((a, v, i) => a + Math.abs(v - seed[i]), 0);
+        if (!best || cost < best.cost) best = { q: r.joints, abs: cand, cost };
+      }
+      if (!opts.optimizeToolZ) break;
+    }
+    return best;
+  };
+  const applyCarrier = (carrierQ?: number[]) => { if (carrier && carrierQ) applyCombined(carrier, robot, { carrierJoints: carrierQ, robotJoints: robot.joints() }); };
   for (let i = 0; i < poses.length; i++) {
-    const { abs, local } = poses[i];
-    const inBase = multiply(invert(base), abs);
+    const { abs } = poses[i];
     if (i === 0) {
-      const app = mul(inBase, transl(0, 0, -approach));
-      const r0 = robot.solveIK(app, { seed: q, ...ikOpts, restarts: 6, maxIterations: 200 });
-      if (r0.ok) {
+      const app = mul(abs, transl(0, 0, -approach));
+      const r0 = solve(app, q, true);
+      if (r0) {
+        applyCarrier(r0.carrierQ);
         const t = frame.addChild(new Target('Approach'));
-        t.setPose(mul(local, transl(0, 0, -approach)));
-        t.setJoints(r0.joints);
+        t.setPose(multiply(invert(frame.poseAbs()), r0.abs));
+        t.setJoints(r0.q);
+        if (carrier) { t.setJoints(r0.q); t.setParam('carrierJoints', r0.carrierQ ?? []); }
         prog.addMoveJ(t);
-        q = r0.joints;
+        q = r0.q;
       }
       if (opts.io) prog.setDO(opts.io, true);
     }
-    const r = robot.solveIK(inBase, { seed: q, ...ikOpts, ...(n === 0 ? { restarts: 6, maxIterations: 200 } : {}) });
-    if (!r.ok) { unreachable++; continue; }
-    q = r.joints;
+    const r = solve(abs, q, n === 0);
+    if (!r) { unreachable++; continue; }
+    applyCarrier(r.carrierQ);
+    q = r.q;
     n++;
     const t = frame.addChild(new Target(`P${n}`));
-    t.setPose(local);
-    t.setJoints(r.joints);
+    t.setPose(multiply(invert(frame.poseAbs()), r.abs));
+    t.setJoints(r.q);
+    if (carrier) t.setParam('carrierJoints', r.carrierQ ?? []);
     if (opts.linear === false) prog.addMoveJ(t); else prog.addMoveL(t);
   }
   if (opts.io) prog.setDO(opts.io, false);
   if (poses.length) {
     const last = poses[poses.length - 1];
-    const ret = mul(last.local, transl(0, 0, -approach));
-    const rr = robot.solveIK(multiply(invert(base), mul(last.abs, transl(0, 0, -approach))), { seed: q, ...ikOpts });
-    if (rr.ok) { const t = frame.addChild(new Target('Retract')); t.setPose(ret); t.setJoints(rr.joints); prog.addMoveL(t); }
+    const rr = solve(mul(last.abs, transl(0, 0, -approach)), q, false);
+    if (rr) { const t = frame.addChild(new Target('Retract')); t.setPose(multiply(invert(frame.poseAbs()), rr.abs)); t.setJoints(rr.q); prog.addMoveL(t); }
   }
   prog.addMoveJ(home);
   return { program: prog, points: n, unreachable };

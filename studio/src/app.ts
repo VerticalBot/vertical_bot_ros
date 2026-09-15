@@ -18,6 +18,7 @@ import { parseOBJ } from './io/mesh/obj';
 import { parseDHText, robotFromDH } from './io/robodk/dh';
 import { isRdkExport, postProcessRdkExport } from './io/robodk/rdk_import';
 import { parseGcode, gcodeToCurves } from './io/programs/gcode';
+import { isCadFile, importCad } from './io/mesh/step';
 import { stationToRoboDKScript } from './io/robodk/station_script';
 import { compileForPost, getPost, listPosts, PostFile } from './posts/index';
 import { MobileRobot, MapItem, ZoneItem } from './mobile/items';
@@ -444,6 +445,11 @@ export class App {
             this.select(o);
           });
           this.log(`Imported mesh ${name}`);
+        } else if (ext === 'robot' || ext === 'tool') {
+          // proprietary RoboDK item files: best-effort scan for embedded meshes/poses, imported as objects
+          const { station, report } = await importRdkBestEffort(await f.arrayBuffer(), name.replace(/\.(robot|tool)$/i, ''));
+          this.cmd(() => { const folder = new Folder(name); this.station.addChild(folder); for (const c of [...station.children]) folder.addChild(c); this.select(folder); });
+          for (const n of report.notes) this.log(n, 'warn');
         } else if (ext === 'rdk') {
           const { station, report } = await importRdkBestEffort(await f.arrayBuffer(), name.replace(/\.rdk$/i, ''));
           this.setStation(station);
@@ -461,6 +467,23 @@ export class App {
             this.setActiveProgram(r.program);
             this.log(`Imported ${lang.toUpperCase()} program ${r.program.name} (${r.targets.length} targets)`);
           }
+        } else if (isCadFile(name)) {
+          this.log(`Loading OpenCascade (WebAssembly) for ${name}…`);
+          const res = await importCad(await f.arrayBuffer(), name);
+          this.cmd(() => {
+            const root = new SceneObject(name.replace(/\.[^.]+$/, ''));
+            this.station.addChild(root);
+            res.meshes.forEach((m, i) => {
+              const id = `${name}#${i}`;
+              this.assets.registerMesh(id, m.mesh, m.name);
+              root.geometry.push({ mesh: id, origin: Array.from(identity()), color: m.color ?? '#a5b1c2' });
+            });
+            const mn = res.meshes.reduce((a, m) => a.map((v, i) => Math.min(v, m.mesh.min[i])), [Infinity, Infinity, Infinity]);
+            const mx = res.meshes.reduce((a, m) => a.map((v, i) => Math.max(v, m.mesh.max[i])), [-Infinity, -Infinity, -Infinity]);
+            if (res.meshes.length) root.bbox = { min: mn as any, max: mx as any };
+            this.select(root);
+          });
+          this.log(`Imported CAD ${name}: ${res.meshes.length} solids, ${res.meshes.reduce((a, m) => a + m.mesh.triangles, 0)} triangles`);
         } else if (['nc', 'gcode', 'ngc', 'tap', 'cnc', 'apt', 'gco'].includes(ext)) {
           const g = parseGcode(await f.text());
           const curves = gcodeToCurves(g);

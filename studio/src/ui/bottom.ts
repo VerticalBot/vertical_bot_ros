@@ -162,7 +162,7 @@ export class BottomPanel {
       const cam = sel instanceof CameraItem ? sel : sel ?? this.app.station.itemsOfType<CameraItem>(ItemType.CAMERA)[0];
       if (!cam) { this.camInfo.textContent = 'No camera / item selected.'; return; }
       const fov = cam instanceof CameraItem ? cam.fov : 60;
-      this.app.renderer.renderFromItem(cam, this.camCanvas, fov);
+      this.app.renderer.renderFromItem(cam, this.camCanvas, fov, cam instanceof CameraItem ? cam.near : 10, cam instanceof CameraItem ? cam.far : 50000, cam instanceof CameraItem && cam.kind === 'depth');
       let txt = `View from ${cam.name}`;
       if (cam instanceof CameraItem) {
         const det = detectFruit(this.app.station, cam, { onlyRipe: false, maxRange: 6000 });

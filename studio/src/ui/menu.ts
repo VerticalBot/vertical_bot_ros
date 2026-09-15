@@ -4,11 +4,15 @@ import { robotLibraryDialog, mobileRobotDialog, orchardDialog, fleetDialog, miss
 import { ItemType, Folder } from '../core/items/item';
 import { demos } from '../demos';
 import { t, getLang, setLang } from './i18n';
+import { collisionMapDialog, measureDialog, cameraDialog, VideoRecorder, exportHtml3D, exportGlb } from './tools';
+import { Camera as CameraItem } from '../core/items/item';
 import { Robot } from '../core/items/robot';
 
 export class MenuBar {
   el: HTMLElement;
+  video: VideoRecorder;
   constructor(readonly app: App, readonly onToggleBottom: () => void) {
+    this.video = new VideoRecorder(app);
     this.el = h('div', { class: 'menubar' });
     const menus: Array<[string, () => MenuEntry[]]> = [
       ['File', () => [
@@ -85,6 +89,18 @@ export class MenuBar {
         { separator: true },
         { label: 'Demo: apple orchard with harvesting fleet', action: () => { const d = demos.find((x) => x.id === 'orchard'); if (d) app.setStation(d.build()); } },
         { label: 'Demo: greenhouse tomato with rail robots', action: () => { const d = demos.find((x) => x.id === 'greenhouse'); if (d) app.setStation(d.build()); } },
+      ]],
+      ['Tools', () => [
+        { label: 'Collision map…', action: () => collisionMapDialog(app) },
+        { label: 'Measure (two selected items / item to TCP)', shortcut: 'M', action: () => measureDialog(app) },
+        { label: 'Camera parameters…', action: () => { const c = app.station.selection.find((i) => i instanceof CameraItem) as CameraItem | undefined; if (c) cameraDialog(app, c); else toast('Select a camera item', 'warn'); } },
+        { separator: true },
+        { label: this.video.recording ? 'Stop video recording' : 'Record video of the 3D view (WebM)…', action: () => (this.video.recording ? this.video.stop() : this.video.start()) },
+        { label: 'Export 3D HTML (self-contained viewer)', action: () => exportHtml3D(app) },
+        { label: 'Export scene as glTF (.glb)', action: () => exportGlb(app) },
+        { separator: true },
+        { label: 'New station tab', action: () => app.addStation(`Station ${app.stations.length + 1}`) },
+        { label: 'Close station tab', action: () => app.closeStation() },
       ]],
       ['Connect', () => [
         { label: 'ROS 2 via rosbridge…', action: () => this.rosDialog() },

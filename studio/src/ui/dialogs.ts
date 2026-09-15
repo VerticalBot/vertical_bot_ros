@@ -370,17 +370,34 @@ export async function exportDialog(app: App, program: Program | null = app.activ
   const posts = app.posts();
   const def = robot instanceof Robot ? robot.postProcessor : 'JSON';
   const preview = h('pre', { class: 'code-preview' });
+  const pyBtn = h('button', { class: 'btn', onClick: async () => {
+    const files = await pickFiles('.py');
+    if (!files.length) return;
+    const src = await files[0].text();
+    const id = `PY_${files[0].name.replace(/\W+/g, '_')}`;
+    const { registerPythonPost } = await import('../posts/python_post');
+    const post = registerPythonPost(id, files[0].name, src);
+    preview.textContent = 'Running the Python post in Pyodide (first run downloads ~10 MB)…';
+    try {
+      const { compileForPost } = await import('../posts/base');
+      const out = await post.generateAsync(compileForPost(app.station, program));
+      preview.textContent = out.map((f) => `# ---- ${f.name} ----\n${f.content}`).join('\n');
+      for (const f of out) downloadText(f.name, f.content);
+      toast(`Python post ${files[0].name} generated ${out.length} file(s)`, 'ok');
+    } catch (e: any) { preview.textContent = `Python post failed: ${e.message ?? e}`; }
+  } }, 'Run a RoboDK Python post (.py)…');
+  const body = h('div', null, h('div', { class: 'btn-row' }, pyBtn, h('span', { class: 'hint' }, 'Load any RoboDK post processor file (class RobotPost) and run it in the browser.')), preview);
   const update = (v: Record<string, any>) => { const files = app.exportProgram(v.post, program); preview.textContent = files.map((f) => `# ---- ${f.name} ----\n${f.content}`).join('\n').slice(0, 20000); };
   const r = await dialog<{ post: string }>(`Export ${program.name}`, [
     { key: 'post', label: 'Post processor', type: 'select', value: posts.some((p) => p.id === def) ? def : 'Generic', options: posts.map((p) => ({ value: p.id, label: `${p.name} (.${p.extension})` })) },
-  ], { width: 760, okLabel: 'Download', body: preview, onChange: update });
+  ], { width: 760, okLabel: 'Download', body, onChange: update });
   update({ post: posts.some((p) => p.id === def) ? def : 'Generic' });
   if (!r) return;
   for (const f of app.exportProgram(r.post, program)) downloadText(f.name, f.content, f.mime);
 }
 
 export async function importDialog(app: App): Promise<void> {
-  const files = await pickFiles('.vbstation,.json,.geojson,.urdf,.xacro,.stl,.obj,.dh,.rdk,.src,.mod,.prg,.ls,.script,.csv,.txt,.nc,.gcode,.ngc,.tap', true);
+  const files = await pickFiles('.vbstation,.json,.geojson,.urdf,.xacro,.stl,.obj,.step,.stp,.iges,.igs,.brep,.dh,.rdk,.robot,.tool,.src,.mod,.prg,.ls,.script,.csv,.txt,.nc,.gcode,.ngc,.tap', true);
   if (files.length) await app.openFiles(files);
 }
 

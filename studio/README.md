@@ -42,6 +42,16 @@ or the rosbridge connection.
   front/elbow/wrist flags), reach-sphere display, singularity diagnostics for linear moves.
 - UI in English and Russian (View › Language).
 
+**RoboDK feature parity additions**
+- Calibration: TCP (by point/line), reference frames (3P/6P/turntable), robot DH identification from tracker
+  measurements; ISO 9283 cube and ballbar programs with accuracy/repeatability statistics; simulated measuring devices.
+- Mechanism builder (`BuildMechanism`, modified DH `setRobotParams`), machining projects with tool-orientation and
+  external-axis optimisation, spray deposition simulation, collision map dialog, threads/wait instructions.
+- STEP/IGES/BREP import (OpenCascade WebAssembly), genuine RoboDK Python post processors executed in the browser
+  (Pyodide), 27 built-in posts, live robot drivers on the server (UR, ABB RWS, KUKA KVP) with `RUNMODE_RUN_ROBOT`.
+- Station tabs, clipboard, measurements, camera parameters, WebM video recording, 3D HTML / glTF export, plugins,
+  event queue, C#/C++/MATLAB clients.
+
 **RoboDK project interoperability** (see `docs/robodk-compatibility.md`)
 - RoboDK-compatible scripting API (JavaScript in the built-in console and a **Python drop-in `robodk` package**
   in `python/`): `Robolink`, `Item`, `AddFrame/AddTarget/AddProgram`, `MoveJ/MoveL/MoveC`, `SolveFK/SolveIK`,

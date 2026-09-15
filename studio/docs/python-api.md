@@ -65,3 +65,19 @@ library by name; programs are rebuilt from the instruction list.
 JSON-RPC over WebSocket. Request: `{"id": 1, "method": "MoveJ", "target": "<item id>", "params": [...]}`.
 Items serialise as `{"$item": id, "name": ..., "type": ...}`, poses as `{"$pose": [[r0],[r1],[r2],[r3]]}` (row-major).
 Responses: `{"id": 1, "result": ...}` or `{"id": 1, "error": "message"}`. See `src/api/rpc.ts`.
+
+## Running on the real robot (drivers)
+
+The studio server hosts robot drivers (like RoboDK's drivers): `UR` (URScript over TCP 30002 + real-time joint
+feedback on 30003), `ABB_RWS` (Robot Web Services over HTTP), `KUKA_KVP` (KUKAVARPROXY variables). From Python:
+
+```python
+RDK.setRunMode(RUNMODE_RUN_ROBOT)
+robot.Connect('192.168.1.10', driver='UR')   # driver inferred from the robot name when omitted
+robot.MoveJ(home)                             # simulated first, then sent to the controller and awaited
+robot.setDO('1', True)
+print(RDK.Driver('state', robot=robot.Name()))
+```
+
+Other languages: the server also listens on `port + 1` (20501) with newline-delimited JSON, used by the C#
+(`clients/csharp`), C++ (`clients/cpp`) and MATLAB (`clients/matlab`) clients.

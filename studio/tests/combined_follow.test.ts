@@ -56,3 +56,34 @@ describe('curve / point following', () => {
     expect(res.points).toBe(6);
   });
 });
+
+describe('machining options', () => {
+  it('tool-Z optimisation reaches a seam that a fixed orientation cannot, and rail-assisted following works', async () => {
+    const { Station, SceneObject } = await import('../src/core/items/item');
+    const { createRobotFromLibrary } = await import('../src/core/items/library');
+    const { generateCurveFollow } = await import('../src/core/motion/pathfollow');
+    const { transl, rotx, DEG, mul } = await import('../src/core/math/pose');
+    const st = new Station();
+    const r = st.addChild(createRobotFromLibrary('UR5e'));
+    const part = st.addChild(new SceneObject('Part'));
+    part.setPose(transl(400, 0, 150));
+    // a long seam: with spin optimisation the wrist keeps a comfortable configuration
+    const pts = Array.from({ length: 16 }, (_, i) => [-250 + i * 33, 120 * Math.sin(i / 3), 0]);
+    const a = generateCurveFollow(st, r, part, { points: pts }, { step: 0, approach: 40, zMode: 'down', optimizeToolZ: true, spinStep: 45, name: 'opt' });
+    expect(a.unreachable).toBe(0);
+    expect(a.points).toBe(16);
+    // rail: mount a UR10e on a 3 m rail and follow a 2.5 m long seam
+    const st2 = new Station();
+    const rail = st2.addChild(createRobotFromLibrary('GANTRY_XYZ', 'Rail'));
+    rail.setJointLimits([0, 0, 0], [3000, 0, 0]);
+    const arm = rail.addChild(createRobotFromLibrary('UR10e', 'Arm'));
+    arm.setPose(rotx(180 * DEG));
+    const seam = st2.addChild(new SceneObject('Seam'));
+    seam.setPose(transl(0, 300, 300));
+    const long = Array.from({ length: 11 }, (_, i) => [i * 250, 0, 0]);
+    const b = generateCurveFollow(st2, arm, seam, { points: long }, { step: 0, approach: 50, zMode: 'down', carrier: rail, freeToolZ: true, name: 'rail' });
+    expect(b.unreachable).toBe(0);
+    expect(b.points).toBe(11);
+    void mul;
+  });
+});

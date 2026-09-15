@@ -161,3 +161,15 @@ progress { accent-color: var(--accent-2); }
 .cam-canvas { background: #000; border: 1px solid var(--border); max-width: 100%; }
 .cam-panel { display: flex; flex-direction: column; gap: 6px; }
 .mini-chart { display: block; margin: 6px 0; border: 1px solid var(--border); max-width: 100%; }
+
+.station-tabs { display: flex; gap: 2px; background: var(--panel); border-bottom: 1px solid var(--border); padding: 3px 6px 0; }
+.stab { background: var(--panel-2); border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; padding: 3px 10px; cursor: pointer; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.stab.active { color: var(--text); background: var(--bg); }
+.stab.add { padding: 3px 8px; }
+.stab-close { color: var(--muted); }
+.stab-close:hover { color: var(--err); }
+.cmap th.rot { height: 110px; white-space: nowrap; vertical-align: bottom; }
+.cmap th.rot > div { transform: rotate(-60deg); transform-origin: left bottom; width: 20px; }
+.cmap td { text-align: center; }
+.cmap td.na { color: var(--muted); }
+.scroll-x { overflow: auto; max-height: 50vh; }

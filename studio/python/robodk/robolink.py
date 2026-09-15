@@ -260,6 +260,13 @@ class Robolink:
         self.run_mode = run_mode
         return self._call("setRunMode", [run_mode])
 
+    # -- live robot drivers (server side): UR, ABB_RWS, KUKA_KVP --
+    def Driver(self, action, **kwargs):
+        """Talk to the studio server robot drivers (RoboDK "drivers"). action: list|connect|disconnect|state|moveJ|moveL|setDO|getDI|runScript|stop."""
+        params = dict(kwargs)
+        params["action"] = action
+        return self._call("__driver__", [params])
+
     def RunMode(self):
         return self._call("RunMode")
 
@@ -604,10 +611,31 @@ class Item:
     def SolveIK_All(self, pose, tool=None, reference=None):
         return self._c("SolveIK_All", pose)
 
-    def Connect(self, robot_ip=""):
-        return self._c("Connect", robot_ip)
+    def Connect(self, robot_ip="", driver=None):
+        """Connect the robot to a live controller through the server driver (UR / ABB_RWS / KUKA_KVP).
+        The driver is inferred from the robot name/brand when not given."""
+        name = self.Name()
+        drv = driver or self.getParam("driver") or ("UR" if "UR" in name.upper() else "ABB_RWS" if "ABB" in name.upper() or "IRB" in name.upper() else "KUKA_KVP" if "KUKA" in name.upper() or "KR" in name.upper() else "UR")
+        if not robot_ip:
+            robot_ip = self.ConnectionParams()[0]
+        try:
+            self.link.Driver("connect", robot=name, driver=drv, ip=robot_ip)
+            self._driver = drv
+            return True
+        except Exception as e:  # noqa
+            self._last_error = str(e)
+            return False
+
+    def _live(self):
+        return self.link.run_mode == RUNMODE_RUN_ROBOT and getattr(self, "_driver", None)
 
     def ConnectedState(self):
+        if getattr(self, "_driver", None):
+            try:
+                st = self.link.Driver("state", robot=self.Name())
+                return ROBOTCOM_READY if st.get("connected") else ROBOTCOM_DISCONNECTED
+            except Exception:
+                return ROBOTCOM_PROBLEMS
         return self._c("ConnectedState")
 
     def setSpeed(self, speed_linear, speed_joints=-1, accel_linear=-1, accel_joints=-1):
@@ -619,10 +647,19 @@ class Item:
     setZoneData = setRounding
 
     def MoveJ(self, target, blocking=True):
-        return self._c("MoveJ", target, blocking)
+        res = self._c("MoveJ", target, blocking)
+        if self._live() and self.Type() == ITEM_TYPE_ROBOT:
+            self.link.Driver("moveJ", robot=self.Name(), joints=self.Joints())
+        return res
 
     def MoveL(self, target, blocking=True):
-        return self._c("MoveL", target, blocking)
+        res = self._c("MoveL", target, blocking)
+        if self._live() and self.Type() == ITEM_TYPE_ROBOT:
+            pose = self._c("PoseAbs")
+            rows = pose.rows
+            cols = [rows[r][c] for c in range(4) for r in range(4)]
+            self.link.Driver("moveL", robot=self.Name(), pose=cols)
+        return res
 
     def MoveC(self, target1, target2, blocking=True):
         return self._c("MoveC", target1, target2)
@@ -631,7 +668,10 @@ class Item:
         return self._c("Pause", time_ms)
 
     def setDO(self, io_var, io_value):
-        return self._c("setDO", str(io_var), io_value)
+        res = self._c("setDO", str(io_var), io_value)
+        if self._live() and self.Type() == ITEM_TYPE_ROBOT:
+            self.link.Driver("setDO", robot=self.Name(), io=str(io_var), value=io_value)
+        return res
 
     def waitDI(self, io_var, io_value, timeout_ms=-1):
         return self._c("waitDI", str(io_var), io_value, timeout_ms)

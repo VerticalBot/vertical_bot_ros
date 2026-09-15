@@ -9,31 +9,31 @@ Legend: ✅ implemented · 🟡 partial / simplified · ❌ not implemented
 | Station tree (frames, robots, tools, targets, programs, objects, folders) | ✅ | |
 | Robot library (online library with hundreds of robots, .robot files) | 🟡 | 22 built-in models (UR exact DH, others approximate) + URDF/DH import; no .robot file support |
 | Import geometry: STL, OBJ | ✅ | |
-| Import geometry: STEP/IGES/SLDPRT, 3DS, WRL | ❌ | needs a CAD kernel (out of scope in browser) |
+| Import geometry: STEP/IGES/BREP | ✅ | OpenCascade WebAssembly (occt-import-js), loaded on demand; SLDPRT/3DS/WRL ❌ |
 | .rdk station load/save | 🟡 | best-effort binary reader; lossless path is `rdk_export.py` + API script export |
 | .robot / .tool file build ("Robot builder") | ✅ | `BuildMechanism` (1R/1T/2R/2T/3R/3T/4R/4T/6DOF/7DOF/SCARA), `setRobotParams` (modified DH), DH import/export |
 | Targets: cartesian / joint, teach, configuration flags | ✅ | flags derived (elbow/wrist/front), no explicit conf editing |
 | Programs: MoveJ/MoveL/MoveC, speed, rounding, frame/tool, pause, IO, code, comment, message, call | ✅ | |
 | Program instruction types: Wait, thread start | ✅ | threads compile on parallel timelines |
 | Program simulation, timeline, cycle time, run modes | ✅ | RUN_ON_ROBOT only via ROS bridge |
-| Collision checking (mesh-accurate, collision map, `Collision_SetPair`, `Collision_Line`) | ✅ | BVH triangle checks for meshes, collision map with pair rules, ray casting; UI dialog for the map pending |
+| Collision checking (mesh-accurate, collision map, `Collision_SetPair`, `Collision_Line`) | ✅ | BVH triangle checks for meshes, collision map with pair rules + dialog, ray casting |
 | Singularity / joint limit / reach checks in linear moves | ✅ | |
-| Post processors (~100 vendor posts in RoboDK) | 🟡 | 27 posts: KUKA KRC2/KRC4, ABB IRC5/S4C, Fanuc R30/RJ3, UR, Motoman, Stäubli, Doosan, Mecademic, Denso, Kawasaki, Nachi, Comau, Epson, Techman/Omron TM, Hanwha, Kinova, Mitsubishi, AUBO, JAKA, Elite, Dobot, CSV, JSON, RoboDK, ROS 2 |
-| Post-processor customisation (Python post files) | ❌ | posts are TypeScript modules |
+| Post processors (~100 vendor posts in RoboDK) | 🟡 | 27 built-in posts + any RoboDK Python post via Pyodide: KUKA KRC2/KRC4, ABB IRC5/S4C, Fanuc R30/RJ3, UR, Motoman, Stäubli, Doosan, Mecademic, Denso, Kawasaki, Nachi, Comau, Epson, Techman/Omron TM, Hanwha, Kinova, Mitsubishi, AUBO, JAKA, Elite, Dobot, CSV, JSON, RoboDK, ROS 2 |
+| Post-processor customisation (Python post files) | ✅ | genuine RoboDK `RobotPost` Python posts run in the browser (Pyodide) or with CPython through `python/post_shim.py`; TypeScript posts also pluggable |
 | Program import from controllers (KRL, RAPID, LS, URScript) | ✅ | others ❌ |
-| Robot machining projects (curve/point follow, NC/G-code/APT) | 🟡 | curve/point follow + G-code; no APT/CAM plugins, tool orientation optimisation, turntable optimisation, feed conversion |
-| External axes / turntables / rails synchronisation | 🟡 | combined IK; no automatic axis optimisation in programs |
+| Robot machining projects (curve/point follow, NC/G-code/APT) | 🟡 | curve/point follow, G-code, tool-Z orientation optimisation, preferred configuration, external-axis (rail) optimisation, `AddMachiningProject/setMachiningParameters`; APT/CAM plugins ❌ |
+| External axes / turntables / rails synchronisation | ✅ | combined IK and rail-assisted curve following |
 | 3D printing / welding / spray add-ins | ✅ | curve follow with IO + spray deposition simulation (`Spray_*` coverage statistics) |
 | Conveyor tracking | 🟡 | process conveyors move products; no tracked picking |
-| Robot drivers (live connection to KUKA/ABB/UR/… controllers) | ❌ | only ROS 2 via rosbridge |
+| Robot drivers (live connection to controllers) | 🟡 | server drivers: UR (URScript + real-time joints), ABB RWS, KUKA KUKAVARPROXY, ROS 2 via rosbridge; `RUNMODE_RUN_ROBOT` from Python; Fanuc/Motoman/Stäubli drivers ❌ |
 | Robot calibration, ballbar, ISO 9283, laser tracker, TCP/frame calibration | ✅ | numeric DH identification, ISO cube/ballbar programs and statistics, TCP by point/line, frame 3P/6P/turntable; measuring devices simulated |
-| 2D/3D camera simulation (`Cam2D_*`) | 🟡 | camera view render + simulated fruit detections; no depth/segmentation output |
+| 2D/3D camera simulation (`Cam2D_*`) | 🟡 | `Cam2D_Add/SetParams/Snapshot/Close`, camera view render, camera parameters dialog, simulated detections; depth/segmentation buffers ❌ |
 | Simulation events (attach/detach objects, show/hide) | ✅ | |
 | Python API (`robolink`, `robomath`) | 🟡 | see tables below |
-| C#, C++, MATLAB/Simulink APIs, plugin interface (C++ add-ins) | ❌ | JS + Python + JSON-RPC only |
-| Multi-station tabs, copy/paste between stations | 🟡 | API: `getOpenStations/setActiveStation/CloseStation`, clipboard Copy/Paste; tab bar UI pending |
-| Measurements, notes, ISO cube, layout dimensions | 🟡 | notes item only |
-| Export simulation (3D HTML/PDF), video recording | ❌ | PNG screenshots only |
+| C#, C++, MATLAB APIs, plugin interface | 🟡 | C# (WebSocket), C++ and MATLAB (TCP JSON-lines) clients in `clients/`; JS plugins via `PluginLoad` (ES modules); Simulink and C++ add-ins ❌ |
+| Multi-station tabs, copy/paste between stations | ✅ | station tab bar, clipboard Copy/Paste (UI + API) |
+| Measurements, notes, ISO cube | ✅ | Tools › Measure (distance/angle), notes, ISO 9283 cube program |
+| Export simulation (3D HTML), video recording, glTF | ✅ | self-contained 3D HTML viewer, WebM recording of the 3D view, glTF export; 3D PDF ❌ |
 
 ## Python API — Robolink (updated)
 
@@ -82,13 +82,9 @@ robots replace their DH tables instead).
 - `Update()` returns `[valid, time_s, distance_mm, ratio, message]`.
 - Poses are exact 4×4; units mm/deg as in RoboDK.
 
-## Roadmap to close the gap (priority order)
+## Remaining gaps
 
-1. Item: `InstructionListJoints`, `AttachClosest/DetachClosest/DetachAll`, `MoveJ_Test/MoveL_Test`, `setAccuracyActive`,
-   `setSpeedJoints/setAcceleration*`, `Scale`, `Copy/Paste`, `setJointsHome`, `JointsConfig`.
-2. Robolink: `AddTargetJ`, `Collision_SetPair*/CollisionPairs`, `setCollisionActive`, `Cam2D_Add/SetParams`, `setViewPose/ViewPose`,
-   `SimulationTime`, `Copy/Paste`, `AddMachiningProject` (mapped to curve follow).
-3. More post processors (Denso, Kawasaki, Nachi, Comau, Epson, Techman, Omron TM, Hanwha, Kinova…).
-4. Mesh-accurate collision by default (BVH), collision map UI.
-5. STEP import (WebAssembly OpenCascade) and `.robot` file support.
-6. Machining project options (tool orientation optimisation, preferred configuration, rail/turntable optimisation).
+- Proprietary binary containers (`.rdk`, `.robot`, `.tool`) stay best-effort; the lossless path is the API bridge.
+- Drivers exist for UR, ABB (RWS) and KUKA (KVP); Fanuc, Yaskawa, Stäubli, Denso live drivers are not implemented.
+- Depth/segmentation camera buffers, 3D PDF export, Simulink blocks and C++ add-ins are not implemented.
+- `EmbedWindow` and file-path based `AddFile` do not apply to a browser application.

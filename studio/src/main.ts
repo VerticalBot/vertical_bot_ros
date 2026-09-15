@@ -9,12 +9,14 @@ import { itemContextMenu } from './ui/dialogs';
 import { demos } from './demos';
 import { Robolink, robomath } from './api/robolink';
 import { connectToStudioServer } from './api/ws-client';
+import { StationTabs, measureDialog } from './ui/tools';
 
 const app = new App();
 const viewport = h('div', { class: 'viewport' });
 const bottom = new BottomPanel(app);
 const menu = new MenuBar(app, () => { bottom.el.classList.toggle('collapsed'); setTimeout(() => app.renderer.resize(), 50); });
 const tree = new TreePanel(app);
+const tabs = new StationTabs(app);
 const props = new PropertiesPanel(app);
 
 const toolbar = h('div', { class: 'toolbar' },
@@ -39,7 +41,7 @@ const layout = h('div', { class: 'layout' },
   menu.el,
   h('div', { class: 'main' },
     tree.el,
-    h('div', { class: 'center' }, toolbar, viewport, bottom.el),
+    h('div', { class: 'center' }, tabs.el, toolbar, viewport, bottom.el),
     props.el),
   status);
 document.body.appendChild(layout);
@@ -70,6 +72,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'f5') { e.preventDefault(); app.runProgram(); }
   else if (k === ' ') { e.preventDefault(); if (app.sim.playing) app.pauseProgram(); else app.runProgram(); }
   else if (k === 'escape') app.select(null);
+  else if (k === 'm') measureDialog(app);
 });
 
 // Status bar

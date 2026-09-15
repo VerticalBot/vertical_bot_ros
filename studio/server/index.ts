@@ -18,6 +18,8 @@ import { Robolink } from '../src/api/robolink.ts';
 import { executeRpcAsync, RpcRequest } from '../src/api/rpc.ts';
 import { loadStation, saveStation } from '../src/io/station-file.ts';
 import '../src/posts/index.ts';
+import { createDriver, drivers, RobotDriver } from './drivers/index.ts';
+import { parseTcpJsonLines } from './tcp.ts';
 
 const PORT = Number(process.env.STUDIO_PORT ?? 20500);
 const STATION_FILE = process.env.STUDIO_STATION ?? '';
@@ -31,6 +33,26 @@ let RDK = new Robolink(station);
 RDK.onMessage = (m) => console.log(`[studio-server] message: ${m}`);
 
 let host: WebSocket | null = null;
+/** Live robot drivers keyed by robot name (RUNMODE_RUN_ROBOT). */
+const liveDrivers = new Map<string, RobotDriver>();
+async function driverCommand(msg: any): Promise<any> {
+  const { action, robot, driver, ip, port, joints, pose, speed, io, value, script } = msg.params?.[0] ?? {};
+  if (action === 'list') return { drivers: [...drivers.keys()], connected: [...liveDrivers.entries()].map(([k, d]) => ({ robot: k, ...d.state() })) };
+  if (action === 'connect') { const d = createDriver(driver); await d.connect(ip, port); liveDrivers.set(robot, d); return d.state(); }
+  const d = liveDrivers.get(robot);
+  if (!d) throw new Error(`Robot ${robot} is not connected to a driver`);
+  switch (action) {
+    case 'disconnect': await d.disconnect(); liveDrivers.delete(robot); return { ok: true };
+    case 'state': return d.state();
+    case 'moveJ': await d.moveJ(joints, speed, true); return d.state();
+    case 'moveL': await d.moveL(pose, speed, true); return d.state();
+    case 'setDO': await d.setDO(io, value); return { ok: true };
+    case 'getDI': return { value: await d.getDI(io) };
+    case 'runScript': await d.runScript(script); return { ok: true };
+    case 'stop': await d.stop(); return { ok: true };
+    default: throw new Error(`Unknown driver action ${action}`);
+  }
+}
 const pending = new Map<string, { ws: WebSocket; id: number | string }>();
 let seq = 0;
 
@@ -63,6 +85,10 @@ wss.on('connection', (ws) => {
       return;
     }
     const req = msg as RpcRequest;
+    if (req.method === '__driver__') {
+      driverCommand(req).then((result) => ws.send(JSON.stringify({ id: req.id, result }))).catch((e) => ws.send(JSON.stringify({ id: req.id, error: String(e?.message ?? e) })));
+      return;
+    }
     if (host && host.readyState === WebSocket.OPEN) {
       const key = `r${++seq}`;
       pending.set(key, { ws, id: req.id });
@@ -78,6 +104,12 @@ wss.on('connection', (ws) => {
     }
   });
   ws.on('close', () => { if (ws === host) { host = null; console.log('[studio-server] browser host disconnected'); } });
+});
+
+// Plain TCP JSON-lines endpoint (port+1) for MATLAB / C++ / PLC clients without WebSocket support
+parseTcpJsonLines(PORT + 1, async (req) => {
+  if (req.method === '__driver__') { try { return { id: req.id, result: await driverCommand(req) }; } catch (e: any) { return { id: req.id, error: String(e?.message ?? e) }; } }
+  return executeRpcAsync(RDK, req);
 });
 
 httpServer.listen(PORT, () => console.log(`[studio-server] listening on ws://localhost:${PORT} (RoboDK-compatible API) — open the studio with ?server=ws://localhost:${PORT} to relay to the browser`));
