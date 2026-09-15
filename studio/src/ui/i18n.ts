@@ -64,6 +64,7 @@ const RU: Record<string, string> = {
   'Tool': 'Инструмент', 'Tool kind': 'Вид инструмента', 'Instructions': 'Инструкции', 'Cycle time': 'Время цикла', 'Distance': 'Дистанция', 'Move type': 'Тип движения', 'Enabled': 'Включено', 'Message': 'Сообщение',
   'State': 'Состояние', 'Kinematics': 'Кинематика', 'Drive': 'Привод', 'Battery & capabilities': 'Батарея и возможности', 'Capacity (Wh)': 'Ёмкость (Вт·ч)', 'Capabilities (comma separated)': 'Возможности (через запятую)', 'ROS 2 namespace': 'ROS 2 namespace',
   'Crop row': 'Ряд культуры', 'Plants': 'Растения', 'Ripe fruit': 'Спелые плоды', 'Robots per row segment': 'Роботов на сегмент ряда', 'Component': 'Компонент', 'Output to': 'Выход на', 'Object': 'Объект', 'Colour': 'Цвет', 'Zone': 'Зона', 'Map': 'Карта',
+  'Camera': 'Камера', 'Camera (on selected item)': 'Камера (на выбранном элементе)', 'Render view': 'Отрисовать вид', 'Save PNG': 'Сохранить PNG', 'Show robot reach': 'Показывать зону досягаемости',
   'Plan': 'Спланировать', 'Run world': 'Запустить мир', 'Start': 'Старт', 'Reset': 'Сброс', 'Speed': 'Скорость', 'End': 'Конец',
 };
 

@@ -16,6 +16,7 @@ import { importTargets } from './io/robodk/targets';
 import { importRdkBestEffort } from './io/robodk/rdk_container';
 import { parseOBJ } from './io/mesh/obj';
 import { parseDHText, robotFromDH } from './io/robodk/dh';
+import { isRdkExport, postProcessRdkExport } from './io/robodk/rdk_import';
 import { stationToRoboDKScript } from './io/robodk/station_script';
 import { compileForPost, getPost, listPosts, PostFile } from './posts/index';
 import { MobileRobot, MapItem, ZoneItem } from './mobile/items';
@@ -375,7 +376,13 @@ export class App {
       try {
         if (ext === 'vbstation' || (ext === 'json' && /station/i.test(name))) {
           const data = JSON.parse(await f.text());
-          this.setStation(loadStation(data, this.assets));
+          const st = loadStation(data, this.assets);
+          if (isRdkExport(st)) {
+            const rep = postProcessRdkExport(st);
+            for (const r of rep.robots) this.log(`RoboDK robot ${r.name}: ${r.source === 'dh' ? 'kinematics from DH table' : r.source === 'library' ? `matched library ${r.matched}` : 'no kinematics found (placeholder)'}`, r.source === 'none' ? 'warn' : 'info');
+            for (const p of rep.programs) this.log(`RoboDK program ${p.name}: ${p.instructions} instructions`);
+          }
+          this.setStation(st);
           this.station.filePath = name;
           this.log(`Opened station ${name}`);
         } else if (ext === 'json') {

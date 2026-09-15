@@ -157,3 +157,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .help ol { padding-left: 20px; }
 progress { accent-color: var(--accent-2); }
 @media (max-width: 1000px) { .tree-panel { width: 200px; } .props-panel { width: 260px; } }
+
+.cam-canvas { background: #000; border: 1px solid var(--border); max-width: 100%; }
+.cam-panel { display: flex; flex-direction: column; gap: 6px; }

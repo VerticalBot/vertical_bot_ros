@@ -287,7 +287,7 @@ export class Robot extends Item {
   }
 
   override deserializeExtra(d: SerializedItem, _ctx: DeserializeContext) {
-    this.chain = deserializeChain(d.chain as any);
+    if (d.chain) this.chain = deserializeChain(d.chain as any);
     this.reach = estimateReach(this.chain);
     this._joints = (d.joints as number[]) ?? homeJoints(this.chain);
     this.state.joints = [...this._joints];

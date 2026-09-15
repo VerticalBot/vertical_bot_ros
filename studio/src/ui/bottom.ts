@@ -5,6 +5,8 @@ import { ItemType } from '../core/items/item';
 import { FleetItem } from '../fleet/fleet';
 import { MobileRobot } from '../mobile/items';
 import { MissionItem } from '../agri/items';
+import { Camera as CameraItem, Item } from '../core/items/item';
+import { detectFruit } from '../agri/vision';
 import { Robolink, robomath, RobolinkItem, Mat } from '../api/robolink';
 import * as RobolinkConsts from '../api/robolink';
 import { t } from './i18n';
@@ -34,6 +36,7 @@ export class BottomPanel {
       ['sim', 'Simulation', this.buildSim()],
       ['fleet', 'Fleet', (this.fleetBody = h('div', { class: 'pad' }))],
       ['process', 'Process', (this.processBody = h('div', { class: 'pad' }))],
+      ['camera', 'Camera', this.buildCamera()],
       ['console', 'Console (RoboDK API)', this.buildConsole()],
       ['log', 'Log', (this.logOut = h('div', { class: 'log-out' }))],
     ];
@@ -119,6 +122,33 @@ export class BottomPanel {
       h('tbody', null, ...stats.map((s) => h('tr', { onClick: () => { const it = this.app.station.findById(s.id); if (it) this.app.select(it); } }, h('td', null, s.name), h('td', null, s.type), h('td', null, String(s.entered)), h('td', null, String(s.exited)), h('td', null, String(s.wip)), h('td', null, this.bar(s.utilization)), h('td', null, `${fmt(s.blocked * 100, 0)} %`), h('td', null, String(s.failures)))))));
     const signals = [...this.app.processSim.signals.entries()];
     if (signals.length) body.appendChild(h('div', { class: 'hint' }, 'Signals: ', signals.map(([k, v]) => `${k}=${v}`).join(', ')));
+  }
+
+  private camCanvas!: HTMLCanvasElement;
+  private camInfo!: HTMLElement;
+  private buildCamera(): HTMLElement {
+    this.camCanvas = h('canvas', { width: 640, height: 400, class: 'cam-canvas' }) as HTMLCanvasElement;
+    this.camInfo = h('div', { class: 'hint' }, 'Select a camera item (or any item: the view looks along its +Z axis). Add > Camera on a tool to simulate an eye-in-hand camera.');
+    const render = () => {
+      const sel = this.app.station.selection[0] as Item | undefined;
+      const cam = sel instanceof CameraItem ? sel : sel ?? this.app.station.itemsOfType<CameraItem>(ItemType.CAMERA)[0];
+      if (!cam) { this.camInfo.textContent = 'No camera / item selected.'; return; }
+      const fov = cam instanceof CameraItem ? cam.fov : 60;
+      this.app.renderer.renderFromItem(cam, this.camCanvas, fov);
+      let txt = `View from ${cam.name}`;
+      if (cam instanceof CameraItem) {
+        const det = detectFruit(this.app.station, cam, { onlyRipe: false, maxRange: 6000 });
+        const ctx = this.camCanvas.getContext('2d')!;
+        const sx = this.camCanvas.width / cam.width, sy = this.camCanvas.height / cam.height;
+        ctx.lineWidth = 2;
+        for (const d of det) { ctx.strokeStyle = d.ripe >= 0.5 ? '#ff4d4d' : '#ffd43b'; ctx.strokeRect((d.u - d.w / 2) * sx, (d.v - d.h / 2) * sy, Math.max(4, d.w * sx), Math.max(4, d.h * sy)); }
+        txt += ` — ${det.length} fruit detections (${det.filter((d) => d.ripe >= 0.5).length} ripe)`;
+      }
+      this.camInfo.textContent = txt;
+    };
+    const live = h('input', { type: 'checkbox' }) as HTMLInputElement;
+    setInterval(() => { if (this.active === 'camera' && live.checked) render(); }, 500);
+    return h('div', { class: 'pad cam-panel' }, h('div', { class: 'btn-row' }, h('button', { class: 'btn primary', onClick: render }, 'Render view'), h('label', null, live, ' live'), h('button', { class: 'btn', onClick: () => { const a = document.createElement('a'); a.href = this.camCanvas.toDataURL('image/png'); a.download = 'camera.png'; a.click(); } }, 'Save PNG')), this.camCanvas, this.camInfo);
   }
 
   private buildConsole(): HTMLElement {

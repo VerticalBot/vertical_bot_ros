@@ -711,6 +711,35 @@ export class SceneRenderer {
     }
   }
 
+  /** Render the scene from an item's frame (camera looks along +Z, X right, Y down) into a canvas element. */
+  renderFromItem(item: Item, target: HTMLCanvasElement, fov = 60, near = 10, far = 50000): void {
+    const cam = new THREE.PerspectiveCamera(fov, target.width / target.height, near, far);
+    const m = mat4ToThree(item.poseAbs());
+    // three cameras look along -Z: rotate 180° about X so the item's +Z becomes the viewing direction with Y down
+    const flip = new THREE.Matrix4().makeRotationX(Math.PI);
+    cam.matrixAutoUpdate = false;
+    cam.matrix.copy(m.multiply(flip));
+    cam.matrixWorld.copy(cam.matrix);
+    cam.matrixWorldInverse.copy(cam.matrixWorld).invert();
+    cam.updateProjectionMatrix();
+    const rt = new THREE.WebGLRenderTarget(target.width, target.height);
+    const helperVisible = this.transform.getHelper().visible;
+    this.transform.getHelper().visible = false;
+    this.renderer.setRenderTarget(rt);
+    this.renderer.render(this.scene, cam);
+    const buf = new Uint8Array(target.width * target.height * 4);
+    this.renderer.readRenderTargetPixels(rt, 0, 0, target.width, target.height, buf);
+    this.renderer.setRenderTarget(null);
+    this.transform.getHelper().visible = helperVisible;
+    rt.dispose();
+    const ctx = target.getContext('2d');
+    if (!ctx) return;
+    const img = ctx.createImageData(target.width, target.height);
+    // flip vertically
+    for (let y = 0; y < target.height; y++) img.data.set(buf.subarray((target.height - 1 - y) * target.width * 4, (target.height - y) * target.width * 4), y * target.width * 4);
+    ctx.putImageData(img, 0, 0);
+  }
+
   screenshot(): string {
     this.renderer.render(this.scene, this.camera);
     return this.renderer.domElement.toDataURL('image/png');

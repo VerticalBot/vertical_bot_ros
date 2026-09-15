@@ -30,6 +30,7 @@ export function itemContextMenu(app: App, item: Item): MenuEntry[] {
     { label: 'Cylinder', action: () => app.addObjectPrimitive('cylinder', [150, 150, 600]) },
     { label: 'Sphere', action: () => app.addObjectPrimitive('sphere', [200]) },
     { label: 'Folder', action: () => app.cmd(() => item.addChild(new Folder('Folder'))) },
+    { label: 'Camera (on selected item)', action: () => app.cmd(() => { const { Camera } = require_items(); const c = new Camera('Camera'); item.addChild(c); app.select(c); }) },
     { separator: true },
     { label: 'Field / orchard…', action: () => orchardDialog(app) },
     { label: 'Fleet…', action: () => fleetDialog(app) },
@@ -398,4 +399,6 @@ export async function robotParametersDialog(app: App, robot: Robot): Promise<voi
   app.cmd(() => { robot.setName(r.name); robot.postProcessor = r.post; robot.motion = { ...robot.motion, speedLinear: r.speedL, speedJoints: r.speedJ, accelLinear: r.accL, accelJoints: r.accJ }; robot.connection = { ...robot.connection, ip: r.ip, rosNamespace: r.ip }; });
 }
 
+import * as itemsModule from '../core/items/item';
+function require_items() { return itemsModule; }
 export { poseToXyzrpw, mul, rotz, DEG, Station, Instruction, Target, Frame };
