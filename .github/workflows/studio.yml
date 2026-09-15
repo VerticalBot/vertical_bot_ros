@@ -1,0 +1,35 @@
+name: studio
+
+on:
+  push:
+    paths: ['studio/**', '.github/workflows/studio.yml']
+  pull_request:
+    paths: ['studio/**', '.github/workflows/studio.yml']
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: studio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:server
+      - name: Python client smoke test against the headless server
+        run: |
+          (STUDIO_PORT=20500 node dist-server/index.js > server.log 2>&1 &) 
+          sleep 2
+          STUDIO_URL=ws://127.0.0.1:20500 python3 python/examples/hello_studio.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: studio-dist
+          path: studio/dist
