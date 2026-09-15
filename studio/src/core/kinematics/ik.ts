@@ -96,6 +96,7 @@ export function inverseKinematics(chain: ChainDef, target: Mat4, opts: IKOptions
     while (q.length < n) q.push(0);
     let it = 0;
     let posErr = Infinity, rotErr = Infinity;
+    let bestErr = Infinity, stall = 0;
     for (; it < maxIt; it++) {
       const fk = forwardKinematics(chain, q);
       const dp = sub(getPos(target), getPos(fk.flange));
@@ -109,6 +110,9 @@ export function inverseKinematics(chain: ChainDef, target: Mat4, opts: IKOptions
       posErr = Math.hypot(dp[0], dp[1], dp[2]);
       rotErr = Math.hypot(dr[0], dr[1], dr[2]);
       if (posErr < posTol && rotErr < rotTol) return { ok: true, joints: q, iterations: it, posError: posErr, rotError: rotErr };
+      // stagnation detection: give up early when the error stops improving (unreachable target)
+      const errNow = posErr + rotErr * 500;
+      if (errNow < bestErr - 1e-4) { bestErr = errNow; stall = 0; } else if (++stall > 12) break;
 
       // Scale: position error in mm, rotation in rad. Weight rotation so 1 rad ~ 500 mm.
       const wRot = 500;

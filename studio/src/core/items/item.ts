@@ -245,7 +245,7 @@ export class Item {
   }
 
   /** Subclasses restore their own fields here. */
-  deserializeExtra(_data: SerializedItem, _ctx: DeserializeContext): void {}
+  deserializeExtra(_data: SerializedItem, _ctx?: DeserializeContext): void {}
 
   applyBase(data: SerializedItem): void {
     this.name = data.name;
@@ -316,7 +316,7 @@ export class SceneObject extends Item {
   protected override serializeExtra() {
     return { geometry: this.geometry, curves: this.curves, points: this.points, mass: this.mass, bbox: this.bbox };
   }
-  override deserializeExtra(d: SerializedItem) {
+  override deserializeExtra(d: SerializedItem, _ctx: DeserializeContext) {
     this.geometry = (d.geometry as GeometryRef[]) ?? [];
     this.curves = (d.curves as any) ?? [];
     this.points = (d.points as any) ?? [];
@@ -498,7 +498,7 @@ export class Station extends Item {
   protected override serializeExtra() {
     return { settings: this.settings, simTime: this.simTime, format: 'vbs-station', version: 1 };
   }
-  override deserializeExtra(d: SerializedItem) {
+  override deserializeExtra(d: SerializedItem, _ctx?: DeserializeContext) {
     this.settings = (d.settings as any) ?? this.settings;
   }
 
