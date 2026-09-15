@@ -108,16 +108,44 @@ export class BottomPanel {
     }
   }
 
+  /** Small canvas chart: cumulative output (green) and WIP (blue) over process time. */
+  private chart(): HTMLElement {
+    const c = h('canvas', { width: 600, height: 90, class: 'mini-chart' }) as HTMLCanvasElement;
+    const ctx = c.getContext('2d')!;
+    const hist = this.procHistory;
+    if (hist.length < 2) return c;
+    const t0 = hist[0].t, t1 = hist[hist.length - 1].t || 1;
+    const maxOut = Math.max(1, ...hist.map((p) => p.out)), maxWip = Math.max(1, ...hist.map((p) => p.wip));
+    ctx.fillStyle = '#1b1f26'; ctx.fillRect(0, 0, c.width, c.height);
+    const line = (key: 'out' | 'wip', max: number, color: string) => {
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
+      hist.forEach((p, i) => { const x = ((p.t - t0) / (t1 - t0 || 1)) * (c.width - 10) + 5; const y = c.height - 5 - (p[key] / max) * (c.height - 10); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+      ctx.stroke();
+    };
+    line('out', maxOut, '#51cf66');
+    line('wip', maxWip, '#4dabf7');
+    ctx.fillStyle = '#9aa4b2'; ctx.font = '11px sans-serif';
+    ctx.fillText(`output (max ${maxOut})`, 8, 12); ctx.fillStyle = '#4dabf7'; ctx.fillText(`WIP (max ${maxWip})`, 120, 12);
+    return c;
+  }
+
   private bar(v: number): HTMLElement {
     return h('div', { class: 'bar' }, h('div', { class: `bar-fill ${v < 0.25 ? 'low' : ''}`, style: { width: `${Math.round(v * 100)}%` } }), h('span', null, `${Math.round(v * 100)}%`));
   }
 
+  private procHistory: Array<{ t: number; out: number; wip: number }> = [];
   private renderProcess(): void {
     const body = this.processBody;
     clear(body);
     const stats = this.app.processSim.statistics();
     if (!stats.length) { body.appendChild(h('div', { class: 'hint' }, 'No process components. Use Add > Process component… (feeder → conveyor → machine → sink).')); return; }
-    body.appendChild(h('div', null, `Process clock ${fmt(this.app.processSim.time, 1)} s · products in system ${this.app.processSim.products.size}`));
+    const totalOut = stats.filter((s) => s.type === 'sink').reduce((a, s) => a + s.exited, 0);
+    const tNow = this.app.processSim.time;
+    if (!this.procHistory.length || tNow < this.procHistory[this.procHistory.length - 1].t) this.procHistory = [];
+    if (!this.procHistory.length || tNow - this.procHistory[this.procHistory.length - 1].t >= 5) this.procHistory.push({ t: tNow, out: totalOut, wip: this.app.processSim.products.size });
+    if (this.procHistory.length > 400) this.procHistory.shift();
+    body.appendChild(h('div', null, `Process clock ${fmt(tNow, 1)} s · products in system ${this.app.processSim.products.size} · output ${totalOut} (${tNow > 0 ? fmt((totalOut * 3600) / tNow, 0) : '0'} /h)`));
+    body.appendChild(this.chart());
     body.appendChild(h('table', { class: 'grid' }, h('thead', null, h('tr', null, ...['Component', 'Type', 'In', 'Out', 'WIP', 'Utilisation', 'Blocked', 'Failures'].map((c) => h('th', null, c)))),
       h('tbody', null, ...stats.map((s) => h('tr', { onClick: () => { const it = this.app.station.findById(s.id); if (it) this.app.select(it); } }, h('td', null, s.name), h('td', null, s.type), h('td', null, String(s.entered)), h('td', null, String(s.exited)), h('td', null, String(s.wip)), h('td', null, this.bar(s.utilization)), h('td', null, `${fmt(s.blocked * 100, 0)} %`), h('td', null, String(s.failures)))))));
     const signals = [...this.app.processSim.signals.entries()];

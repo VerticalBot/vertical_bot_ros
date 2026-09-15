@@ -160,3 +160,4 @@ progress { accent-color: var(--accent-2); }
 
 .cam-canvas { background: #000; border: 1px solid var(--border); max-width: 100%; }
 .cam-panel { display: flex; flex-direction: column; gap: 6px; }
+.mini-chart { display: block; margin: 6px 0; border: 1px solid var(--border); max-width: 100%; }
