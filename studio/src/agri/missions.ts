@@ -71,15 +71,42 @@ export function planMission(station: Station, mission: MissionItem, fleet: Fleet
       workSpeed: mission.missionType === 'harvest' && ripe > 0 ? Math.max(50, len / Math.max(1, duration)) : workSpeed,
       priority: s.priority ?? 1,
       requiredCapabilities: [CAP_OF[mission.missionType]],
-      segments: [l.row.segmentId || l.row.id],
-      meta: { missionId: mission.id, rowId: l.row.id, side: l.side, fruit: ripe },
+      // traffic segment = the alley the robot drives in (shared by the two rows bordering it)
+      segments: [centred ? (l.row.segmentId || l.row.id) : `${field.id}:alley${l.row.index + (l.side > 0 ? 0 : -1)}`],
+      meta: { missionId: mission.id, rowId: l.row.id, side: l.side, fruit: ripe, fruitKg: fruitMassKg(field.crop.fruitDiameter), swathM: (centred ? field.crop.rowSpacing : sideOffset) / 1000 },
     });
     tasks.push(t);
   });
+  installHarvestHook(station, fleet);
   mission.taskIds = tasks.map((t) => t.id);
   mission.status = 'planned';
   const est = robots.length ? (total / workSpeed + fruitTargets * (s.secondsPerFruit ?? 6)) / robots.length / 3600 : 0;
   return { tasks, totalPathLength: total, estimatedHours: est, rows: rows.length, fruitTargets };
+}
+
+/** Approximate fruit mass from diameter (sphere, density ~0.9 g/cm³). */
+export function fruitMassKg(diameterMm: number): number {
+  const r = diameterMm / 20; // cm
+  return (4 / 3) * Math.PI * r * r * r * 0.9 / 1000;
+}
+
+/** Install the fleet hook that depletes fruit on rows when harvest tasks finish. */
+export function installHarvestHook(station: Station, fleet: FleetManager): void {
+  fleet.onHarvestDone = (task) => {
+    const row = task.meta?.rowId ? (station.findById(task.meta.rowId) as CropRow | null) : null;
+    if (!row) return { fruit: task.meta?.fruit ?? 0, kg: (task.meta?.fruit ?? 0) * (task.meta?.fruitKg ?? 0.18) };
+    let n = 0;
+    const side = task.meta?.side ?? 0;
+    for (const p of row.plants) for (const f of p.fruit) {
+      if (f.picked || f.ripe < 0.5) continue;
+      if (side && (f.p[1] >= 0 ? 1 : -1) !== side) continue;
+      f.picked = true;
+      n++;
+    }
+    row.notify('plants');
+    (row.parent as FieldItem | null)?.notify('rows');
+    return { fruit: n, kg: n * (task.meta?.fruitKg ?? 0.18) };
+  };
 }
 
 /** Update mission progress from the fleet task states. */

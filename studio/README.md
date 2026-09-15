@@ -23,10 +23,19 @@ or the rosbridge connection.
   gripper/attach/detach events, raw code, comments/messages, sub-program calls, mobile navigation and signals.
 - Simulator: trapezoidal joint/cartesian trajectory generation, cycle time, TCP distance, reachability and
   singularity/joint-jump detection, object attachment, timeline scrubbing, speed factor.
+- Collision detection: capsule/OBB/sphere colliders (procedural links, primitives, mesh bounding boxes) with
+  optional triangle-accurate mesh checks; static checks and sampled checks along program trajectories with
+  per-instruction reporting and red highlighting.
+- External axes: a robot dropped onto a rail/gantry/positioner hangs on its flange; combined-chain IK solves
+  carrier + arm together (`Robot › Move with external axes`).
+- Curve / point following (machining, welding, glue, pruning, drilling): programs generated from object curves
+  or points with normals, approach/retract, tool-Z freedom and IO switching.
 - Post processors: KUKA KRC4 (KRL .src/.dat), ABB RAPID (.mod), Fanuc (.ls), Universal Robots (URScript),
   Yaskawa Motoman (INFORM .JBI), Stäubli VAL3 (.pgx), Doosan (DRL), Mecademic (Python), generic CSV, JSON,
   ROS 2 (rclpy node + JointTrajectory JSON), **RoboDK API Python script** (rebuilds the program inside RoboDK).
 - Program importers: KRL, RAPID, Fanuc LS, URScript, CSV → targets + instructions.
+- Robot definition import/export from DH tables (`.dh` text / JSON, RoboDK "Robot Parameters" style), meshes
+  from STL and OBJ.
 - Pose conventions: RoboDK XYZ-Rx-Ry-Rz, KUKA ABC, Fanuc/Motoman WPR, ABB quaternion, UR rotation vector, ZYZ.
 
 **RoboDK project interoperability** (see `docs/robodk-compatibility.md`)
@@ -49,8 +58,9 @@ or the rosbridge connection.
   ROS namespace; arms and sensors mount on platforms (full pose chain).
 - Occupancy grid maps (inflation, rasterised from fields/objects), A* with smoothing, pure-pursuit tracking,
   coverage (boustrophedon) and orchard row traversal planners, travel time estimation.
-- Fleet manager: task queue, cost-based auction / nearest / round-robin allocation, per-row traffic reservations,
-  charging policy, KPIs (throughput, utilisation, distance, energy, wait), live dashboard.
+- Fleet manager: task queue, cost-based auction / nearest / round-robin allocation, alley/row traffic reservations,
+  inter-robot proximity braking with deadlock recovery, charging policy, KPIs (throughput, utilisation, distance,
+  energy, wait, harvested fruit/kg, worked area), live dashboard.
 
 **Agriculture**
 - Field/orchard generator: 15 crop presets (apple, pear, cherry, citrus, grape, strawberry, tomato, cucumber,

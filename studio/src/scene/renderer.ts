@@ -64,6 +64,13 @@ export class SceneRenderer {
   private timer = new THREE.Timer();
   private animHandlers = new Set<(dt: number) => void>();
   private labelLayer: HTMLDivElement | null = null;
+  private collisionIds = new Set<string>();
+
+  /** Highlight items involved in collisions (red boxes). */
+  setCollisionHighlight(ids: string[]): void {
+    this.collisionIds = new Set(ids);
+    this.dirty = true;
+  }
 
   constructor(readonly canvasHost: HTMLElement, station: Station, readonly assets: AssetStore, opts: RendererOptions = {}) {
     this.station = station;
@@ -669,10 +676,10 @@ export class SceneRenderer {
         if (o.userData.isFrame) o.visible = this.showFrames;
         if (o.userData.isTarget) o.visible = this.showTargets;
       });
-      // selection highlight
-      const sel = selectedIds.has(item.id);
+      // selection / collision highlight
+      const sel = selectedIds.has(item.id) || this.collisionIds.has(item.id);
       if (sel && !e.selectionBox) {
-        const box = new THREE.BoxHelper(e.root, 0xffd43b);
+        const box = new THREE.BoxHelper(e.root, this.collisionIds.has(item.id) ? 0xff4d4d : 0xffd43b);
         box.matrixAutoUpdate = true;
         e.selectionBox = box;
         this.scene.add(box);
@@ -680,7 +687,7 @@ export class SceneRenderer {
         this.scene.remove(e.selectionBox);
         e.selectionBox = undefined;
       }
-      if (e.selectionBox) { e.selectionBox.setFromObject(e.root); }
+      if (e.selectionBox) { e.selectionBox.setFromObject(e.root); (e.selectionBox.material as THREE.LineBasicMaterial).color.setHex(this.collisionIds.has(item.id) ? 0xff4d4d : 0xffd43b); }
     }
     if (this.gizmoTarget && !this.transform.dragging) {
       const m = mat4ToThree(this.gizmoTarget.poseAbs());

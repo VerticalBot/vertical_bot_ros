@@ -9,7 +9,7 @@ import { generateOrchard, buildFieldMap, rectPolygon, makeHeadlandZones } from '
 import { planMission, generateHarvestProgram } from '../agri/missions';
 import { Component, makeConveyor, makeFeeder, makeProcess, makeSink, makeBuffer } from '../vc/component';
 import { dialog, MenuEntry, toast, downloadText, h, pickFiles } from './dom';
-import { transl, mul, rotz, DEG, poseToXyzrpw } from '../core/math/pose';
+import { transl, mul, rotz, DEG, poseToXyzrpw, xyzrpwToPose, multiply, invert, getPos } from '../core/math/pose';
 import { ROBOT_LIBRARY } from '../core/items/library';
 
 /** Context menu entries for an item (tree & viewport). */
@@ -52,6 +52,8 @@ export function itemContextMenu(app: App, item: Item): MenuEntry[] {
     add({ label: 'Set as active robot', action: () => app.setActiveRobot(item) });
     add({ label: 'Home', action: () => app.cmd(() => item.setJoints(item.jointsHome())) });
     add({ label: 'Generate picking program for nearby fruit…', action: () => harvestArmDialog(app, item) });
+    add({ label: 'Follow curve / points of an object…', action: () => curveFollowDialog(app, item) });
+    add({ label: 'Move with external axes (rail/gantry)…', action: () => railIKDialog(app, item) });
   }
   if (item instanceof Frame) add({ label: 'Set as active reference', action: () => { const r = app.activeRobot; if (r) app.cmd(() => r.setFrame(item)); } });
   if (item instanceof Tool && item.parent instanceof Robot) add({ label: 'Set as active tool', action: () => app.cmd(() => (item.parent as Robot).setTool(item)) });
@@ -315,6 +317,51 @@ function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, b
   const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
+
+export async function curveFollowDialog(app: App, robot: Robot): Promise<void> {
+  const objs = app.station.itemsOfType<SceneObject>(ItemType.OBJECT).filter((o) => o.curves.length || o.points.length);
+  if (!objs.length) return toast('No object with curves/points. Import an object with curves or use the API (RDK.AddCurve / AddPoints).', 'warn');
+  const r = await dialog<any>(`Follow curve / points with ${robot.name}`, [
+    { key: 'obj', label: 'Object', type: 'select', value: objs[0].id, options: objs.map((o) => ({ value: o.id, label: `${o.name} (${o.curves.length} curves, ${o.points.length} points)` })) },
+    { key: 'what', label: 'Follow', type: 'select', value: 'curve', options: [{ value: 'curve', label: 'Curves (continuous path)' }, { value: 'points', label: 'Points (approach each)' }] },
+    { key: 'step', label: 'Point spacing along curve (mm, 0 = vertices)', type: 'number', value: 10 },
+    { key: 'approach', label: 'Approach / retract (mm)', type: 'number', value: 50 },
+    { key: 'z', label: 'Tool Z', type: 'select', value: 'normal', options: [{ value: 'normal', label: 'Along surface normal (if available)' }, { value: 'down', label: 'Vertical (-Z)' }] },
+    { key: 'free', label: 'Free rotation about tool Z (symmetric tool)', type: 'checkbox', value: true },
+    { key: 'speed', label: 'Speed (mm/s)', type: 'number', value: 50 },
+    { key: 'io', label: 'Digital output while following (empty = none)', type: 'text', value: 'DO_1' },
+  ], { width: 520 });
+  if (!r) return;
+  const { generateCurveFollow, generatePointFollow } = await import('../core/motion/pathfollow');
+  const obj = app.station.findById(r.obj) as SceneObject;
+  const res = app.cmd(() => {
+    if (r.what === 'points' && obj.points.length) return generatePointFollow(app.station, robot, obj, obj.points.map((p) => ({ point: p.point })), { approach: r.approach, freeToolZ: r.free, speed: r.speed, io: r.io || undefined });
+    const merged = { points: obj.curves.flatMap((c) => c.points), normals: undefined as number[][] | undefined };
+    return generateCurveFollow(app.station, robot, obj, merged, { step: r.step, approach: r.approach, zMode: r.z, freeToolZ: r.free, speed: r.speed, io: r.io || undefined });
+  });
+  app.setActiveProgram(res.program);
+  app.select(res.program);
+  toast(`${res.points} points programmed, ${res.unreachable} unreachable`, res.unreachable ? 'warn' : 'ok');
+}
+
+export async function railIKDialog(app: App, robot: Robot): Promise<void> {
+  const { carrierOf, solveIKWithCarrier, applyCombined } = await import('../core/kinematics/combined');
+  const carrier = carrierOf(robot);
+  if (!carrier) return toast('This robot is not mounted on another mechanism (drag it onto a rail/gantry robot in the tree)', 'warn');
+  const sel = app.station.selection.find((i) => i instanceof Target) as Target | undefined;
+  const r = await dialog<any>(`Move ${robot.name} + ${carrier.name} (external axes)`, [
+    { key: 'x', label: 'Target X (mm, carrier base frame)', type: 'number', value: sel ? getPos(multiply(invert(carrier.poseAbs()), sel.poseAbs()))[0].toFixed(1) : 1000 },
+    { key: 'y', label: 'Target Y', type: 'number', value: sel ? getPos(multiply(invert(carrier.poseAbs()), sel.poseAbs()))[1].toFixed(1) : 0 },
+    { key: 'z', label: 'Target Z', type: 'number', value: sel ? getPos(multiply(invert(carrier.poseAbs()), sel.poseAbs()))[2].toFixed(1) : 500 },
+  ], { body: h('p', { class: 'hint' }, 'Solves IK over the carrier axes and the arm together (tool Z down unless a target is selected).') });
+  if (!r) return;
+  const target = sel ? multiply(invert(carrier.poseAbs()), sel.poseAbs()) : mul(transl(r.x, r.y, r.z), rotx180());
+  const sol = solveIKWithCarrier(carrier, robot, target);
+  if (!sol.ok) return toast(`Not reachable (residual ${sol.result.posError.toFixed(1)} mm)`, 'error');
+  app.cmd(() => applyCombined(carrier, robot, sol));
+  toast(`Carrier: [${sol.carrierJoints.map((v) => v.toFixed(0)).join(', ')}]`, 'ok');
+}
+function rotx180() { return xyzrpwToPose(0, 0, 0, 180, 0, 0); }
 
 export async function exportDialog(app: App, program: Program | null = app.activeProgram): Promise<void> {
   if (!program) return toast('Select a program', 'warn');

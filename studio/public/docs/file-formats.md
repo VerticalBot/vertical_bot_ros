@@ -5,6 +5,8 @@
 | `.vbstation` / `.json` | open/save | Native station: serialized item tree + base64 mesh assets (`src/io/station-file.ts`) |
 | `.urdf`, `.xacro` | import | Robots via built-in URDF/xacro processor (properties, macros, includes, if/unless, math). Meshes referenced by `package://` are resolved by file name from dropped STL files |
 | `.stl` | import | Binary/ASCII meshes (mm). Also used as robot link meshes |
+| `.obj` | import | Wavefront meshes (triangulated on load) |
+| `.dh` / `.json` with `dh` | import/export | Robot from a standard DH table: `theta, d, a, alpha, lower, upper[, prismatic, home]` per joint (mm/deg) |
 | `.rdk` | import (best effort) | RoboDK station container: names, poses, embedded meshes recovered heuristically |
 | `.src` / `.dat` | import/export | KUKA KRL |
 | `.mod` / `.prg` | import/export | ABB RAPID |

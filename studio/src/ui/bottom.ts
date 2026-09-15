@@ -92,7 +92,7 @@ export class BottomPanel {
       const fm = this.app.fleetManager(f);
       const k = fm.kpis();
       const robots = fm.robots();
-      body.appendChild(h('div', { class: 'fleet-head' }, h('b', null, f.name), ` — ${robots.length} robots · done ${k.tasksDone} · pending ${k.tasksPending} · ${k.throughputPerHour.toFixed(1)} tasks/h · utilisation ${(k.utilization * 100).toFixed(0)} % · ${(k.distanceTravelled / 1000).toFixed(0)} m · ${k.energyUsedWh.toFixed(0)} Wh`));
+      body.appendChild(h('div', { class: 'fleet-head' }, h('b', null, f.name), ` — ${robots.length} robots · done ${k.tasksDone} · pending ${k.tasksPending} · ${k.throughputPerHour.toFixed(1)} tasks/h · utilisation ${(k.utilization * 100).toFixed(0)} % · ${(k.distanceTravelled / 1000).toFixed(0)} m · ${k.energyUsedWh.toFixed(0)} Wh${k.fruitPicked ? ` · harvested ${k.fruitPicked} fruit (${k.yieldKg.toFixed(0)} kg)` : ''}${k.areaWorkedM2 ? ` · ${(k.areaWorkedM2 / 10000).toFixed(2)} ha worked` : ''}`));
       const table = h('table', { class: 'grid' }, h('thead', null, h('tr', null, ...['Robot', 'Status', 'Battery', 'Task', 'Speed', 'Odometer', 'Busy'].map((c) => h('th', null, c)))),
         h('tbody', null, ...robots.map((r: MobileRobot) => { const pr = k.perRobot[r.id]; return h('tr', { onClick: () => this.app.select(r) }, h('td', null, r.name), h('td', { class: `st-${r.state.status}` }, r.state.status), h('td', null, this.bar(r.batteryLevel())), h('td', null, r.state.taskId ?? '—'), h('td', null, `${fmt(r.state.v / 1000, 2)} m/s`), h('td', null, `${fmt(r.state.odometer / 1000, 0)} m`), h('td', null, `${fmt((pr?.busyTime ?? 0) / Math.max(1, fm.time) * 100, 0)} %`)); })));
       body.appendChild(table);

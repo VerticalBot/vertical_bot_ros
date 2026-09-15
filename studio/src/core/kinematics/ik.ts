@@ -121,18 +121,18 @@ export function inverseKinematics(chain: ChainDef, target: Mat4, opts: IKOptions
       if (opts.positionOnly) J = J.slice(0, 3);
       else J = J.map((row, r) => (r >= 3 ? row.map((v) => v * wRot) : row));
       // Step limiting: clamp error to avoid huge jumps far from target
-      const maxStep = 100; // mm-equivalent
+      const maxStep = 250; // mm-equivalent
       const en = Math.hypot(...e);
       const eScaled = en > maxStep ? e.map((v) => (v * maxStep) / en) : e;
       const lambda = lambda0 * (1 + Math.min(en, 1000) / 200);
       const dq = solveDLS(J, eScaled, lambda); // rad or mm
-      let stepNorm = 0;
+      // per-iteration step limit: 20 deg for revolute joints, 10% of the range (>= 50 mm) for prismatic
+      let sf = 1;
       for (let k = 0; k < n; k++) {
-        const d = isRev[k] ? dq[k] * RAD : dq[k];
-        stepNorm = Math.max(stepNorm, Math.abs(d));
+        const d = Math.abs(isRev[k] ? dq[k] * RAD : dq[k]);
+        const lim = isRev[k] ? 20 : Math.max(50, (upper[k] - lower[k]) * 0.1);
+        if (d > lim) sf = Math.min(sf, lim / d);
       }
-      const maxJointStep = 20; // deg or mm per iteration
-      const sf = stepNorm > maxJointStep ? maxJointStep / stepNorm : 1;
       for (let k = 0; k < n; k++) {
         let v = q[k] + (isRev[k] ? dq[k] * RAD : dq[k]) * sf;
         if (isRev[k] && types[k] === 'continuous') v = wrap180(v);

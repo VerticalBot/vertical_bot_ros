@@ -4,6 +4,7 @@ import { Program, Instruction, ProgramRunResult, MoveInstruction } from '../item
 import { Mat4, fromArray, multiply, invert, identity } from '../math/pose';
 import { planMoveJ, planMoveL, planMoveC, Trajectory, sampleAt } from './trajectory';
 import { EventBus } from '../events';
+import { checkRobotCollisions, CollisionPair, CollisionOptions } from '../collision/collision';
 
 export interface SimEvents extends Record<string, unknown> {
   instruction: { program: Program; instruction: Instruction; index: number };
@@ -42,6 +43,9 @@ export class ProgramSimulator {
   attachments = new Map<string, { tool: Tool; local: Mat4 }>();
   /** Joint state at program end for each robot. */
   private robotEndJoints = new Map<string, number[]>();
+  /** Collision checking during compile (sampled along trajectories). */
+  collisionOptions: (CollisionOptions & { enabled: boolean; sampleStep?: number }) = { enabled: false, sampleStep: 0.1 };
+  collisions: Array<{ instructionId: string; t: number; pairs: CollisionPair[] }> = [];
 
   constructor(readonly station: Station) {}
 
@@ -216,6 +220,8 @@ export class ProgramSimulator {
     };
 
     compileProgram(program, 0);
+    this.collisions = [];
+    if (this.collisionOptions.enabled) this.checkTrajectoryCollisions(problems);
     this.duration = t;
     this.time = 0;
     this.currentStep = -1;
@@ -223,6 +229,30 @@ export class ProgramSimulator {
     this.result = { ok: !problems.some((p) => p.severity === 'error'), duration: t, distance, problems, executed };
     program.lastResult = this.result;
     return this.result;
+  }
+
+  /** Sample every trajectory and report colliding instructions (robot vs station). */
+  private checkTrajectoryCollisions(problems: ProgramRunResult['problems']): void {
+    const step = this.collisionOptions.sampleStep ?? 0.1;
+    const saved = new Map<string, number[]>();
+    for (const s of this.steps) if (s.robot && !saved.has(s.robot.id)) saved.set(s.robot.id, s.robot.joints());
+    for (const s of this.steps) {
+      if (!s.robot || !s.trajectory || !s.trajectory.samples.length) continue;
+      let lastT = -Infinity;
+      for (const sample of s.trajectory.samples) {
+        if (sample.t - lastT < step && sample !== s.trajectory.samples[s.trajectory.samples.length - 1]) continue;
+        lastT = sample.t;
+        s.robot.setJoints(sample.joints);
+        const pairs = checkRobotCollisions(this.station, s.robot, this.collisionOptions);
+        if (pairs.length) {
+          this.collisions.push({ instructionId: s.instruction.id, t: s.t0 + sample.t, pairs });
+          const p = pairs[0];
+          problems.push({ instructionId: s.instruction.id, message: `Collision: ${p.a.item.name}${p.a.part !== p.a.item.name ? '/' + p.a.part : ''} × ${p.b.item.name}${p.b.part !== p.b.item.name ? '/' + p.b.part : ''} at ${(s.t0 + sample.t).toFixed(2)} s`, severity: 'error' });
+          break;
+        }
+      }
+    }
+    for (const [id, q] of saved) (this.station.findById(id) as Robot | null)?.setJoints(q);
   }
 
   private resolvePose(robot: Robot, target: Target | null, d: MoveInstruction, frame: Mat4, tool: Mat4, q0: number[]): Mat4 | null {

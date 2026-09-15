@@ -1,6 +1,6 @@
 import { App } from '../app';
 import { h, contextMenu, MenuEntry, downloadText, toast, dialog } from './dom';
-import { robotLibraryDialog, mobileRobotDialog, orchardDialog, fleetDialog, missionDialog, mapDialog, zoneDialog, componentDialog, exportDialog, importDialog, harvestArmDialog } from './dialogs';
+import { robotLibraryDialog, mobileRobotDialog, orchardDialog, fleetDialog, missionDialog, mapDialog, zoneDialog, componentDialog, exportDialog, importDialog, harvestArmDialog, curveFollowDialog, railIKDialog } from './dialogs';
 import { ItemType, Folder } from '../core/items/item';
 import { demos } from '../demos';
 import { Robot } from '../core/items/robot';
@@ -59,6 +59,11 @@ export class MenuBar {
         { label: 'Home active robot', action: () => { const r = app.activeRobot; if (r) app.cmd(() => r.setJoints(r.jointsHome())); } },
         { label: 'Add tool to active robot', action: () => { const r = app.activeRobot; if (!r) return toast('Select a robot', 'warn'); app.cmd(() => { const { Tool } = require_items(); const t = new Tool(`Tool ${r.tools().length + 1}`); r.addChild(t); r.setTool(t); app.select(t); }); } },
         { label: 'Fruit picking program for active robot…', action: () => { const r = app.activeRobot; if (r) harvestArmDialog(app, r); } },
+        { label: 'Follow curve / points of an object…', action: () => { const r = app.activeRobot; if (r) curveFollowDialog(app, r); } },
+        { label: 'Move with external axes (rail / gantry)…', action: () => { const r = app.activeRobot; if (r) railIKDialog(app, r); } },
+        { separator: true },
+        { label: 'Check collisions now (static)', action: () => app.checkStationCollisions() },
+        { label: 'Check collisions during program validation', checked: app.checkCollisions, action: () => { app.checkCollisions = !app.checkCollisions; app.previewProgram(); } },
         { separator: true },
         ...app.station.itemsOfType<Robot>(ItemType.ROBOT).map((r) => ({ label: r.name, checked: r === app.activeRobot, action: () => { app.setActiveRobot(r); app.select(r); } })),
       ]],

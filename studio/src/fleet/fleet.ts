@@ -6,7 +6,9 @@
 import { Item, ItemType, SerializedItem, registerItemType, Station } from '../core/items/item';
 import { MobileRobot, MapItem, ZoneItem } from '../mobile/items';
 import { planPath, pathLength } from '../mobile/planner';
-import { followPath, stepMobile, estimateTravelTime } from '../mobile/controller';
+import { followPath, stepMobile, estimateTravelTime, integrate } from '../mobile/controller';
+
+function integrateStop(r: MobileRobot, dt: number) { integrate(r, { v: 0, omega: 0 }, dt); }
 import { EventBus } from '../core/events';
 
 export type TaskType = 'transport' | 'harvest' | 'spray' | 'mow' | 'prune' | 'scout' | 'pollinate' | 'weed' | 'charge' | 'goto' | 'custom';
@@ -39,6 +41,10 @@ export interface FleetTask {
 }
 
 export interface FleetKPIs {
+  /** Agricultural yield collected by harvest tasks. */
+  fruitPicked: number;
+  yieldKg: number;
+  areaWorkedM2: number;
   tasksDone: number;
   tasksFailed: number;
   tasksPending: number;
@@ -90,6 +96,12 @@ export class FleetManager {
   /** Segment reservations: segment id -> robot ids. */
   private reservations = new Map<string, Set<string>>();
   private log: Array<{ t: number; text: string; level: 'info' | 'warn' | 'error' }> = [];
+  /** Yield counters (updated by finishTask for harvest tasks). */
+  yield = { fruit: 0, kg: 0, areaM2: 0 };
+  /** Inter-robot safety: robots brake when another robot is within this distance ahead (mm). */
+  safetyDistance = 2500;
+  /** Hook to mark fruit as picked when a harvest task finishes (installed by the agri module). */
+  onHarvestDone: ((task: FleetTask) => { fruit: number; kg: number }) | null = null;
   private pendingPathRequests = new Map<string, { task: FleetTask; phase: 'travel' | 'work' | 'charge' }>();
 
   constructor(readonly station: Station, readonly fleet: FleetItem) {
@@ -268,7 +280,39 @@ export class FleetManager {
         if (task.meta._workLeft <= 0) this.finishTask(r, task);
         continue;
       }
-      const moving = stepMobile(r, dt, { speed: task?.status === 'working' ? task.workSpeed ?? r.kin.maxSpeed * 0.3 : undefined });
+      // simple inter-robot safety: slow down / stop when another robot is close ahead.
+      // Stationary robots only block when very close; after a few seconds blocked the robot creeps to avoid deadlocks.
+      let speedCap: number | undefined;
+      if (r.state.path) {
+        const th = (r.state.theta * Math.PI) / 180;
+        for (const o of this.robots()) {
+          if (o === r) continue;
+          const dx = o.state.x - r.state.x, dy = o.state.y - r.state.y;
+          const ahead = dx * Math.cos(th) + dy * Math.sin(th);
+          const lateral = Math.abs(-dx * Math.sin(th) + dy * Math.cos(th));
+          const dist = Math.hypot(dx, dy);
+          const otherMoving = Math.abs(o.state.v) > 50;
+          const range = otherMoving ? this.safetyDistance : Math.min(this.safetyDistance, 1200);
+          if (ahead > 0 && lateral < (r.kin.footprint[1] + o.kin.footprint[1]) / 2 && dist < range) {
+            const cap = Math.max(0, (dist - range * 0.4) / (range * 0.6)) * r.kin.maxSpeed;
+            speedCap = Math.min(speedCap ?? Infinity, cap);
+          }
+        }
+      }
+      const desired = task?.status === 'working' ? task.workSpeed ?? r.kin.maxSpeed * 0.3 : undefined;
+      const blocked = (r.state as any)._blocked ?? 0;
+      if (speedCap !== undefined && speedCap < 1 && blocked < 4) {
+        (r.state as any)._blocked = blocked + dt;
+        integrateStop(r, dt);
+        if (r.state.status !== 'waiting') r.state.status = 'waiting';
+        this.busy.set(r.id, (this.busy.get(r.id) ?? 0) + dt);
+        this.events.emit('robotUpdated', { robot: r });
+        continue;
+      }
+      if (speedCap !== undefined && speedCap < 1) speedCap = r.kin.maxSpeed * 0.2; // creep
+      if (speedCap === undefined) (r.state as any)._blocked = 0;
+      if (r.state.status === 'waiting' && r.state.path && (!task || !task.segments || this.reserveSegments(r.id, task.segments))) r.state.status = task?.status === 'working' ? 'working' : 'moving';
+      const moving = stepMobile(r, dt, { speed: speedCap !== undefined ? Math.min(speedCap, desired ?? r.kin.maxSpeed) : desired });
       if (task && task.status === 'working' && task.workPath && !moving && r.state.path === null) this.finishTask(r, task);
       if (r.state.status === 'moving' || r.state.status === 'working') this.busy.set(r.id, (this.busy.get(r.id) ?? 0) + dt);
       if (r.state.status === 'waiting' && task && task.segments && this.reserveSegments(r.id, task.segments)) {
@@ -283,6 +327,13 @@ export class FleetManager {
   private finishTask(r: MobileRobot, task: FleetTask): void {
     task.status = 'done';
     task.finishedAt = this.time;
+    if (task.workPath && task.workPath.length > 1) this.yield.areaM2 += (pathLength(task.workPath) / 1000) * ((task.meta?.swathM as number) ?? 2);
+    if (task.type === 'harvest') {
+      const y = this.onHarvestDone?.(task) ?? { fruit: task.meta?.fruit ?? 0, kg: ((task.meta?.fruit ?? 0) * (task.meta?.fruitKg ?? 0.18)) };
+      this.yield.fruit += y.fruit;
+      this.yield.kg += y.kg;
+      task.meta.harvestedKg = y.kg;
+    }
     r.state.taskId = null;
     r.state.status = 'idle';
     this.releaseSegments(r.id);
@@ -304,6 +355,9 @@ export class FleetManager {
       perRobot[r.id] = { busyTime: b, distance: d, tasks: done.filter((t) => t.robotId === r.id).length, battery: r.batteryLevel(), status: r.state.status };
     }
     return {
+      fruitPicked: this.yield.fruit,
+      yieldKg: this.yield.kg,
+      areaWorkedM2: this.yield.areaM2,
       tasksDone: done.length,
       tasksFailed: this.fleet.tasks.filter((t) => t.status === 'failed').length,
       tasksPending: this.fleet.tasks.filter((t) => t.status === 'pending' || t.status === 'assigned').length,

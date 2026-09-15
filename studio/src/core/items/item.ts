@@ -182,15 +182,26 @@ export class Item {
     return this;
   }
 
-  /** Absolute pose w.r.t. the station. */
+  /**
+   * Absolute pose w.r.t. the station. Children of a robot (tools, cameras, a robot on a rail/track)
+   * are attached to the robot's flange: abs = parentAbs * flange(q) * pose.
+   */
   poseAbs(): Mat4 {
     if (!this.parent || this.parent instanceof Station) return this.pose();
-    return multiply(this.parent.poseAbs(), this._pose);
+    return multiply(this.parentAttachAbs(), this._pose);
+  }
+
+  /** Absolute pose of the frame this item is attached to (parent pose, or parent flange for robots). */
+  parentAttachAbs(): Mat4 {
+    const p = this.parent as any;
+    if (!p || p instanceof Station) return identity();
+    if (typeof p.solveFKFlange === 'function') return multiply(p.poseAbs(), p.solveFKFlange());
+    return p.poseAbs();
   }
 
   setPoseAbs(m: Mat4): this {
     if (!this.parent || this.parent instanceof Station) return this.setPose(m);
-    return this.setPose(multiply(invert(this.parent.poseAbs()), m));
+    return this.setPose(multiply(invert(this.parentAttachAbs()), m));
   }
 
   /** Pose of this item expressed in another item's frame. */
@@ -346,24 +357,9 @@ export class Tool extends SceneObject {
     return this.pose();
   }
 
-  /** Absolute pose of the TCP: robot base * flange(q) * tool. */
-  override poseAbs(): Mat4 {
-    const p = this.parent as any;
-    if (p && typeof p.solveFKFlange === 'function') return multiply(multiply(p.poseAbs(), p.solveFKFlange()), this._pose);
-    return super.poseAbs();
-  }
-
   /** Absolute pose of the flange this tool is mounted on. */
   flangeAbs(): Mat4 {
-    const p = this.parent as any;
-    if (p && typeof p.solveFKFlange === 'function') return multiply(p.poseAbs(), p.solveFKFlange());
-    return this.parent?.poseAbs() ?? identity();
-  }
-
-  override setPoseAbs(m: Mat4): this {
-    const p = this.parent as any;
-    if (p && typeof p.solveFKFlange === 'function') return this.setPose(multiply(invert(this.flangeAbs()), m));
-    return super.setPoseAbs(m);
+    return this.parentAttachAbs();
   }
   setPoseTool(m: Mat4): void {
     this.setPose(m);

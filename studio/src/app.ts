@@ -14,6 +14,8 @@ import { robotFromURDF, parseURDF } from './io/urdf/urdf';
 import { importProgram, detectLanguage } from './io/programs/import';
 import { importTargets } from './io/robodk/targets';
 import { importRdkBestEffort } from './io/robodk/rdk_container';
+import { parseOBJ } from './io/mesh/obj';
+import { parseDHText, robotFromDH } from './io/robodk/dh';
 import { stationToRoboDKScript } from './io/robodk/station_script';
 import { compileForPost, getPost, listPosts, PostFile } from './posts/index';
 import { MobileRobot, MapItem, ZoneItem } from './mobile/items';
@@ -56,6 +58,9 @@ export class App {
     this.sim = new ProgramSimulator(this.station);
     this.processSim = new ProcessSimulator(this.station);
   }
+
+  /** Collision checking during program validation. */
+  checkCollisions = false;
 
   mount(host: HTMLElement): void {
     this.renderer = new SceneRenderer(host, this.station, this.assets);
@@ -261,7 +266,9 @@ export class App {
     const robot = p.robot();
     if (!(robot instanceof Robot)) { this.renderer?.showTrajectoryPreview(null, []); return; }
     const q0 = robot.joints();
+    this.sim.collisionOptions = { enabled: this.checkCollisions, assets: this.assets, sampleStep: 0.1 };
     const res = this.sim.compile(p);
+    this.renderer?.setCollisionHighlight(this.sim.collisions.flatMap((c) => c.pairs.flatMap((pr) => [pr.a.item.id, pr.b.item.id])));
     const trajs = this.sim.steps.filter((s) => s.trajectory).map((s) => s.trajectory as Trajectory);
     this.renderer?.showTrajectoryPreview(robot, trajs);
     robot.setJoints(q0);
@@ -271,7 +278,9 @@ export class App {
 
   runProgram(p: Program | null = this.activeProgram): void {
     if (!p) return this.log('No program selected', 'warn');
+    this.sim.collisionOptions = { enabled: this.checkCollisions, assets: this.assets, sampleStep: 0.1 };
     const res = this.sim.compile(p);
+    this.renderer?.setCollisionHighlight(this.sim.collisions.flatMap((c) => c.pairs.flatMap((pr) => [pr.a.item.id, pr.b.item.id])));
     for (const pr of res.problems) this.log(`${p.name}: ${pr.message}`, pr.severity === 'error' ? 'error' : 'warn');
     this.sim.speedFactor = this.simSpeed;
     this.sim.play();
@@ -292,6 +301,16 @@ export class App {
     if (!tr.ok) this.log(tr.error ?? 'motion failed', 'warn');
     robot.setJoints(q1);
     this.renderer?.showTrajectoryPreview(robot, [tr]);
+  }
+
+  /** Check the current static station for collisions and report them. */
+  checkStationCollisions(): number {
+    const { checkCollisions } = require_collision();
+    const pairs = checkCollisions(this.station, { assets: this.assets });
+    this.renderer?.setCollisionHighlight(pairs.flatMap((p) => [p.a.item.id, p.b.item.id]));
+    if (!pairs.length) this.log('No collisions in the current state');
+    for (const p of pairs.slice(0, 10)) this.log(`Collision: ${p.a.item.name}${p.a.part !== p.a.item.name ? '/' + p.a.part : ''} × ${p.b.item.name}${p.b.part !== p.b.item.name ? '/' + p.b.part : ''} (${p.depth.toFixed(0)} mm)`, 'warn');
+    return pairs.length;
   }
 
   // -- World simulation (fleet + process) --------------------------------------
@@ -346,10 +365,12 @@ export class App {
       const buf = new Uint8Array(await f.arrayBuffer());
       const ext = f.name.split('.').pop()!.toLowerCase();
       if (ext === 'stl') this.assets.registerRaw(f.name, 'stl', buf, f.name);
+      else if (ext === 'obj') this.assets.registerMesh(f.name, parseOBJ(new TextDecoder().decode(buf)), f.name);
     }
     for (const f of files) {
       const name = f.name;
       const ext = name.split('.').pop()?.toLowerCase() ?? '';
+      const await_text = ext === 'dh' ? await f.text() : '';
       try {
         if (ext === 'vbstation' || (ext === 'json' && /station/i.test(name))) {
           const data = JSON.parse(await f.text());
@@ -359,6 +380,7 @@ export class App {
         } else if (ext === 'json') {
           const data = JSON.parse(await f.text());
           if (data.format === 'vbstation' || data.type === ItemType.STATION) { this.setStation(loadStation(data, this.assets)); this.log(`Opened station ${name}`); }
+          else if (Array.isArray(data.dh)) { const robot = this.cmd(() => { const r = robotFromDH(data, name.replace(/\.json$/i, '')); this.station.addChild(r); this.select(r); this.setActiveRobot(r); return r; }); this.log(`Imported DH robot ${robot.name} (${robot.dof} DOF)`); }
           else if (data.type === 'FeatureCollection' || data.type === 'Feature') await this.importGeoJSON(data, name);
           else this.log(`Unknown JSON content in ${name}`, 'warn');
         } else if (ext === 'geojson') {
@@ -373,10 +395,13 @@ export class App {
           const model = parseURDF(text, { resolveInclude: (fn) => cache.get(fn.split('/').pop()!) ?? null });
           const missing = model.meshes.filter((m) => !this.assets.get(m) && ![...this.assets.entries()].some(([id]) => id.split(/[\\/]/).pop()?.toLowerCase() === m.split(/[\\/]/).pop()?.toLowerCase()));
           this.log(`Imported URDF ${robot.name} (${robot.dof} DOF)${missing.length ? `; ${missing.length} meshes missing — drop the STL files onto the viewport` : ''}`, missing.length ? 'warn' : 'info');
-        } else if (ext === 'stl') {
+        } else if (ext === 'dh' || (ext === 'json' && false)) {
+          const robot = this.cmd(() => { const r = robotFromDH(parseDHText(await_text), name.replace(/\.dh$/i, '')); this.station.addChild(r); this.select(r); this.setActiveRobot(r); return r; });
+          this.log(`Imported DH robot ${robot.name} (${robot.dof} DOF)`);
+        } else if (ext === 'stl' || ext === 'obj') {
           const a = this.assets.get(name)!;
           this.cmd(() => {
-            const o = new SceneObject(name.replace(/\.stl$/i, ''));
+            const o = new SceneObject(name.replace(/\.(stl|obj)$/i, ''));
             o.geometry = [{ mesh: name, origin: Array.from(identity()), color: '#a5b1c2' }];
             if (a.mesh) o.bbox = { min: a.mesh.min, max: a.mesh.max };
             this.station.addChild(o);
@@ -445,6 +470,9 @@ export class App {
     return ROBOT_LIBRARY;
   }
 }
+
+import * as collisionModule from './core/collision/collision';
+function require_collision() { return collisionModule; }
 
 export { Item, ItemType, Frame, Target, Tool, SceneObject, Folder, Camera, Robot, Program, Instruction, PathItem, MobileRobot, MapItem, ZoneItem, FleetItem, Component, FieldItem, MissionItem, CropRow, multiply, invert, getPos };
 export type { Mat4, StationFile };
