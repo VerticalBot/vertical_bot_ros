@@ -15,7 +15,7 @@ import http from 'node:http';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { Station } from '../src/core/items/item.ts';
 import { Robolink } from '../src/api/robolink.ts';
-import { executeRpc, RpcRequest } from '../src/api/rpc.ts';
+import { executeRpcAsync, RpcRequest } from '../src/api/rpc.ts';
 import { loadStation, saveStation } from '../src/io/station-file.ts';
 import '../src/posts/index.ts';
 
@@ -69,11 +69,12 @@ wss.on('connection', (ws) => {
       host.send(JSON.stringify({ ...req, id: key }));
       setTimeout(() => { if (pending.has(key)) { pending.delete(key); ws.send(JSON.stringify({ id: req.id, error: 'host timeout' })); } }, 30000);
     } else {
-      const res = executeRpc(RDK, req);
-      ws.send(JSON.stringify(res));
-      if (STATION_FILE && req.method !== 'Item' && req.method !== 'ItemList') {
-        try { writeFileSync(STATION_FILE, JSON.stringify(saveStation(station))); } catch { /* ignore */ }
-      }
+      executeRpcAsync(RDK, req).then((res) => {
+        ws.send(JSON.stringify(res));
+        if (STATION_FILE && req.method !== 'Item' && req.method !== 'ItemList') {
+          try { writeFileSync(STATION_FILE, JSON.stringify(saveStation(station))); } catch { /* ignore */ }
+        }
+      });
     }
   });
   ws.on('close', () => { if (ws === host) { host = null; console.log('[studio-server] browser host disconnected'); } });

@@ -740,6 +740,31 @@ export class SceneRenderer {
     ctx.putImageData(img, 0, 0);
   }
 
+  /** Camera pose of the 3D view as a 4x4 (RoboDK ViewPose / setViewPose). */
+  getViewPose(): Mat4 {
+    this.camera.updateMatrixWorld();
+    return fromArray(this.camera.matrixWorld.elements);
+  }
+  setViewPose(m: Mat4): void {
+    const t = mat4ToThree(m);
+    t.decompose(this.camera.position, this.camera.quaternion, this.camera.scale);
+    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    this.controls.target.copy(this.camera.position.clone().add(dir.multiplyScalar(3000)));
+    this.dirty = true;
+  }
+
+  /** Animate a joint sequence on a robot (RoboDK ShowSequence). */
+  showSequence(robot: Robot, rows: number[][], fps = 30): void {
+    let i = 0;
+    const n = robot.dof;
+    const off = this.onAnimate(() => {
+      if (i >= rows.length) { off(); return; }
+      const row = rows[i++];
+      robot.setJoints(row.length > n + 1 ? row.slice(2, 2 + n) : row.slice(0, n));
+    });
+    void fps;
+  }
+
   screenshot(): string {
     this.renderer.render(this.scene, this.camera);
     return this.renderer.domElement.toDataURL('image/png');

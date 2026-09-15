@@ -52,6 +52,36 @@ RUNMODE_RUN_ROBOT = 6
 
 ROBOTCOM_READY = 2
 ROBOTCOM_DISCONNECTED = 0
+ROBOTCOM_CONNECTING = 1
+ROBOTCOM_UNKNOWN = -1
+ROBOTCOM_PROBLEMS = -2
+
+ITEM_TYPE_MACHINING = 11
+COLLISION_OFF = 0
+COLLISION_ON = 1
+PROGRAM_RUN_ON_SIMULATOR = 1
+PROGRAM_RUN_ON_ROBOT = 2
+CALIBRATE_TCP_BY_POINT = 0
+CALIBRATE_TCP_BY_PLANE = 1
+CALIBRATE_TCP_BY_LINE = 2
+CALIBRATE_FRAME_3P_P1_ON_X = 0
+CALIBRATE_FRAME_3P_P1_ORIGIN = 1
+CALIBRATE_FRAME_6P = 2
+CALIBRATE_TURNTABLE = 3
+CALIBRATE_TURNTABLE_2X = 4
+MAKE_ROBOT_1R, MAKE_ROBOT_1T, MAKE_ROBOT_2R, MAKE_ROBOT_2T, MAKE_ROBOT_3R, MAKE_ROBOT_3T, MAKE_ROBOT_4R, MAKE_ROBOT_4T, MAKE_ROBOT_6DOF, MAKE_ROBOT_7DOF, MAKE_ROBOT_SCARA, MAKE_ROBOT_1R1T = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+WINDOWSTATE_HIDDEN, WINDOWSTATE_SHOW, WINDOWSTATE_MINIMIZED, WINDOWSTATE_NORMAL, WINDOWSTATE_MAXIMIZED, WINDOWSTATE_FULLSCREEN, WINDOWSTATE_CINEMA, WINDOWSTATE_FULLSCREEN_CINEMA = -1, 0, 1, 2, 3, 4, 5, 6
+FLAG_ROBODK_NONE, FLAG_ROBODK_ALL = 0, 0xFFFF
+FLAG_ITEM_SELECTABLE, FLAG_ITEM_EDITABLE, FLAG_ITEM_DRAGALLOWED, FLAG_ITEM_DROPALLOWED, FLAG_ITEM_ENABLED, FLAG_ITEM_NONE, FLAG_ITEM_ALL = 1, 2, 4, 8, 32, 0, 111
+SELECT_RESET, SELECT_NONE, SELECT_RECTANGLE, SELECT_ROTATE, SELECT_ZOOM, SELECT_PAN, SELECT_MOVE, SELECT_MOVE_SHIFT, SELECT_MOVE_CLEAR = -1, 0, 1, 2, 3, 4, 5, 6, 7
+EVENT_SELECTION_TREE_CHANGED, EVENT_ITEM_MOVED, EVENT_REFERENCE_PICKED, EVENT_REFERENCE_RELEASED, EVENT_TOOL_MODIFIED, EVENT_CREATED_ISOCUBE, EVENT_SELECTION_3D_CHANGED, EVENT_3DVIEW_MOVED, EVENT_ROBOT_MOVED, EVENT_KEY = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+EVENT_ITEM_MOVED_POSE, EVENT_COLLISIONMAP_RESET, EVENT_COLLISIONMAP_TOO_LARGE, EVENT_CALIB_MEASUREMENT, EVENT_SELECTION3D_CLICK, EVENT_ITEM_CHANGED, EVENT_ITEM_RENAMED, EVENT_ITEM_VISIBILITY, EVENT_STATION_CHANGED = 11, 12, 13, 14, 15, 16, 17, 18, 19
+INS_TYPE_INVALID, INS_TYPE_MOVE, INS_TYPE_MOVEC, INS_TYPE_CHANGESPEED, INS_TYPE_CHANGEFRAME, INS_TYPE_CHANGETOOL, INS_TYPE_CHANGEROBOT, INS_TYPE_PAUSE, INS_TYPE_EVENT, INS_TYPE_CODE, INS_TYPE_PRINT = -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+MOVE_TYPE_INVALID, MOVE_TYPE_JOINT, MOVE_TYPE_LINEAR, MOVE_TYPE_CIRCULAR = -1, 1, 2, 3
+PROJECTION_NONE, PROJECTION_CLOSEST, PROJECTION_ALONG_NORMAL, PROJECTION_ALONG_NORMAL_RECALC, PROJECTION_CLOSEST_RECALC, PROJECTION_RECALC = 0, 1, 2, 3, 4, 5
+JOINT_FORMAT = -1
+TRACKER_TYPE_LASER = 0
+RUNMODE_MAKE_ROBOTPROG_AND_UPLOAD, RUNMODE_MAKE_ROBOTPROG_AND_START, RUNMODE_TEACH = 4, 5, 7
 
 
 class _MiniWebSocket:
@@ -271,6 +301,197 @@ class Robolink:
 
     def Cam2D_Snapshot(self, file_save_img="", cam_handle=None):
         return self._call("Cam2D_Snapshot", [file_save_img, cam_handle])
+
+
+    # -- extended surface (RoboDK parity) --
+    def AddTargetJ(self, name, joints, itemparent=None, itemrobot=None):
+        return self._call("AddTargetJ", [name, list(joints), itemparent, itemrobot])
+
+    def BuildMechanism(self, type, list_obj=None, parameters=None, joints_build=None, joints_home=None, joints_senses=None, joints_lim_low=None, joints_lim_high=None, base=None, tool=None, name="New robot", robot=None):
+        return self._call("BuildMechanism", [type, list_obj or [], list(parameters or []), list(joints_build or []), list(joints_home or []), list(joints_senses or []), list(joints_lim_low or []), list(joints_lim_high or []), base, tool, name, robot])
+
+    def setRobotParams(self, robot, dhm, poseBase=None, poseTool=None):
+        return self._call("setRobotParams", [robot, [list(r) for r in dhm], poseBase, poseTool])
+
+    def AddMachiningProject(self, name="Curve follow settings", itemrobot=None):
+        return self._call("AddMachiningProject", [name, itemrobot])
+
+    def AddMillingProject(self, name="Milling settings", itemrobot=None):
+        return self._call("AddMillingProject", [name, itemrobot])
+
+    def Cam2D_Add(self, item_object, cam_params=""):
+        return self._call("Cam2D_Add", [item_object, cam_params])
+
+    def Cam2D_SetParams(self, params, cam_handle=None):
+        return self._call("Cam2D_SetParams", [params, cam_handle])
+
+    def Cam2D_Close(self, cam_handle=None):
+        return self._call("Cam2D_Close", [cam_handle])
+
+    def Calibrate_Reference(self, joints_points, method=CALIBRATE_FRAME_3P_P1_ORIGIN, use_joints=False, robot=None):
+        return self._call("Calibrate_Reference", [[list(p) for p in joints_points], method, use_joints, robot])
+
+    def CalibrateTool(self, poses_xyzwpr, input_format=JOINT_FORMAT, algorithm=CALIBRATE_TCP_BY_POINT, robot=None, tool=None):
+        return tuple(self._call("CalibrateTool", [[list(p) for p in poses_xyzwpr], input_format, algorithm, robot, tool]))
+
+    def Calibrate_Robot(self, measurements, robot=None, options=None):
+        return self._call("Calibrate_Robot", [[list(m) for m in measurements], robot, options or {}])
+
+    def LaserTracker_Measure(self, estimate=(0, 0, 0), search=False):
+        return self._call("LaserTracker_Measure", [list(estimate), search])
+
+    def MeasurePose(self, target=-1, time_avg=0, tip_xyz=(0, 0, 0)):
+        return tuple(self._call("MeasurePose", [target, time_avg, list(tip_xyz)]))
+
+    def StereoCamera_Measure(self):
+        return tuple(self._call("StereoCamera_Measure"))
+
+    def Popup_ISO9283_CubeProgram(self, robot=None, center=(1000, 0, 800), side=400, blocking=True):
+        return self._call("Popup_ISO9283_CubeProgram", [robot, list(center), side, blocking])
+
+    def BallbarProgram(self, robot=None, center=(1000, 0, 800), radius=150):
+        return self._call("BallbarProgram", [robot, list(center), radius])
+
+    def Collision_Line(self, p1, p2, ref=None):
+        return tuple(self._call("Collision_Line", [list(p1), list(p2), ref]))
+
+    def Collision_SetPair(self, item1, item2, id1=-1, id2=-1, collision_check=True):
+        return self._call("Collision_SetPair", [item1, item2, id1, id2, collision_check])
+
+    def Collision_SetPairList(self, list_items1, list_items2, list_id1=None, list_id2=None, list_check_state=True):
+        return self._call("Collision_SetPairList", [list_items1, list_items2, list_id1 or [], list_id2 or [], list_check_state])
+
+    def setCollisionActive(self, check_state=COLLISION_ON):
+        return self._call("setCollisionActive", [check_state])
+
+    def setCollisionActivePair(self, check_state, item1, item2, id1=-1, id2=-1):
+        return self._call("setCollisionActivePair", [check_state, item1, item2, id1, id2])
+
+    def CollisionItems(self):
+        return self._call("CollisionItems")
+
+    def CollisionPairs(self):
+        return self._call("CollisionPairs")
+
+    def Copy(self, item, copy_children=True):
+        return self._call("Copy", [item, copy_children])
+
+    def Paste(self, paste_to=None, paste_times=1):
+        return self._call("Paste", [paste_to, paste_times])
+
+    def Duplicate(self, item):
+        return self._call("Duplicate", [item])
+
+    def getOpenStations(self):
+        return self._call("getOpenStations")
+
+    def setActiveStation(self, station):
+        return self._call("setActiveStation", [station])
+
+    def CloseStation(self):
+        return self._call("CloseStation")
+
+    def CloseRoboDK(self):
+        return self._call("CloseRoboDK")
+
+    def getFlagsItem(self, item):
+        return self._call("getFlagsItem", [item])
+
+    def setFlagsItem(self, item, flags=FLAG_ITEM_ALL):
+        return self._call("setFlagsItem", [item, flags])
+
+    def getFlagsRoboDK(self):
+        return self._call("getFlagsRoboDK")
+
+    def setFlagsRoboDK(self, flags=FLAG_ROBODK_ALL):
+        return self._call("setFlagsRoboDK", [flags])
+
+    def HideRoboDK(self):
+        return self._call("HideRoboDK")
+
+    def ShowRoboDK(self):
+        return self._call("ShowRoboDK")
+
+    def setWindowState(self, windowstate=WINDOWSTATE_NORMAL):
+        return self._call("setWindowState", [windowstate])
+
+    def setInteractiveMode(self, mode_type=SELECT_MOVE, default_ref_flags=0, custom_objects=None, custom_ref_flags=None):
+        return self._call("setInteractiveMode", [mode_type, default_ref_flags, custom_objects, custom_ref_flags])
+
+    def setViewPose(self, pose):
+        return self._call("setViewPose", [pose])
+
+    def ViewPose(self, preset=-1):
+        return self._call("ViewPose", [preset])
+
+    def Joints(self, robot_item_list=None):
+        return self._call("Joints", [robot_item_list])
+
+    def setJoints(self, robot_item_list, joints_list):
+        return self._call("setJoints", [robot_item_list, [list(j) for j in joints_list]])
+
+    def setPoses(self, items, poses):
+        return self._call("setPoses", [items, poses])
+
+    def MergeItems(self, list_items):
+        return self._call("MergeItems", [list_items])
+
+    def RunCode(self, code, code_is_fcn_call=False):
+        return self._call("RunCode", [code, code_is_fcn_call])
+
+    def RunMessage(self, message, message_is_comment=False):
+        return self._call("RunMessage", [message, message_is_comment])
+
+    def RunProgram(self, fcn_param, wait_for_finished=False):
+        return self._call("RunProgram", [fcn_param, wait_for_finished])
+
+    def ShowSequence(self, matrix, display_type=0, timeout=-1):
+        return self._call("ShowSequence", [[list(r) for r in matrix], display_type, timeout])
+
+    def FilterTarget(self, pose, joints_approx=None, robot=None):
+        return tuple(self._call("FilterTarget", [pose, joints_approx, robot]))
+
+    def getParams(self):
+        return self._call("getParams")
+
+    def SimulationTime(self):
+        return self._call("SimulationTime")
+
+    def setSimulationTime(self, t):
+        return self._call("setSimulationTime", [t])
+
+    def Spray_Add(self, item_tool=None, item_object=None, params="", points=None, geometry=None):
+        return self._call("Spray_Add", [item_tool, item_object, params, points, geometry])
+
+    def Spray_SetState(self, state=1, id_spray=-1):
+        return self._call("Spray_SetState", [state, id_spray])
+
+    def Spray_GetStats(self, id_spray=-1):
+        return tuple(self._call("Spray_GetStats", [id_spray]))
+
+    def Spray_Clear(self, id_spray=-1):
+        return self._call("Spray_Clear", [id_spray])
+
+    def EventsListen(self):
+        return self._call("EventsListen")
+
+    def WaitForEvent(self, timeout=3600):
+        return self._call("WaitForEvent", [timeout])
+
+    def PluginLoad(self, plugin_name="", load=1):
+        return self._call("PluginLoad", [plugin_name, load])
+
+    def PluginCommand(self, plugin_name, plugin_command="", value=""):
+        return self._call("PluginCommand", [plugin_name, plugin_command, value])
+
+    def ProjectPoints(self, points, object_project=None, projection_type=PROJECTION_ALONG_NORMAL):
+        return self._call("ProjectPoints", [[list(p) for p in points], object_project, projection_type])
+
+    def IsInside(self, object_inside, object_parent):
+        return self._call("IsInside", [object_inside, object_parent])
+
+    def AddTool(self, tool_pose, tool_name="New TCP"):
+        return self.Item("", ITEM_TYPE_ROBOT).AddTool(tool_pose, tool_name)
 
     def App(self, path, *args):
         """VerticalBot extension: call an application function (e.g. 'startWorld')."""
@@ -499,6 +720,159 @@ class Item:
 
     def DOF(self):
         return self._c("DOF")
+
+
+    # -- extended surface (RoboDK parity) --
+    def AttachClosest(self, keyword="", tolerance_mm=500, list_objects=None):
+        return self._c("AttachClosest", tolerance_mm)
+
+    def DetachClosest(self, parent=None):
+        return self._c("DetachClosest", parent)
+
+    def DetachAll(self, parent=None):
+        return self._c("DetachAll", parent)
+
+    def Collision(self, item2):
+        return self._c("Collision", item2)
+
+    def Copy(self, copy_children=True):
+        return self._c("Copy")
+
+    def Paste(self):
+        return self._c("Paste")
+
+    def GeometryPose(self):
+        return self._c("GeometryPose")
+
+    def InstructionListJoints(self, mm_step=10, deg_step=5, save_to_file=None, collision_check=0, flags=0, time_step=0.1):
+        return tuple(self._c("InstructionListJoints", mm_step, deg_step, save_to_file or "", collision_check, flags, time_step))
+
+    def InstructionSelect(self, ins_id=-1):
+        return self._c("InstructionSelect", ins_id)
+
+    def setInstruction(self, ins_id, name, instype, movetype, isjointtarget, target, joints):
+        return self._c("setInstruction", ins_id, name, instype, movetype, isjointtarget, target, list(joints) if joints else None)
+
+    def JointsConfig(self, joints):
+        return self._c("JointsConfig", list(joints))
+
+    def setJointsHome(self, joints):
+        return self._c("setJointsHome", list(joints))
+
+    def setAccuracyActive(self, accurate=1):
+        return self._c("setAccuracyActive", bool(accurate))
+
+    def AccuracyActive(self):
+        return self._c("AccuracyActive")
+
+    def setAcceleration(self, accel_linear):
+        return self._c("setAcceleration", accel_linear)
+
+    def setAccelerationJoints(self, accel_joints):
+        return self._c("setAccelerationJoints", accel_joints)
+
+    def setSpeedJoints(self, speed_joints):
+        return self._c("setSpeedJoints", speed_joints)
+
+    def setLink(self, item):
+        return self._c("setLink", item)
+
+    def ObjectLink(self, link_id=0):
+        return self._c("ObjectLink", link_id)
+
+    def Save(self, filename):
+        data = self._c("Save", filename)
+        if filename:
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(data)
+        return data
+
+    def setMachiningParameters(self, ncfile="", part=None, params=""):
+        return tuple(self._c("setMachiningParameters", ncfile, part, params))
+
+    def MachiningParameters(self):
+        return self._c("MachiningParameters")
+
+    def FilterTarget(self, pose, joints_approx=None):
+        return tuple(self._c("FilterTarget", pose, joints_approx))
+
+    def FilterProgram(self, filestr=""):
+        return tuple(self._c("FilterProgram", filestr))
+
+    def setRunType(self, program_run_type):
+        return self._c("setRunType", program_run_type)
+
+    def RunType(self):
+        return self._c("RunType")
+
+    def WaitFinished(self, timeout=3600):
+        return self._c("WaitFinished", timeout)
+
+    def MoveJ_Test(self, j1, j2, minstep_deg=-1):
+        return self._c("MoveJ_Test", list(j1), list(j2), minstep_deg if minstep_deg > 0 else 1)
+
+    def MoveL_Test(self, j1, pose, minstep_mm=-1):
+        return self._c("MoveL_Test", list(j1), pose, minstep_mm if minstep_mm > 0 else 1)
+
+    def SearchL(self, target, blocking=True):
+        return self._c("SearchL", target, blocking)
+
+    def Scale(self, scale):
+        return self._c("Scale", scale)
+
+    def setColorShape(self, color, shape_id=0):
+        return self._c("setColorShape", color, shape_id)
+
+    def setColorCurve(self, color, curve_id=-1):
+        return self._c("setColorCurve", color, curve_id)
+
+    def Color(self):
+        return self._c("Color")
+
+    def setValue(self, varname, value=""):
+        return self._c("setValue", varname, value)
+
+    def Value(self, varname=""):
+        return self._c("Value", varname)
+
+    def setAO(self, io_var, io_value):
+        return self._c("setAO", str(io_var), io_value)
+
+    def getDI(self, io_var):
+        return self._c("getDI", str(io_var))
+
+    def getAI(self, io_var):
+        return self._c("getAI", str(io_var))
+
+    def customInstruction(self, name, path_run, path_icon="", blocking=1, cmd_run_on_robot=""):
+        return self._c("customInstruction", name, path_run, path_icon, blocking, cmd_run_on_robot)
+
+    def addMoveJ(self, itemtarget):
+        return self._c("addMoveJ", itemtarget)
+
+    def addMoveL(self, itemtarget):
+        return self._c("addMoveL", itemtarget)
+
+    def ConnectSafe(self, robot_ip="", max_attempts=5, wait_connection=4, callback_abort=None):
+        return self._c("ConnectSafe", robot_ip, max_attempts, wait_connection)
+
+    def ConnectionParams(self):
+        return tuple(self._c("ConnectionParams"))
+
+    def setConnectionParams(self, robot_ip, port=0, remote_path="", ftp_user="", ftp_pass=""):
+        return self._c("setConnectionParams", robot_ip, port, remote_path, ftp_user, ftp_pass)
+
+    def Disconnect(self):
+        return self._c("Disconnect")
+
+    def JointPoses(self, joints=None):
+        return self._c("JointPoses", list(joints) if joints else None)
+
+    def setRobotParams(self, dhm, poseBase=None, poseTool=None):
+        return self._c("setRobotParams", [list(r) for r in dhm], poseBase, poseTool)
+
+    def RobotParams(self):
+        return self._c("RobotParams")
 
 
 # ---- (de)serialisation ------------------------------------------------------------

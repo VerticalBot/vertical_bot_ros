@@ -54,6 +54,10 @@ export class App {
   worldRunning = false;
   worldTime = 0;
   logs: Array<{ t: number; text: string; level: 'info' | 'warn' | 'error' }> = [];
+  /** Open stations (multi-station tabs); `station` is the active one. */
+  stations: Station[] = [];
+  /** External listeners for API event queues. */
+  onStationEvent: ((type: string, itemId?: string, data?: any) => void) | null = null;
 
   constructor() {
     this.station = new Station('New station');
@@ -82,8 +86,31 @@ export class App {
   }
 
   // -- Station lifecycle ---------------------------------------------------
+  /** Open a new empty station tab and make it active. */
+  addStation(name = 'New station'): Station {
+    const st = new Station(name);
+    this.stations.push(st);
+    this.setStation(st);
+    return st;
+  }
+
+  /** Close the active station (keeps at least one open). */
+  closeStation(): void {
+    const i = this.stations.indexOf(this.station);
+    if (i >= 0) this.stations.splice(i, 1);
+    if (!this.stations.length) this.stations.push(new Station('New station'));
+    this.setStation(this.stations[Math.min(i, this.stations.length - 1)]);
+  }
+
   setStation(st: Station): void {
+    if (!this.stations.includes(st)) {
+      const i = this.stations.indexOf(this.station);
+      if (i >= 0) this.stations[i] = st; else this.stations.push(st);
+    }
     this.station = st;
+    st.events.on('selection', ({ items }) => this.onStationEvent?.('selection', items[0]?.id));
+    st.events.on('changed', ({ item, what }) => { if (what === 'pose') this.onStationEvent?.('moved', item.id); else if (what === 'joints') this.onStationEvent?.('robotMoved', item.id); else if (what === 'name') this.onStationEvent?.('renamed', item.id); else if (what === 'visible') this.onStationEvent?.('visibility', item.id); });
+    this.onStationEvent?.('station', st.id);
     this.sim = new ProgramSimulator(st);
     this.processSim = new ProcessSimulator(st);
     this.fleets.clear();

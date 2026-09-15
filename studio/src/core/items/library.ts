@@ -30,10 +30,14 @@ const ur = (d1: number, a2: number, a3: number, d4: number, d5: number, d6: numb
   { theta: 0, d: d6, a: 0, alpha: 0, lower: -360, upper: 360, maxVelocity: vmax },
 ];
 
-/** Generic 6R industrial arm (KUKA/ABB/Fanuc-like): shoulder offset, upper arm, forearm, wrist. */
+/**
+ * Generic 6R industrial arm (KUKA/ABB/Fanuc-like): shoulder offset, upper arm, forearm, wrist.
+ * Joint 2 = 0 means the upper arm is vertical; vendor limits are given in the KUKA A2 convention
+ * (A2 = -90 vertical) and shifted by +90 here.
+ */
 const sixR = (h: number, a1: number, a2: number, d4: number, d6: number, a3 = 0, limits?: number[][], vmax = 200): DHParams[] => [
   { theta: 0, d: h, a: a1, alpha: -90, lower: limits?.[0]?.[0] ?? -170, upper: limits?.[0]?.[1] ?? 170, maxVelocity: vmax },
-  { theta: -90, d: 0, a: a2, alpha: 0, lower: limits?.[1]?.[0] ?? -100, upper: limits?.[1]?.[1] ?? 135, maxVelocity: vmax, home: 0 },
+  { theta: -90, d: 0, a: a2, alpha: 0, lower: (limits?.[1]?.[0] ?? -190) + 90, upper: (limits?.[1]?.[1] ?? 45) + 90, maxVelocity: vmax, home: 0 },
   { theta: 0, d: 0, a: a3, alpha: -90, lower: limits?.[2]?.[0] ?? -120, upper: limits?.[2]?.[1] ?? 155, maxVelocity: vmax, home: 0 },
   { theta: 0, d: d4, a: 0, alpha: 90, lower: limits?.[3]?.[0] ?? -185, upper: limits?.[3]?.[1] ?? 185, maxVelocity: vmax * 2 },
   { theta: 0, d: 0, a: 0, alpha: -90, lower: limits?.[4]?.[0] ?? -120, upper: limits?.[4]?.[1] ?? 120, maxVelocity: vmax * 2 },

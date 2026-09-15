@@ -26,6 +26,15 @@ function encode(v: any): any {
   return v;
 }
 
+/** Async variant: awaits promise results (e.g. WaitForEvent). */
+export async function executeRpcAsync(RDK: Robolink, req: RpcRequest, ctx: { app?: any } = {}): Promise<RpcResponse> {
+  const res = executeRpc(RDK, req, ctx);
+  if (res.result && typeof res.result.then === 'function') {
+    try { return { id: req.id, result: encode(await res.result) }; } catch (e: any) { return { id: req.id, error: String(e?.message ?? e) }; }
+  }
+  return res;
+}
+
 export function executeRpc(RDK: Robolink, req: RpcRequest, ctx: { app?: any } = {}): RpcResponse {
   try {
     const params = (req.params ?? []).map((p) => decode(RDK, p));
@@ -38,6 +47,7 @@ export function executeRpc(RDK: Robolink, req: RpcRequest, ctx: { app?: any } = 
     const fn = target[req.method];
     if (typeof fn !== 'function') return { id: req.id, error: `Unknown method ${req.method}` };
     const result = fn.apply(target, params);
+    if (result && typeof result.then === 'function') return { id: req.id, result };
     return { id: req.id, result: encode(result) };
   } catch (e: any) {
     return { id: req.id, error: String(e?.message ?? e) };

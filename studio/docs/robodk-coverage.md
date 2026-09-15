@@ -11,61 +11,69 @@ Legend: ✅ implemented · 🟡 partial / simplified · ❌ not implemented
 | Import geometry: STL, OBJ | ✅ | |
 | Import geometry: STEP/IGES/SLDPRT, 3DS, WRL | ❌ | needs a CAD kernel (out of scope in browser) |
 | .rdk station load/save | 🟡 | best-effort binary reader; lossless path is `rdk_export.py` + API script export |
-| .robot / .tool file build ("Robot builder") | 🟡 | DH table import/export instead |
+| .robot / .tool file build ("Robot builder") | ✅ | `BuildMechanism` (1R/1T/2R/2T/3R/3T/4R/4T/6DOF/7DOF/SCARA), `setRobotParams` (modified DH), DH import/export |
 | Targets: cartesian / joint, teach, configuration flags | ✅ | flags derived (elbow/wrist/front), no explicit conf editing |
 | Programs: MoveJ/MoveL/MoveC, speed, rounding, frame/tool, pause, IO, code, comment, message, call | ✅ | |
-| Program instruction types: Wait for target (`WaitMove`), thread start | ❌ | |
+| Program instruction types: Wait, thread start | ✅ | threads compile on parallel timelines |
 | Program simulation, timeline, cycle time, run modes | ✅ | RUN_ON_ROBOT only via ROS bridge |
-| Collision checking (mesh-accurate, collision map UI, `Collision_SetPair`) | 🟡 | capsules/OBB/mesh bounds + optional triangle checks; no collision map UI |
+| Collision checking (mesh-accurate, collision map, `Collision_SetPair`, `Collision_Line`) | ✅ | BVH triangle checks for meshes, collision map with pair rules, ray casting; UI dialog for the map pending |
 | Singularity / joint limit / reach checks in linear moves | ✅ | |
-| Post processors (~100 vendor posts in RoboDK) | 🟡 | 12 posts (KUKA, ABB, Fanuc, UR, Motoman, Stäubli, Doosan, Mecademic, CSV, JSON, RoboDK, ROS 2); no Denso, Kawasaki, Nachi, Comau, Epson, Techman, Hanwha, Omron… |
+| Post processors (~100 vendor posts in RoboDK) | 🟡 | 27 posts: KUKA KRC2/KRC4, ABB IRC5/S4C, Fanuc R30/RJ3, UR, Motoman, Stäubli, Doosan, Mecademic, Denso, Kawasaki, Nachi, Comau, Epson, Techman/Omron TM, Hanwha, Kinova, Mitsubishi, AUBO, JAKA, Elite, Dobot, CSV, JSON, RoboDK, ROS 2 |
 | Post-processor customisation (Python post files) | ❌ | posts are TypeScript modules |
 | Program import from controllers (KRL, RAPID, LS, URScript) | ✅ | others ❌ |
 | Robot machining projects (curve/point follow, NC/G-code/APT) | 🟡 | curve/point follow + G-code; no APT/CAM plugins, tool orientation optimisation, turntable optimisation, feed conversion |
 | External axes / turntables / rails synchronisation | 🟡 | combined IK; no automatic axis optimisation in programs |
-| 3D printing / welding / spray add-ins | 🟡 | via curve follow with IO; no spray deposition simulation (`Spray_*`) |
+| 3D printing / welding / spray add-ins | ✅ | curve follow with IO + spray deposition simulation (`Spray_*` coverage statistics) |
 | Conveyor tracking | 🟡 | process conveyors move products; no tracked picking |
 | Robot drivers (live connection to KUKA/ABB/UR/… controllers) | ❌ | only ROS 2 via rosbridge |
-| Robot calibration, ballbar, ISO 9283, laser tracker, TCP/frame calibration wizards | ❌ | |
+| Robot calibration, ballbar, ISO 9283, laser tracker, TCP/frame calibration | ✅ | numeric DH identification, ISO cube/ballbar programs and statistics, TCP by point/line, frame 3P/6P/turntable; measuring devices simulated |
 | 2D/3D camera simulation (`Cam2D_*`) | 🟡 | camera view render + simulated fruit detections; no depth/segmentation output |
 | Simulation events (attach/detach objects, show/hide) | ✅ | |
 | Python API (`robolink`, `robomath`) | 🟡 | see tables below |
 | C#, C++, MATLAB/Simulink APIs, plugin interface (C++ add-ins) | ❌ | JS + Python + JSON-RPC only |
-| Multi-station tabs, copy/paste between stations | ❌ | one station per tab |
+| Multi-station tabs, copy/paste between stations | 🟡 | API: `getOpenStations/setActiveStation/CloseStation`, clipboard Copy/Paste; tab bar UI pending |
 | Measurements, notes, ISO cube, layout dimensions | 🟡 | notes item only |
 | Export simulation (3D HTML/PDF), video recording | ❌ | PNG screenshots only |
 
-## Python API — Robolink
+## Python API — Robolink (updated)
 
-Implemented (39): `ActiveStation AddCurve AddFile(stub) AddFolder AddFrame AddPoints AddProgram AddShape AddStation AddTarget
+Now implemented in addition to the original set: `AddTargetJ AddMachiningProject AddMillingProject BuildMechanism setRobotParams
+Cam2D_Add Cam2D_SetParams Cam2D_Close Cam2D_Snapshot Calibrate_Reference CalibrateTool Calibrate_Robot LaserTracker_Measure
+MeasurePose StereoCamera_Measure Popup_ISO9283_CubeProgram BallbarProgram Collision_Line Collision_SetPair Collision_SetPairList
+setCollisionActive setCollisionActivePair Collisions CollisionItems CollisionPairs Copy Paste Duplicate getOpenStations
+setActiveStation CloseStation CloseRoboDK getFlagsItem setFlagsItem getFlagsRoboDK setFlagsRoboDK HideRoboDK ShowRoboDK
+setWindowState setInteractiveMode setViewPose ViewPose Joints setJoints setPoses MergeItems RunCode RunMessage RunProgram
+ShowSequence FilterTarget getParams SimulationTime setSimulationTime Spray_Add Spray_SetState Spray_GetStats Spray_Clear
+EventsListen WaitForEvent PluginLoad PluginCommand ProjectPoints IsInside Save`.
+
+Previously implemented (39): `ActiveStation AddCurve AddFile(stub) AddFolder AddFrame AddPoints AddProgram AddShape AddStation AddTarget
 Cam2D_Snapshot(stub) Collisions(stub) Command Connect Delete Disconnect Finish IsInside(stub) Item ItemList ItemUserPick License
 ProjectPoints(stub) Render RunMode Save(stub) Selection ShowMessage SimulationSpeed Update Version getParam setParam setRunMode
 setSelection setSimulationSpeed` + extensions `AddRobot AddMobileRobot App`.
 
-Missing (documented in RoboDK): `AddMachiningProject AddMillingProject AddTargetJ AddMechanism/BuildMechanism BuildMechanism
-Cam2D_Add Cam2D_Close Cam2D_SetParams Calibrate_Reference Calibrate_Robot CalibrateTool CloseRoboDK CloseStation
-Collision_Line Collision_SetPair Collision_SetPairList CollisionItems CollisionPairs Copy Paste EmbedWindow
-getOpenStations setActiveStation getFlagsItem setFlagsItem getFlagsRoboDK setFlagsRoboDK HideRoboDK ShowRoboDK setWindowState
-Joints setJoints (multi-robot) LaserTracker_Measure MeasurePose StereoCamera_Measure MergeItems Popup_ISO9283_CubeProgram
-PluginCommand PluginLoad RunCode RunMessage RunProgram setCollisionActive setCollisionActivePair setInteractiveMode setPoses
-setRobotParams setViewPose ViewPose Spray_Add Spray_Clear Spray_GetStats Spray_SetState ShowSequence FilterTarget
-getParams SimulationTime setSimulationTime EventsListen/WaitForEvent`.
+Still missing / stubbed: `EmbedWindow` (no native windows in a browser), `AddFile` from a local path (browser sandbox:
+use drag & drop or the station file). Measurement functions return simulated values (configurable noise) unless a real
+device is bridged through the server.
 
-## Python API — Item
+## Python API — Item (updated)
 
-Implemented (68): `AddFrame AddTarget AddTool Busy Childs Connect ConnectedState DOF Delete Instruction InstructionCount
+Now implemented in addition: `AttachClosest DetachClosest DetachAll Collision Copy Paste GeometryPose InstructionListJoints
+InstructionSelect setInstruction JointsConfig setJointsHome setAccuracyActive AccuracyActive setAcceleration
+setAccelerationJoints setSpeedJoints setLink ObjectLink Save setMachiningParameters MachiningParameters FilterTarget
+FilterProgram setRunType RunType WaitFinished MoveJ_Test MoveL_Test SearchL Scale setColorShape setColorCurve Color setValue
+Value setAO getDI getAI customInstruction addMoveJ addMoveL ConnectSafe ConnectionParams setConnectionParams Disconnect
+JointPoses setRobotParams RobotParams`.
+
+Previously implemented (68): `AddFrame AddTarget AddTool Busy Childs Connect ConnectedState DOF Delete Instruction InstructionCount
 InstructionDelete InstructionList JointLimits Joints JointsHome MakeProgram MoveC MoveJ MoveL Name Parent Pause Pose PoseAbs
 PoseFrame PoseTool ProgramStart Recolor RunCode RunCodeCustom RunInstruction RunProgram ShowInstructions ShowTargets SolveFK
 SolveIK SolveIK_All Stop Type Update Valid Visible WaitMove getLink getParam isJointTarget setAsCartesianTarget setAsJointTarget
 setColor setDO setGeometryPose setJointLimits setJoints setName setParam setParent setParentStatic setPose setPoseAbs
 setPoseFrame setPoseTool setRobot setRounding setSpeed setVisible setZoneData waitDI`.
 
-Missing: `AttachClosest DetachClosest DetachAll Collision Copy Paste GeometryPose InstructionListJoints InstructionSelect
-setInstruction JointsConfig setJointsHome setAccuracyActive AccuracyActive setAcceleration setAccelerationJoints setSpeedJoints
-setLink ObjectLink Save setMachiningParameters MachiningParameters FilterTarget FilterProgram setRunType RunType WaitFinished
-MoveJ_Test MoveL_Test SearchL Scale setColorShape setColorCurve Color setValue Value setAO getDI getAI customInstruction
-addMoveJ addMoveL ConnectSafe ConnectionParams setConnectionParams Disconnect setPoseFrame(pose) JointPoses
-setJointsConfig setDefaultTargetConfig setNoCurve setMillingParameters...`.
+Behavioural notes: `Collision`/`MoveJ_Test`/`MoveL_Test` use the collision map and ignore resting contacts present at the
+start of the move; `FilterProgram`/`setAccuracyActive` are no-ops because the simulated kinematics are nominal (calibrated
+robots replace their DH tables instead).
 
 ## Behavioural differences
 

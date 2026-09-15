@@ -107,7 +107,7 @@ export function generateCurveFollow(station: Station, robot: Robot, object: Scen
     const inBase = multiply(invert(base), abs);
     if (i === 0) {
       const app = mul(inBase, transl(0, 0, -approach));
-      const r0 = robot.solveIK(app, { seed: q, ...ikOpts });
+      const r0 = robot.solveIK(app, { seed: q, ...ikOpts, restarts: 6, maxIterations: 200 });
       if (r0.ok) {
         const t = frame.addChild(new Target('Approach'));
         t.setPose(mul(local, transl(0, 0, -approach)));
@@ -117,7 +117,7 @@ export function generateCurveFollow(station: Station, robot: Robot, object: Scen
       }
       if (opts.io) prog.setDO(opts.io, true);
     }
-    const r = robot.solveIK(inBase, { seed: q, ...ikOpts });
+    const r = robot.solveIK(inBase, { seed: q, ...ikOpts, ...(n === 0 ? { restarts: 6, maxIterations: 200 } : {}) });
     if (!r.ok) { unreachable++; continue; }
     q = r.joints;
     n++;

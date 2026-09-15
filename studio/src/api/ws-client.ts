@@ -4,7 +4,7 @@
  */
 import { App } from '../app';
 import { Robolink, RobolinkItem, Mat } from './robolink';
-import { executeRpc } from './rpc';
+import { executeRpcAsync } from './rpc';
 
 export async function connectToStudioServer(app: App, RDK: Robolink, url: string): Promise<void> {
   let ws: WebSocket;
@@ -16,10 +16,7 @@ export async function connectToStudioServer(app: App, RDK: Robolink, url: string
     let msg: any;
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (msg.method) {
-      const res = executeRpc(RDK, msg, { app });
-      ws.send(JSON.stringify(res));
-      app.snapshot();
-      app.previewProgram();
+      executeRpcAsync(RDK, msg, { app }).then((res) => { ws.send(JSON.stringify(res)); if (!/^(Item|ItemList|Joints|Pose|Valid|Name|WaitForEvent)$/.test(msg.method)) { app.snapshot(); app.previewProgram(); } });
     }
   };
   ws.onclose = () => app.log('Studio server disconnected');
