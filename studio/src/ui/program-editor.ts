@@ -103,6 +103,8 @@ export class ProgramEditor {
       b('Call', () => { const other = this.app.station.itemsOfType<Program>(ItemType.PROGRAM).find((x) => x !== p); add({ kind: 'call', programId: other?.id ?? null, programName: other?.name }); }),
       b('Navigate', () => add({ kind: 'mobile_move', x: 0, y: 0, speed: 1000 })),
       b('Signal', () => add({ kind: 'signal', signal: 'spray', value: true, wait: false })),
+      b('Thread', () => { const other = this.app.station.itemsOfType<Program>(ItemType.PROGRAM).find((x) => x !== p); add({ kind: 'thread', programId: other?.id ?? null, programName: other?.name }); }),
+      b('Wait', () => add({ kind: 'wait', what: 'signal', signal: 'DI_1', value: true, timeMs: 1000 })),
     ];
   }
 
@@ -154,6 +156,8 @@ function kindLabel(d: InstructionData): string {
     case 'signal': return d.wait ? 'WaitSig' : 'SetSig';
     case 'loop': return 'Loop';
     case 'if': return 'If';
+    case 'thread': return 'Thread';
+    case 'wait': return 'Wait';
   }
 }
 export { Tool };

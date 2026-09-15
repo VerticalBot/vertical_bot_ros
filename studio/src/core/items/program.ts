@@ -26,6 +26,8 @@ export enum InstructionType {
   SET_SIGNAL = 34,
   LOOP = 35,
   IF = 36,
+  THREAD = 37,
+  WAIT = 38,
 }
 
 export type MoveType = 'MoveJ' | 'MoveL' | 'MoveC';
@@ -61,11 +63,15 @@ export interface MissionTaskInstruction { kind: 'mission_task'; task: string; pa
 export interface SignalInstruction { kind: 'signal'; signal: string; value: number | boolean | string; wait: boolean }
 export interface LoopInstruction { kind: 'loop'; count: number; bodyProgramId: string | null }
 export interface IfInstruction { kind: 'if'; condition: string; thenProgramId: string | null; elseProgramId?: string | null }
+/** Start another program in parallel (RoboDK INSTRUCTION_START_THREAD). */
+export interface ThreadInstruction { kind: 'thread'; programId: string | null; programName?: string }
+/** Wait for a condition: a signal/IO value, or a time (RoboDK "Wait" instructions). */
+export interface WaitInstruction { kind: 'wait'; what: 'time' | 'signal' | 'move_done'; signal?: string; value?: number | boolean | string; timeMs?: number }
 
 export type InstructionData =
   | MoveInstruction | SpeedInstruction | FrameInstruction | ToolInstruction | PauseInstruction | EventInstruction | CodeInstruction
   | PrintInstruction | RoundingInstruction | IOInstruction | CallInstruction | MobileMoveInstruction | MobileFollowInstruction
-  | MissionTaskInstruction | SignalInstruction | LoopInstruction | IfInstruction;
+  | MissionTaskInstruction | SignalInstruction | LoopInstruction | IfInstruction | ThreadInstruction | WaitInstruction;
 
 export class Instruction extends Item {
   data: InstructionData;
@@ -95,6 +101,8 @@ export class Instruction extends Item {
       case 'signal': return this.data.wait ? InstructionType.WAIT_SIGNAL : InstructionType.SET_SIGNAL;
       case 'loop': return InstructionType.LOOP;
       case 'if': return InstructionType.IF;
+      case 'thread': return InstructionType.THREAD;
+      case 'wait': return InstructionType.WAIT;
     }
   }
 
@@ -126,6 +134,8 @@ export function describeInstruction(d: InstructionData): string {
     case 'signal': return `${d.wait ? 'Wait' : 'Set'} signal ${d.signal} = ${d.value}`;
     case 'loop': return `Loop x${d.count}`;
     case 'if': return `If ${d.condition}`;
+    case 'thread': return `Start thread ${d.programName ?? d.programId ?? ''}`;
+    case 'wait': return d.what === 'time' ? `Wait ${d.timeMs ?? 0} ms` : d.what === 'signal' ? `Wait ${d.signal} = ${d.value}` : 'Wait move done';
   }
 }
 
@@ -205,6 +215,12 @@ export class Program extends Item {
   }
   callProgram(p: Program): Instruction {
     return this.addInstruction({ kind: 'call', programId: p.id, programName: p.name });
+  }
+  startThread(p: Program): Instruction {
+    return this.addInstruction({ kind: 'thread', programId: p.id, programName: p.name });
+  }
+  waitSignal(signal: string, value: number | boolean | string, timeoutMs?: number): Instruction {
+    return this.addInstruction({ kind: 'wait', what: 'signal', signal, value, timeMs: timeoutMs });
   }
   event(action: EventInstruction['action'], objectId?: string | null, name?: string): Instruction {
     return this.addInstruction({ kind: 'event', action, objectId, name });

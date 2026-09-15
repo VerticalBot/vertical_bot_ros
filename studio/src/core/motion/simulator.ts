@@ -46,6 +46,8 @@ export class ProgramSimulator {
   /** Collision checking during compile (sampled along trajectories). */
   collisionOptions: (CollisionOptions & { enabled: boolean; sampleStep?: number }) = { enabled: false, sampleStep: 0.1 };
   collisions: Array<{ instructionId: string; t: number; pairs: CollisionPair[] }> = [];
+  /** End times of parallel threads (the total duration covers them). */
+  private threadEnds: number[] = [];
 
   constructor(readonly station: Station) {}
 
@@ -53,6 +55,7 @@ export class ProgramSimulator {
   compile(program: Program, startJoints?: Map<string, number[]>): ProgramRunResult {
     this.steps = [];
     this.attachments.clear();
+    this.threadEnds = [];
     const problems: ProgramRunResult['problems'] = [];
     const jointsOf = new Map<string, number[]>(startJoints ?? []);
     let t = 0;
@@ -214,6 +217,26 @@ export class ProgramSimulator {
             // handled by the mobile simulator; estimate time with nominal speed
             this.steps.push({ instruction: ins, robot, t0, t1: t });
             break;
+          case 'thread': {
+            const sub = d.programId ? this.station.findById(d.programId) : this.station.find(d.programName ?? '', ItemType.PROGRAM);
+            if (!(sub instanceof Program)) { problems.push({ instructionId: ins.id, message: `Thread program ${d.programName ?? d.programId} not found`, severity: 'error' }); break; }
+            // parallel timeline: compile the sub program starting at the current time, then restore the main clock
+            const tMain = t;
+            const subRobot = sub.robot();
+            if (subRobot && robot && subRobot.id === robot.id) problems.push({ instructionId: ins.id, message: 'Thread uses the same robot as the main program', severity: 'warning' });
+            compileProgram(sub, depth + 1);
+            const tEnd = t;
+            t = tMain;
+            this.threadEnds.push(tEnd);
+            this.steps.push({ instruction: ins, robot, t0, t1: t });
+            break;
+          }
+          case 'wait':
+            if (d.what === 'time') t += Math.max(0, d.timeMs ?? 0) / 1000;
+            else if (d.what === 'signal') t += (d.timeMs ?? 100) / 1000; // nominal wait for a signal
+            else if (d.what === 'move_done') { /* moves are already blocking in simulation */ }
+            this.steps.push({ instruction: ins, robot, t0, t1: t });
+            break;
         }
       }
       visited.delete(prog.id);
@@ -222,7 +245,9 @@ export class ProgramSimulator {
     compileProgram(program, 0);
     this.collisions = [];
     if (this.collisionOptions.enabled) this.checkTrajectoryCollisions(problems);
-    this.duration = t;
+    this.duration = Math.max(t, ...this.threadEnds);
+    // steps must be sorted by start time for seeking (threads insert out of order)
+    this.steps.sort((a, b) => a.t0 - b.t0);
     this.time = 0;
     this.currentStep = -1;
     this.robotEndJoints = jointsOf;
@@ -410,6 +435,29 @@ export class ProgramSimulator {
   endJoints(robotId: string): number[] | undefined {
     return this.robotEndJoints.get(robotId);
   }
+  /**
+   * Joint list along the whole program (RoboDK InstructionListJoints): rows of
+   * [time, instruction index, j1..jn] sampled every `dt` seconds for the program's robot.
+   */
+  jointsList(robotId: string, dt = 0.05): number[][] {
+    const rows: number[][] = [];
+    const steps = this.steps.filter((s) => s.robot?.id === robotId && s.trajectory && s.trajectory.samples.length);
+    let last: number[] | null = null;
+    for (const s of steps) {
+      const tr = s.trajectory!;
+      const idx = this.steps.indexOf(s);
+      const n = Math.max(1, Math.ceil(tr.duration / dt));
+      for (let k = 0; k <= n; k++) {
+        const t = (k / n) * tr.duration;
+        const q = sampleAt(tr, t).joints;
+        if (last && k === 0 && last.every((v, i) => Math.abs(v - q[i]) < 1e-9)) continue;
+        rows.push([s.t0 + t, idx, ...q]);
+        last = q;
+      }
+    }
+    return rows;
+  }
+
   stepIndexAt(t: number): number {
     let idx = -1;
     for (let i = 0; i < this.steps.length; i++) if (this.steps[i].t0 <= t) idx = i;

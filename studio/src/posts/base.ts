@@ -194,6 +194,14 @@ export function compileForPost(station: Station, program: Program): PostProgram 
       case 'if':
         events.push({ kind: 'comment', text: `${d.kind} (not supported by post)` });
         break;
+      case 'thread':
+        events.push({ kind: 'comment', text: `start thread ${d.programName ?? d.programId ?? ''}` });
+        break;
+      case 'wait':
+        if (d.what === 'time') events.push({ kind: 'pause', timeMs: d.timeMs ?? 0 });
+        else if (d.what === 'signal') events.push({ kind: 'waitDI', io: d.signal ?? '', value: (d.value as any) ?? true, timeoutMs: d.timeMs ?? -1 });
+        else events.push({ kind: 'comment', text: 'wait move done' });
+        break;
     }
   }
   return {

@@ -156,7 +156,7 @@ function visualColliders(item: Item, part: string, linkIndex: number | undefined
       const size: [number, number, number] = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
       const c: [number, number, number] = [(max[0] + min[0]) / 2, (max[1] + min[1]) / 2, (max[2] + min[2]) / 2];
       const obb = obbFromBox(pose, size, c);
-      if (opts.meshAccurate && a.mesh.triangles < 60000) {
+      if (opts.meshAccurate && a.mesh.triangles < 400000) {
         // pre-scale positions
         let positions = a.mesh.positions;
         if (s[0] !== 1 || s[1] !== 1 || s[2] !== 1) {
@@ -295,9 +295,9 @@ function triTri(a: V[], b: V[]): boolean {
   return false;
 }
 
-function meshMesh(m1: Extract<Shape, { kind: 'mesh' }>, m2: Extract<Shape, { kind: 'mesh' }>, budget = 2_000_000): boolean {
+function meshMesh(m1: Extract<Shape, { kind: 'mesh' }>, m2: Extract<Shape, { kind: 'mesh' }>, budget = 20_000): boolean {
   const t1 = m1.positions.length / 9, t2 = m2.positions.length / 9;
-  if (t1 * t2 > budget) return true; // too expensive: trust the bounding boxes
+  if (t1 * t2 > budget) return meshMeshBVH(m1, m2);
   const w1: V[][] = [], w2: V[][] = [];
   for (let i = 0; i < t1; i++) w1.push([0, 1, 2].map((k) => transformPoint(m1.pose, [m1.positions[i * 9 + k * 3], m1.positions[i * 9 + k * 3 + 1], m1.positions[i * 9 + k * 3 + 2]])) as V[]);
   for (let i = 0; i < t2; i++) w2.push([0, 1, 2].map((k) => transformPoint(m2.pose, [m2.positions[i * 9 + k * 3], m2.positions[i * 9 + k * 3 + 1], m2.positions[i * 9 + k * 3 + 2]])) as V[]);
@@ -370,3 +370,254 @@ export function checkRobotCollisions(station: Station, robot: Robot, opts: Colli
 }
 
 export { transformDir };
+
+// ---- Collision map (RoboDK Collision_SetPair / setCollisionActive) -----------------------------------
+
+export interface CollisionMapData {
+  /** Global collision checking switch (COLLISION_ON / COLLISION_OFF). */
+  active: boolean;
+  /** Pairs explicitly disabled: [itemA, linkA(-1 = any), itemB, linkB(-1 = any)]. */
+  disabled: Array<[string, number, string, number]>;
+  /** Pairs explicitly enabled (override default rules such as adjacent links). */
+  enabled: Array<[string, number, string, number]>;
+}
+
+export function getCollisionMap(station: Station): CollisionMapData {
+  let m = station.params.collisionMap as unknown as CollisionMapData | undefined;
+  if (!m || typeof m !== 'object') { m = { active: true, disabled: [], enabled: [] }; station.params.collisionMap = m as any; }
+  return m;
+}
+
+export function setCollisionPair(station: Station, a: Item, b: Item, linkA = -1, linkB = -1, check = true): void {
+  const m = getCollisionMap(station);
+  const same = (p: [string, number, string, number]) => (p[0] === a.id && p[2] === b.id && p[1] === linkA && p[3] === linkB) || (p[0] === b.id && p[2] === a.id && p[1] === linkB && p[3] === linkA);
+  m.disabled = m.disabled.filter((p) => !same(p));
+  m.enabled = m.enabled.filter((p) => !same(p));
+  (check ? m.enabled : m.disabled).push([a.id, linkA, b.id, linkB]);
+  station.notify('collisionMap');
+}
+
+function pairState(m: CollisionMapData, A: Collider, B: Collider): 'enabled' | 'disabled' | 'default' {
+  const match = (p: [string, number, string, number]) => {
+    const f = (id: string, link: number, c: Collider) => id === c.item.id && (link < 0 || link === (c.linkIndex ?? -1));
+    return (f(p[0], p[1], A) && f(p[2], p[3], B)) || (f(p[0], p[1], B) && f(p[2], p[3], A));
+  };
+  if (m.disabled.some(match)) return 'disabled';
+  if (m.enabled.some(match)) return 'enabled';
+  return 'default';
+}
+
+/** Station-wide check honouring the collision map. */
+export function checkCollisionsMapped(station: Station, opts: CollisionOptions = {}): CollisionPair[] {
+  const m = getCollisionMap(station);
+  if (!m.active) return [];
+  const colliders: Collider[] = [];
+  for (const it of station.walk()) {
+    if (it === station || !it.visible) continue;
+    if (it.type === ItemType.FIELD || it.type === ItemType.CROP_ROW || it.type === ItemType.MAP || it.type === ItemType.ZONE) continue;
+    colliders.push(...collidersOf(it, opts));
+  }
+  const pairs = checkColliders(colliders, opts).filter((p) => pairState(m, p.a, p.b) !== 'disabled');
+  // explicitly enabled pairs are checked even if default rules skip them
+  for (const e of m.enabled) {
+    const as = colliders.filter((c) => c.item.id === e[0] && (e[1] < 0 || c.linkIndex === e[1]));
+    const bs = colliders.filter((c) => c.item.id === e[2] && (e[3] < 0 || c.linkIndex === e[3]));
+    for (const A of as) for (const B of bs) {
+      if (pairs.some((p) => (p.a === A && p.b === B) || (p.a === B && p.b === A))) continue;
+      const d = shapeDistance(A.shape, B.shape) + (opts.margin ?? 0);
+      if (d > 0) pairs.push({ a: A, b: B, depth: d });
+    }
+  }
+  return pairs;
+}
+
+/** Collision between two specific items (RoboDK Item.Collision). */
+export function itemsCollide(a: Item, b: Item, opts: CollisionOptions = {}): CollisionPair[] {
+  const ca = [...a.walk()].flatMap((i) => collidersOf(i, opts));
+  const cb = [...b.walk()].flatMap((i) => collidersOf(i, opts));
+  const out: CollisionPair[] = [];
+  for (const A of ca) for (const B of cb) {
+    if (A.item instanceof Tool && A.item.attached.includes(B.item.id)) continue;
+    if (B.item instanceof Tool && B.item.attached.includes(A.item.id)) continue;
+    let d = shapeDistance(A.shape, B.shape) + (opts.margin ?? 0);
+    if (d <= 0) continue;
+    if (A.shape.kind === 'mesh' && B.shape.kind === 'mesh' && opts.meshAccurate && !meshMesh(A.shape, B.shape)) continue;
+    out.push({ a: A, b: B, depth: d });
+  }
+  return out;
+}
+
+// ---- Ray casting (RoboDK Collision_Line) ----------------------------------------------------------
+
+function raySphere(o: V, d: V, c: V, r: number): number | null {
+  const oc = sub(o, c);
+  const b = dot(oc, d), cc = dot(oc, oc) - r * r;
+  const disc = b * b - cc;
+  if (disc < 0) return null;
+  const t = -b - Math.sqrt(disc);
+  return t >= 0 ? t : -b + Math.sqrt(disc) >= 0 ? 0 : null;
+}
+function rayCapsule(o: V, d: V, a: V, b: V, r: number): number | null {
+  // sample-based: test spheres along the segment plus the endpoint spheres (adequate for mm-scale checks)
+  const n = Math.max(2, Math.ceil(norm(sub(b, a)) / (r * 0.5)));
+  let best: number | null = null;
+  for (let i = 0; i <= n; i++) {
+    const c = add(a, scale(sub(b, a), i / n)) as V;
+    const t = raySphere(o, d, c, r);
+    if (t !== null && (best === null || t < best)) best = t;
+  }
+  return best;
+}
+function rayObb(o: V, d: V, box: Extract<Shape, { kind: 'obb' }>): number | null {
+  let tmin = 0, tmax = Infinity;
+  const p = sub(box.center, o);
+  for (let i = 0; i < 3; i++) {
+    const e = dot(box.axes[i], p), f = dot(box.axes[i], d);
+    if (Math.abs(f) > 1e-12) {
+      let t1 = (e + box.half[i]) / f, t2 = (e - box.half[i]) / f;
+      if (t1 > t2) [t1, t2] = [t2, t1];
+      tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+      if (tmin > tmax) return null;
+    } else if (-e - box.half[i] > 0 || -e + box.half[i] < 0) return null;
+  }
+  return tmin;
+}
+function rayTri(o: V, d: V, a: V, b: V, c: V): number | null {
+  const e1 = sub(b, a), e2 = sub(c, a);
+  const h = cross(d, e2);
+  const det = dot(e1, h);
+  if (Math.abs(det) < 1e-12) return null;
+  const f = 1 / det;
+  const s = sub(o, a);
+  const u = f * dot(s, h);
+  if (u < 0 || u > 1) return null;
+  const q = cross(s, e1);
+  const v = f * dot(d, q);
+  if (v < 0 || u + v > 1) return null;
+  const t = f * dot(e2, q);
+  return t >= 0 ? t : null;
+}
+
+export interface RayHit { item: Item; part: string; point: [number, number, number]; distance: number }
+
+/** First intersection of the segment p1->p2 (station frame, mm) with any collider. */
+export function collisionLine(station: Station, p1: V, p2: V, opts: CollisionOptions = {}): RayHit | null {
+  const dir = sub(p2, p1);
+  const len = norm(dir);
+  if (len < 1e-9) return null;
+  const d = scale(dir, 1 / len) as V;
+  let best: RayHit | null = null;
+  for (const it of station.walk()) {
+    if (it === station || !it.visible) continue;
+    if (it.type === ItemType.FIELD || it.type === ItemType.CROP_ROW || it.type === ItemType.MAP || it.type === ItemType.ZONE) continue;
+    for (const c of collidersOf(it, opts)) {
+      let t: number | null = null;
+      const s = c.shape;
+      if (s.kind === 'sphere') t = raySphere(p1, d, s.c, s.r);
+      else if (s.kind === 'capsule') t = rayCapsule(p1, d, s.a, s.b, s.r);
+      else if (s.kind === 'obb') t = rayObb(p1, d, s);
+      else if (s.kind === 'mesh') {
+        const tb = rayObb(p1, d, s.obb);
+        if (tb !== null && tb <= len) {
+          const bvh = meshBVH(s);
+          t = bvh.raycast(p1, d, len);
+        }
+      }
+      if (t !== null && t <= len && (!best || t < best.distance)) best = { item: it, part: c.part, point: add(p1, scale(d, t)) as V, distance: t };
+    }
+  }
+  return best;
+}
+
+// ---- Mesh BVH (triangle-accurate checks) ---------------------------------------------------------
+
+interface BVHNode { min: V; max: V; left?: BVHNode; right?: BVHNode; tris?: number[] }
+
+export class MeshBVH {
+  root: BVHNode;
+  /** World-space triangle vertices (flat, 9 per triangle). */
+  world: Float64Array;
+  constructor(positions: Float32Array, pose: Mat4) {
+    const n = positions.length / 9;
+    this.world = new Float64Array(n * 9);
+    for (let i = 0; i < n * 3; i++) {
+      const p = transformPoint(pose, [positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]]);
+      this.world[i * 3] = p[0]; this.world[i * 3 + 1] = p[1]; this.world[i * 3 + 2] = p[2];
+    }
+    const idx = Array.from({ length: n }, (_, i) => i);
+    this.root = this.build(idx, 0);
+  }
+  private bounds(tris: number[]): [V, V] {
+    const min: V = [Infinity, Infinity, Infinity], max: V = [-Infinity, -Infinity, -Infinity];
+    for (const t of tris) for (let k = 0; k < 3; k++) for (let a = 0; a < 3; a++) { const v = this.world[t * 9 + k * 3 + a]; if (v < min[a]) min[a] = v; if (v > max[a]) max[a] = v; }
+    return [min, max];
+  }
+  private build(tris: number[], depth: number): BVHNode {
+    const [min, max] = this.bounds(tris);
+    if (tris.length <= 8 || depth > 24) return { min, max, tris };
+    const ext = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
+    const axis = ext[0] >= ext[1] && ext[0] >= ext[2] ? 0 : ext[1] >= ext[2] ? 1 : 2;
+    const centroid = (t: number) => (this.world[t * 9 + axis] + this.world[t * 9 + 3 + axis] + this.world[t * 9 + 6 + axis]) / 3;
+    tris.sort((p, q) => centroid(p) - centroid(q));
+    const mid = tris.length >> 1;
+    return { min, max, left: this.build(tris.slice(0, mid), depth + 1), right: this.build(tris.slice(mid), depth + 1) };
+  }
+  tri(i: number): [V, V, V] {
+    const w = this.world, k = i * 9;
+    return [[w[k], w[k + 1], w[k + 2]], [w[k + 3], w[k + 4], w[k + 5]], [w[k + 6], w[k + 7], w[k + 8]]];
+  }
+  static overlap(a: BVHNode, b: BVHNode): boolean {
+    return a.min[0] <= b.max[0] && a.max[0] >= b.min[0] && a.min[1] <= b.max[1] && a.max[1] >= b.min[1] && a.min[2] <= b.max[2] && a.max[2] >= b.min[2];
+  }
+  /** Any triangle of this mesh intersecting a triangle of the other. */
+  intersects(other: MeshBVH, budget = { n: 0 }, max = 5_000_000): boolean {
+    const stack: Array<[BVHNode, BVHNode]> = [[this.root, other.root]];
+    while (stack.length) {
+      const [a, b] = stack.pop()!;
+      if (!MeshBVH.overlap(a, b)) continue;
+      if (a.tris && b.tris) {
+        for (const i of a.tris) for (const j of b.tris) { if (++budget.n > max) return true; if (triTri(this.tri(i), other.tri(j))) return true; }
+      } else if (a.tris) { stack.push([a, b.left!], [a, b.right!]); }
+      else if (b.tris) { stack.push([a.left!, b], [a.right!, b]); }
+      else { stack.push([a.left!, b.left!], [a.left!, b.right!], [a.right!, b.left!], [a.right!, b.right!]); }
+    }
+    return false;
+  }
+  raycast(o: V, d: V, maxT = Infinity): number | null {
+    let best: number | null = null;
+    const stack: BVHNode[] = [this.root];
+    const rayBox = (n: BVHNode) => {
+      let tmin = 0, tmax = maxT;
+      for (let a = 0; a < 3; a++) {
+        if (Math.abs(d[a]) < 1e-12) { if (o[a] < n.min[a] || o[a] > n.max[a]) return false; continue; }
+        let t1 = (n.min[a] - o[a]) / d[a], t2 = (n.max[a] - o[a]) / d[a];
+        if (t1 > t2) [t1, t2] = [t2, t1];
+        tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+        if (tmin > tmax) return false;
+      }
+      return true;
+    };
+    while (stack.length) {
+      const n = stack.pop()!;
+      if (!rayBox(n)) continue;
+      if (n.tris) { for (const i of n.tris) { const [a, b, c] = this.tri(i); const t = rayTri(o, d, a, b, c); if (t !== null && t <= maxT && (best === null || t < best)) best = t; } }
+      else { stack.push(n.left!, n.right!); }
+    }
+    return best;
+  }
+}
+
+const bvhCache = new WeakMap<Float32Array, { pose: string; bvh: MeshBVH }>();
+function meshBVH(s: Extract<Shape, { kind: 'mesh' }>): MeshBVH {
+  const key = Array.from(s.pose).map((v) => v.toFixed(3)).join(',');
+  const c = bvhCache.get(s.positions);
+  if (c && c.pose === key) return c.bvh;
+  const bvh = new MeshBVH(s.positions, s.pose);
+  bvhCache.set(s.positions, { pose: key, bvh });
+  return bvh;
+}
+
+/** Triangle-accurate mesh/mesh test using BVHs (replaces the brute-force version for large meshes). */
+export function meshMeshBVH(m1: Extract<Shape, { kind: 'mesh' }>, m2: Extract<Shape, { kind: 'mesh' }>): boolean {
+  return meshBVH(m1).intersects(meshBVH(m2));
+}
