@@ -29,7 +29,8 @@ or the rosbridge connection.
 - External axes: a robot dropped onto a rail/gantry/positioner hangs on its flange; combined-chain IK solves
   carrier + arm together (`Robot › Move with external axes`).
 - Curve / point following (machining, welding, glue, pruning, drilling): programs generated from object curves
-  or points with normals, approach/retract, tool-Z freedom and IO switching.
+  or points with normals, approach/retract, tool-Z freedom and IO switching. G-code / NC files (G0-G3, arcs,
+  inch/mm, spindle M-codes) import as cutting curves for robot machining.
 - Post processors: KUKA KRC4 (KRL .src/.dat), ABB RAPID (.mod), Fanuc (.ls), Universal Robots (URScript),
   Yaskawa Motoman (INFORM .JBI), Stäubli VAL3 (.pgx), Doosan (DRL), Mecademic (Python), generic CSV, JSON,
   ROS 2 (rclpy node + JointTrajectory JSON), **RoboDK API Python script** (rebuilds the program inside RoboDK).
@@ -55,7 +56,7 @@ or the rosbridge connection.
 **Process simulation (Visual Components class)**
 - Behaviour components: feeder, conveyor (path, speed, spacing, stop signal), process/machine (cycle time,
   capacity, MTBF/MTTR failures), buffer/pallet grid, transfer/human, sensor, sink. Signals, statistics
-  (throughput, utilisation, blocking, WIP), products as live 3D objects.
+  (throughput, utilisation, blocking, WIP, output/WIP history chart), products as live 3D objects.
 
 **Mobile robotics & fleets**
 - Mobile robot item: differential/Ackermann/omni/tracked kinematics, battery model, sensors, capabilities,
