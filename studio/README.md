@@ -46,7 +46,8 @@ or the rosbridge connection.
   in `python/`): `Robolink`, `Item`, `AddFrame/AddTarget/AddProgram`, `MoveJ/MoveL/MoveC`, `SolveFK/SolveIK`,
   `setPoseFrame/setPoseTool`, `Update`, `MakeProgram`, `RunInstruction`, `setDO/waitDI`, …
 - Studio server on port 20500 (RoboDK's API port) relays API calls into the live browser session.
-- `python/rdk_export.py` runs inside RoboDK and dumps a station losslessly to the studio format;
+- `python/rdk_export.py` runs inside RoboDK and dumps a station to the studio format; on load the studio rebuilds
+  robots (DH table or library match by name) and programs (instruction list → targets + moves);
   `File > Export station as RoboDK API script` rebuilds a studio station inside RoboDK (then save as .rdk).
 - Best-effort `.rdk` reader (the container is proprietary): recovers names, poses and embedded meshes.
 - Target CSV/TXT import/export in RoboDK conventions.
@@ -72,6 +73,10 @@ or the rosbridge connection.
 - Missions: harvest, spray, mow, prune, scout, weed, pollinate, transport, thin, irrigate → fleet tasks per row
   side with traffic segments; progress tracking.
 - Arm harvesting program generator: reachable ripe fruit → approach/pick/retreat targets + gripper events.
+
+**Perception simulation**
+- Camera items (RGB/depth/lidar placeholders) render the scene from their viewpoint (Camera tab) and produce
+  simulated fruit detections (pinhole projection, occlusion model) for detect-and-pick scenarios.
 
 **ROS 2**
 - rosbridge client: publishes `/cmd_joint_state`, `/cmd_point`, `/tcp_pose`, `/cmd_vel`, `/robot_pose`,

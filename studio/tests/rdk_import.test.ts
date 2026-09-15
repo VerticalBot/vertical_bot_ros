@@ -21,7 +21,8 @@ describe('rdk_export.py import', () => {
           ] },
           { id: 'p1', type: 8, name: 'MainProg', pose: cols(identity()), visible: true, params: { rdk_type: 8, robotName: 'UR10e', instructions: [
             { name: 'Home', type: 1, moveType: 1, isJointTarget: true, pose: cols(identity()), joints: [10, -80, 90, -100, -90, 5] },
-            { name: 'Target 1', type: 1, moveType: 2, isJointTarget: false, pose: cols(mul(transl(100, 0, 300), rotx(180 * DEG))), joints: [] },
+            { name: 'Target 1', type: 1, moveType: 1, isJointTarget: false, pose: cols(mul(transl(100, 0, 300), rotx(180 * DEG))), joints: [] },
+            { name: 'Target 1b', type: 1, moveType: 2, isJointTarget: false, pose: cols(mul(transl(100, 0, 250), rotx(180 * DEG))), joints: [] },
             { name: 'Pause', type: 7, pauseMs: 500 },
           ] }, children: [] },
         ],
@@ -40,7 +41,8 @@ describe('rdk_export.py import', () => {
     expect(robot.activeFrame()?.name).toBe('Frame 2');
     expect(robot.activeTool()?.name).toBe('Tool 1');
     const prog = st.find('MainProg') as Program;
-    expect(prog.instructions().length).toBe(3);
+    expect(prog.instructions().length).toBe(4);
+    expect(prog.instructions().map((i) => (i.data as any).moveType ?? i.data.kind)).toEqual(['MoveJ', 'MoveJ', 'MoveL', 'pause']);
     const res = new ProgramSimulator(st).compile(prog);
     expect(res.problems.filter((p) => p.severity === 'error')).toEqual([]);
   });
