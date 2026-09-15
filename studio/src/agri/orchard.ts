@@ -128,13 +128,19 @@ export function buildFieldMap(field: FieldItem, resolution = 250, margin = 10000
   const abs = field.poseAbs();
   map.setPose(abs);
   const halfW = Math.max(150, field.crop.canopyWidth / 2);
+  const rc = Math.ceil(halfW / resolution);
   for (const row of field.rows()) {
     const n = Math.ceil(row.length() / (resolution * 0.5));
     for (let i = 0; i <= n; i++) {
       const [x, y] = row.pointAt((row.length() * i) / n);
-      map.fillCircle(x, y, halfW, 100);
+      const [cx0, cy0] = map.worldToCell(x, y);
+      for (let cy = cy0 - rc; cy <= cy0 + rc; cy++) for (let cx = cx0 - rc; cx <= cx0 + rc; cx++) {
+        const [wx, wy] = map.cellToWorld(cx, cy);
+        if (Math.hypot(wx - x, wy - y) <= halfW) map.set(cx, cy, 100);
+      }
     }
   }
+  map.notify('map');
   return map;
 }
 

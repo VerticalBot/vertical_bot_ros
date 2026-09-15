@@ -345,6 +345,26 @@ export class Tool extends SceneObject {
   poseTool(): Mat4 {
     return this.pose();
   }
+
+  /** Absolute pose of the TCP: robot base * flange(q) * tool. */
+  override poseAbs(): Mat4 {
+    const p = this.parent as any;
+    if (p && typeof p.solveFKFlange === 'function') return multiply(multiply(p.poseAbs(), p.solveFKFlange()), this._pose);
+    return super.poseAbs();
+  }
+
+  /** Absolute pose of the flange this tool is mounted on. */
+  flangeAbs(): Mat4 {
+    const p = this.parent as any;
+    if (p && typeof p.solveFKFlange === 'function') return multiply(p.poseAbs(), p.solveFKFlange());
+    return this.parent?.poseAbs() ?? identity();
+  }
+
+  override setPoseAbs(m: Mat4): this {
+    const p = this.parent as any;
+    if (p && typeof p.solveFKFlange === 'function') return this.setPose(multiply(invert(this.flangeAbs()), m));
+    return super.setPoseAbs(m);
+  }
   setPoseTool(m: Mat4): void {
     this.setPose(m);
   }

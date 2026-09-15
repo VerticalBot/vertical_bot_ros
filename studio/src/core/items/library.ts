@@ -66,28 +66,24 @@ export const ROBOT_LIBRARY: RobotLibraryEntry[] = [
   { id: 'AGRI_PICKER_7', name: 'Agri harvester arm 7-DOF (telescopic)', brand: 'Custom', dof: 7, reach: 1800, payload: 3, approximate: true, category: 'agri', postProcessor: 'ROS2', build: () => agriPicker('Harvester 7') },
 ];
 
-/** 4-axis palletizer: base yaw, shoulder, elbow (parallelogram keeps wrist level), wrist yaw. */
+/** 4-axis palletizer: base yaw, shoulder, elbow (parallelogram keeps the wrist vertical), wrist yaw. Tool Z points down. */
 function palletizer4(name: string, h: number, a2: number, a3: number, d4: number, a1: number): ChainDef {
-  const dh: DHParams[] = [
-    { theta: 0, d: h, a: a1, alpha: -90, lower: -170, upper: 170, maxVelocity: 120 },
-    { theta: -90, d: 0, a: a2, alpha: 0, lower: -40, upper: 90, maxVelocity: 110, home: 0 },
-    { theta: 0, d: 0, a: a3, alpha: 0, lower: -30, upper: 120, maxVelocity: 110, home: 90 },
-    { theta: 0, d: 0, a: 0, alpha: -90, lower: -180, upper: 180, maxVelocity: 200, home: 0 },
-  ];
-  const c = chainFromDH(name, dh, transl(0, 0, d4));
-  // parallelogram compensation: joint 3 mimics -joint 2 plus its own actuation is modelled through a
-  // mimic joint appended (wrist stays vertical). We express it as a fixed-orientation mimic.
-  c.joints.splice(3, 0, {
-    name: 'J3_comp', type: 'revolute', origin: identity(), axis: [0, 0, 1], lower: -360, upper: 360,
-    mimic: { joint: 'J2', multiplier: -1, offset: 0 },
-  } as any);
-  c.joints.splice(4, 0, {
-    name: 'J3_comp2', type: 'revolute', origin: identity(), axis: [0, 0, 1], lower: -360, upper: 360,
-    mimic: { joint: 'J3', multiplier: -1, offset: 0 },
-  } as any);
-  c.links.splice(3, 0, { name: 'comp', visuals: [] }, { name: 'comp2', visuals: [] });
-  c.dof = 4;
-  return c;
+  const j = (nm: string, origin: ReturnType<typeof transl>, axis: [number, number, number], lower: number, upper: number, v: number, home = 0, mimic?: { joint: string; multiplier: number; offset: number }) =>
+    ({ name: nm, type: 'revolute' as const, origin, axis, lower, upper, maxVelocity: v, home, mimic });
+  return {
+    name,
+    joints: [
+      j('J1', transl(0, 0, h), [0, 0, 1], -170, 170, 120),
+      j('J2', transl(a1, 0, 0), [0, 1, 0], -40, 90, 110, 20),
+      j('J3', transl(0, 0, a2), [0, 1, 0], -30, 120, 110, 70),
+      j('J3_comp', transl(a3, 0, 0), [0, 1, 0], -360, 360, 1000, 0, { joint: 'J2', multiplier: -1, offset: 0 }),
+      j('J3_comp2', identity(), [0, 1, 0], -360, 360, 1000, 0, { joint: 'J3', multiplier: -1, offset: 0 }),
+      j('J4', identity(), [0, 0, 1], -180, 180, 200),
+    ],
+    links: [{ name: 'base', visuals: [] }, { name: 'column', visuals: [] }, { name: 'upper_arm', visuals: [] }, { name: 'forearm', visuals: [] }, { name: 'wrist_a', visuals: [] }, { name: 'wrist_b', visuals: [] }, { name: 'wrist', visuals: [] }],
+    flange: mul(transl(0, 0, -d4), rotx(180 * DEG)),
+    dof: 4,
+  };
 }
 
 function scara(name: string, a1: number, a2: number, zStroke: number, h: number): ChainDef {

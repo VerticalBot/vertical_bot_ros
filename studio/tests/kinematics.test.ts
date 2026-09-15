@@ -31,7 +31,12 @@ describe('kinematics', () => {
       expect(res.ok, `${e.id} IK failed: pos ${res.posError} rot ${res.rotError}`).toBe(true);
       const back = r.solveFK(res.joints);
       expect(distance(getPos(back), getPos(target))).toBeLessThan(0.01);
-      expect(rotationAngle(back, target)).toBeLessThan(1e-4);
+      if (r.dof >= 6) expect(rotationAngle(back, target), e.id).toBeLessThan(1e-4);
+      else if (r.dof >= 4) {
+        // orientation relaxed about the tool Z axis: Z directions must still agree
+        const dz = Math.hypot(back[8] - target[8], back[9] - target[9], back[10] - target[10]);
+        expect(dz, e.id).toBeLessThan(1e-3);
+      }
     }
   });
 

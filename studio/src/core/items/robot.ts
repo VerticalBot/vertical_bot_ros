@@ -169,7 +169,10 @@ export class Robot extends Item {
    */
   solveIK(target: Mat4, opts: IKOptions = {}, tool: Mat4 = this.poseTool()): IKResult {
     const flangeTarget = multiply(target, invert(tool));
-    const res = inverseKinematics(this.chain, flangeTarget, { seed: this._joints, ...opts });
+    // Robots with fewer than 6 DOF cannot satisfy a full pose: relax orientation automatically.
+    const dof = this.dof;
+    const relax: IKOptions = dof <= 3 ? { positionOnly: true } : dof <= 5 ? { freeToolZ: true } : {};
+    const res = inverseKinematics(this.chain, flangeTarget, { seed: this._joints, ...relax, ...opts });
     if (res.ok) res.joints = closestConfiguration(this.chain, res.joints, opts.seed ?? this._joints);
     return res;
   }
@@ -181,7 +184,8 @@ export class Robot extends Item {
     const sols: number[][] = [];
     for (let a = 0; a < attempts; a++) {
       const seed = a === 0 ? this._joints : lower.map((lo, k) => lo + (upper[k] - lo) * ((((a * 7919) % 104729) / 104729 + k * 0.37) % 1));
-      const r = inverseKinematics(this.chain, flangeTarget, { seed, restarts: 0 });
+      const dof = this.dof;
+      const r = inverseKinematics(this.chain, flangeTarget, { seed, restarts: 0, ...(dof <= 3 ? { positionOnly: true } : dof <= 5 ? { freeToolZ: true } : {}) });
       if (!r.ok) continue;
       if (!sols.some((s) => s.every((v, i) => Math.abs(v - r.joints[i]) < 1))) sols.push(r.joints);
     }

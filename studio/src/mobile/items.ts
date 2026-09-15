@@ -173,11 +173,20 @@ export class MapItem extends Item {
     }
     this.notify('map');
   }
-  /** Return an inflated copy of the grid for planning. */
+  private _inflCache: { key: string; grid: Uint8Array } | null = null;
+  private _version = 0;
+  override notify(what: string): void {
+    if (what === 'map') { this._version++; this._inflCache = null; }
+    super.notify(what);
+  }
+
+  /** Return an inflated copy of the grid for planning (cached until the map changes). */
   inflated(radiusMm = this.inflation): Uint8Array {
     const rc = Math.ceil(radiusMm / this.resolution);
+    const key = `${rc}:${this._version}:${this.cells.length}`;
+    if (this._inflCache && this._inflCache.key === key) return this._inflCache.grid;
     const out = new Uint8Array(this.cells);
-    if (rc <= 0) return out;
+    if (rc <= 0) { this._inflCache = { key, grid: out }; return out; }
     for (let cy = 0; cy < this.height; cy++) for (let cx = 0; cx < this.width; cx++) {
       if (this.cells[cy * this.width + cx] < 50) continue;
       for (let dy = -rc; dy <= rc; dy++) for (let dx = -rc; dx <= rc; dx++) {
@@ -186,6 +195,7 @@ export class MapItem extends Item {
         if (x >= 0 && y >= 0 && x < this.width && y < this.height && out[y * this.width + x] < 50) out[y * this.width + x] = 99;
       }
     }
+    this._inflCache = { key, grid: out };
     return out;
   }
 
