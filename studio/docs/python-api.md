@@ -69,7 +69,7 @@ Responses: `{"id": 1, "result": ...}` or `{"id": 1, "error": "message"}`. See `s
 ## Running on the real robot (drivers)
 
 The studio server hosts robot drivers (like RoboDK's drivers): `UR` (URScript over TCP 30002 + real-time joint
-feedback on 30003), `ABB_RWS` (Robot Web Services over HTTP), `KUKA_KVP` (KUKAVARPROXY variables). From Python:
+feedback on 30003), `ABB_RWS` (Robot Web Services over HTTP), `KUKA_KVP` (KUKAVARPROXY variables), `ROS2` (rosbridge + ros2_control joint trajectory controller, for any robot with a ROS 2 driver). From Python:
 
 ```python
 RDK.setRunMode(RUNMODE_RUN_ROBOT)

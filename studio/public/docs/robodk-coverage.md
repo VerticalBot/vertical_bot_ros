@@ -25,7 +25,7 @@ Legend: ✅ implemented · 🟡 partial / simplified · ❌ not implemented
 | External axes / turntables / rails synchronisation | ✅ | combined IK and rail-assisted curve following |
 | 3D printing / welding / spray add-ins | ✅ | curve follow with IO + spray deposition simulation (`Spray_*` coverage statistics) |
 | Conveyor tracking | 🟡 | process conveyors move products; no tracked picking |
-| Robot drivers (live connection to controllers) | 🟡 | server drivers: UR (URScript + real-time joints), ABB RWS, KUKA KUKAVARPROXY, ROS 2 via rosbridge; `RUNMODE_RUN_ROBOT` from Python; Fanuc/Motoman/Stäubli drivers ❌ |
+| Robot drivers (live connection to controllers) | ✅ | server drivers: UR (URScript + real-time joints), ABB RWS, KUKA KUKAVARPROXY, generic ROS 2 (rosbridge + ros2_control, covers Fanuc/Yaskawa/Stäubli/Techman ROS drivers); `RUNMODE_RUN_ROBOT` from Python |
 | Robot calibration, ballbar, ISO 9283, laser tracker, TCP/frame calibration | ✅ | numeric DH identification, ISO cube/ballbar programs and statistics, TCP by point/line, frame 3P/6P/turntable; measuring devices simulated |
 | 2D/3D camera simulation (`Cam2D_*`) | 🟡 | `Cam2D_Add/SetParams/Snapshot/Close`, camera view render, camera parameters dialog, simulated detections; depth/segmentation buffers ❌ |
 | Simulation events (attach/detach objects, show/hide) | ✅ | |
@@ -85,6 +85,6 @@ robots replace their DH tables instead).
 ## Remaining gaps
 
 - Proprietary binary containers (`.rdk`, `.robot`, `.tool`) stay best-effort; the lossless path is the API bridge.
-- Drivers exist for UR, ABB (RWS) and KUKA (KVP); Fanuc, Yaskawa, Stäubli, Denso live drivers are not implemented.
+- Native (non-ROS) drivers exist for UR, ABB (RWS) and KUKA (KVP); other brands connect through their ROS 2 drivers.
 - Depth/segmentation camera buffers, 3D PDF export, Simulink blocks and C++ add-ins are not implemented.
 - `EmbedWindow` and file-path based `AddFile` do not apply to a browser application.
