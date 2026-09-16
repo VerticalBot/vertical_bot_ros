@@ -122,6 +122,25 @@ await load('demo=pickplace');
 await tab('Camera');
 await ev(() => { try { const app = window.app; const RDK = app.bottom?.rdk; } catch {} });
 await shot('30-pickplace-camera');
+// machine vision stack: camera on a mobile robot in the orchard, wizard, Vision tab
+await load('demo=orchard'); await ev(() => window.app.pauseWorld());
+await ev(() => { const app = window.app; app.select(app.station.itemsOfType(100)[0]); });
+await menu('Add', 'Camera / vision sensor'); await page.waitForTimeout(800);
+// park the platform in the alley beside row 2 and turn the camera 55° towards the canopy
+await ev(() => {
+  const app = window.app; const r = app.station.itemsOfType(100)[0]; const row = app.station.itemsOfType(108)[1]; const f = row.parent; const abs = f.poseAbs();
+  const [lx, ly] = row.pointAt(row.length() / 2, -1750); const [dx, dy] = row.direction();
+  r.setPose2D(abs[0] * lx + abs[4] * ly + abs[12], abs[1] * lx + abs[5] * ly + abs[13], (Math.atan2(dy, dx) * 180) / Math.PI);
+  const cam = app.station.itemsOfType(19)[0]; const m = cam.pose(); const a = (55 * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
+  const out = new Float64Array(16); for (let col = 0; col < 4; col++) { const x = m[col * 4], y = m[col * 4 + 1]; out[col * 4] = c * x - sn * y; out[col * 4 + 1] = sn * x + c * y; out[col * 4 + 2] = m[col * 4 + 2]; out[col * 4 + 3] = m[col * 4 + 3]; }
+  cam.setPose(out); app.select(cam);
+});
+await page.waitForTimeout(500);
+await menu('Tools', 'Machine vision stack'); await page.waitForTimeout(600); await dialogShot('36-vision-wizard');
+await page.click('.dialog button:has-text("Apply stack")').catch(() => {}); await page.waitForTimeout(800);
+await ev(() => window.app.bottom.show('vision')); await page.waitForTimeout(300);
+await page.click('.vision-panel button:has-text("Run")').catch(() => {}); await page.waitForTimeout(2500);
+await shot('37-vision-tab');
 await menu('Connect', 'ROS 2 via rosbridge'); await dialogShot('31-ros2-dialog'); await closeDialog();
 await menu('Connect', 'VDA 5050'); await page.waitForTimeout(400); if (await page.$('.dialog')) { await dialogShot('32-vda5050-dialog'); await closeDialog(); } else console.log('vda dialog needs server (toast shown)');
 await menu('View', 'Language'); await page.waitForTimeout(700); await shot('33-russian-ui');

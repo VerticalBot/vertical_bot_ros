@@ -321,7 +321,7 @@ export class SceneRenderer {
 
   private signature(item: Item): string {
     if (item instanceof Robot) return `robot:${item.chain.joints.length}:${item.chain.links.map((l) => l.visuals.length).join(',')}:${item.color}:${this.showReach}`;
-    if (item instanceof Tool || item instanceof SceneObject) return `obj:${JSON.stringify((item as SceneObject).geometry)}:${item.color}:${(item as any).curves?.length}`;
+    if (item instanceof Tool || item instanceof SceneObject) return `obj:${JSON.stringify((item as SceneObject).geometry)}:${item.color}:${(item as any).curves?.length}:${(item as any).points?.length}`;
     if (item instanceof MobileRobot) return `mob:${JSON.stringify(item.kin.footprint)}:${JSON.stringify(item.geometry)}:${item.color}`;
     if (item instanceof FieldItem) return `field:${JSON.stringify(item.polygon)}:${item.rows().map((r) => r.plants.length + ':' + r.plants.reduce((s, p) => s + p.fruit.filter((f) => f.picked).length, 0)).join(',')}:${item.crop.crop}`;
     if (item instanceof CropRow) return `row`;
@@ -377,7 +377,15 @@ export class SceneRenderer {
       const g = buildGeometry(item.geometry, this.assets, item.color ?? '#9aa3ad');
       root.add(g);
       for (const c of item.curves) root.add(polylineObject(c.points, 0xffcc00));
-      if (!item.geometry.length && !item.curves.length) {
+      if (item.points.length > 50) {
+        // point cloud (imported .pcd/.ply or vision export): coloured by height
+        const n = item.points.length; const pos = new Float32Array(n * 3); const col = new Float32Array(n * 3);
+        let zMin = Infinity, zMax = -Infinity; for (const p of item.points) { zMin = Math.min(zMin, p.point[2]); zMax = Math.max(zMax, p.point[2]); }
+        item.points.forEach((p, i) => { pos[i * 3] = p.point[0]; pos[i * 3 + 1] = p.point[1]; pos[i * 3 + 2] = p.point[2]; const tz = zMax > zMin ? (p.point[2] - zMin) / (zMax - zMin) : 0.5; col[i * 3] = 0.2 + 0.8 * tz; col[i * 3 + 1] = 0.9 - 0.5 * tz; col[i * 3 + 2] = 1 - tz; });
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        root.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 25, vertexColors: true })));
+      }
+      if (!item.geometry.length && !item.curves.length && !item.points.length) {
         const ph = new THREE.Mesh(new THREE.BoxGeometry(200, 200, 200), materialFor(item.color ?? '#9aa3ad', 0.5));
         root.add(ph);
       }

@@ -24,6 +24,7 @@ import '../src/posts/index.ts';
 import { createDriver, drivers, RobotDriver } from './drivers/index.ts';
 import { parseTcpJsonLines } from './tcp.ts';
 import { Vda5050Service, mqttConnector } from './vda5050.ts';
+import { handleVisionHttp } from './vision.ts';
 
 const PORT = Number(process.env.STUDIO_PORT ?? 20500);
 const STATION_FILE = process.env.STUDIO_STATION ?? '';
@@ -67,9 +68,10 @@ const readJson = (req: http.IncomingMessage) => new Promise<any>((resolve, rejec
 
 const httpServer = http.createServer(async (req, res) => {
   if ((req.url ?? '').startsWith('/vda5050/') && (await vda.handleHttp(req, res, () => readJson(req)))) return;
+  if ((req.url ?? '').startsWith('/vision/') && (await handleVisionHttp(req, res, () => readJson(req)))) return;
   if (req.method === 'OPTIONS') { res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS' }); res.end(); return; }
   res.setHeader('access-control-allow-origin', '*');
-  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify({ ok: true, host: !!host, station: station.name, rdkConverter: !!process.env.STUDIO_ROBODK_PYTHON || existsSync(path.join(process.cwd(), 'python', 'rdk2vbs.py')), vda5050: vda.connected })); return; }
+  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify({ ok: true, host: !!host, station: station.name, rdkConverter: !!process.env.STUDIO_ROBODK_PYTHON || existsSync(path.join(process.cwd(), 'python', 'rdk2vbs.py')), vda5050: vda.connected, vision: existsSync(path.join(process.cwd(), 'python', 'vision_infer.py')) })); return; }
   if (req.url === '/station.json' && req.method === 'GET') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(saveStation(station))); return; }
   if (req.url === '/convert/rdk' && req.method === 'POST') {
     // Convert an uploaded .rdk/.robot/.tool with a locally installed RoboDK (python + robodk package) -> .vbstation JSON

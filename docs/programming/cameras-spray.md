@@ -12,7 +12,9 @@ Add a camera item to any item (robot flange, frame, mobile robot) with the API `
 The **Camera** tab shows the live render; `Cam2D_Snapshot` returns a PNG (data URL in the browser).
 
 Simulated **fruit / object detection** (`src/agri/vision.ts`) projects visible fruit into the camera image with
-occlusion and noise and yields detections usable by picking programs and missions.
+occlusion and noise and yields detections usable by picking programs and missions. The full perception stack —
+sensor / compute / model selection, YOLO-class detectors, trackers, segmentation, 6D pose, VLM / VLA endpoints and
+point clouds — is described in {doc}`vision-stack`.
 
 ## Spray / painting
 

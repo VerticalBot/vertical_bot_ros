@@ -182,3 +182,10 @@ progress { accent-color: var(--accent-2); }
 .nav-rec .hint.warn { color: #ffa94d; }
 .nav-canvas { width: 100%; max-width: 900px; height: auto; border: 1px solid var(--border); border-radius: 6px; background: #1b1f26; }
 .nav-panel .btn-row { align-items: center; gap: 8px; }
+
+/* machine vision tab */
+.vision-panel .btn-row { align-items: center; gap: 8px; flex-wrap: wrap; }
+.vision-views { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.vision-prompt { flex: 1 1 240px; min-width: 200px; background: var(--panel-2); color: inherit; border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; }
+.vision-answer { white-space: pre-wrap; max-height: 80px; overflow: auto; }
+.vision-tasks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 12px; }

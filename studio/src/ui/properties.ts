@@ -1,5 +1,5 @@
 import { App } from '../app';
-import { Item, ItemType, Frame, Target, Tool, SceneObject } from '../core/items/item';
+import { Item, ItemType, Frame, Target, Tool, SceneObject, Camera as CameraItem } from '../core/items/item';
 import { Robot } from '../core/items/robot';
 import { Program, Instruction } from '../core/items/program';
 import { MobileRobot, MapItem, ZoneItem } from '../mobile/items';
@@ -10,6 +10,7 @@ import { h, clear, formField, fmt, icon } from './dom';
 import { poseToXyzrpw, xyzrpwToPose, poseToKuka, kukaToPose, poseToQuat, poseToUr, getPos, multiply, invert, Mat4 } from '../core/math/pose';
 import { robotParametersDialog, runMissionPlan, exportDialog } from './dialogs';
 import { navStackSection } from './navstack_ui';
+import { visionSection } from './vision_ui';
 import { t } from './i18n';
 
 type EulerMode = 'xyzrpw' | 'kuka' | 'ur' | 'abb';
@@ -69,6 +70,7 @@ export class PropertiesPanel {
     else if (item instanceof MapItem) body.appendChild(this.section('Map', h('div', { class: 'kv' }, kv('Size', `${item.width} × ${item.height} cells`), kv('Resolution', `${item.resolution} mm`), kv('Inflation', `${item.inflation} mm`))));
     else if (item instanceof ZoneItem) body.appendChild(this.section('Zone', formField({ key: 'kind', label: 'Kind', type: 'select', value: item.kind, options: ['work', 'nogo', 'charging', 'loading', 'unloading', 'parking', 'speed_limit', 'headland'].map((k) => ({ value: k, label: k })) }, (v) => this.app.cmd(() => { item.kind = v; item.notify('kind'); })).el));
     else if (item instanceof SceneObject) body.appendChild(this.objectEditor(item));
+    else if (item instanceof CameraItem) body.appendChild(this.cameraEditor(item));
     // generic params
     const keys = Object.keys(item.params);
     if (keys.length) body.appendChild(this.section('Parameters', h('div', { class: 'kv' }, ...keys.map((k) => kv(k, typeof item.params[k] === 'object' ? JSON.stringify(item.params[k]).slice(0, 60) : String(item.params[k]))))));
@@ -281,6 +283,16 @@ export class PropertiesPanel {
     if (b.type === 'buffer') num('Capacity', 'capacity');
     fields.push(formField({ key: 'en', label: 'Enabled', type: 'checkbox', value: b.enabled }, (v) => this.app.cmd(() => { b.enabled = v; })).el);
     return this.section('Component', ...fields);
+  }
+
+  private cameraEditor(c: CameraItem): HTMLElement {
+    const num = (label: string, get: () => number, set: (v: number) => void, step = 1) => formField({ key: label, label, type: 'number', value: get(), step }, (v) => this.app.cmd(() => { set(v); c.notify('kind'); })).el;
+    return h('div', null,
+      this.section('Camera / sensor',
+        formField({ key: 'kind', label: 'Kind', type: 'select', value: c.kind, options: [{ value: 'rgb', label: 'RGB (mono / stereo colour)' }, { value: 'depth', label: 'Depth (stereo / RGB-D / ToF)' }, { value: 'lidar2d', label: '2D LiDAR' }, { value: 'lidar3d', label: '3D LiDAR' }] }, (v) => this.app.cmd(() => { c.kind = v; c.notify('kind'); })).el,
+        num('Field of view (deg)', () => c.fov, (v) => (c.fov = v)), num('Width (px)', () => c.width, (v) => (c.width = v)), num('Height (px)', () => c.height, (v) => (c.height = v)),
+        num('Near (mm)', () => c.near, (v) => (c.near = v)), num('Far (mm)', () => c.far, (v) => (c.far = v), 100)),
+      visionSection(this.app, c, this.liveFields));
   }
 
   private objectEditor(o: SceneObject): HTMLElement {

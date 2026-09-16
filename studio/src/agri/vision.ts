@@ -32,7 +32,7 @@ export function detectFruit(station: Station, camera: CameraItem, opts: { onlyRi
       const l = multiply(inv, Float64Array.from([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, f.p[0], f.p[1], f.p[2], 1]));
       const x = l[12], y = l[13], z = l[14];
       if (z < camera.near || z > maxRange) continue;
-      const u = cx + (fx * x) / z, v = cy - (fy * y) / z;
+      const u = cx + (fx * x) / z, v = cy + (fy * y) / z; // optical convention: +X right, +Y down (matches renderFromItem)
       if (u < 0 || v < 0 || u >= camera.width || v >= camera.height) continue;
       const size = (fx * f.fruit.d) / z;
       out.push({ p: f.p, u, v, w: size, h: size, range: z, ripe: f.fruit.ripe, rowId: row.id, fruit: f.fruit });

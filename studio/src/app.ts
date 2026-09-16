@@ -456,6 +456,9 @@ export class App {
           else if (Array.isArray(data.dh)) { const robot = this.cmd(() => { const r = robotFromDH(data, name.replace(/\.json$/i, '')); this.station.addChild(r); this.select(r); this.setActiveRobot(r); return r; }); this.log(`Imported DH robot ${robot.name} (${robot.dof} DOF)`); }
           else if (data.type === 'FeatureCollection' || data.type === 'Feature') await this.importGeoJSON(data, name);
           else this.log(`Unknown JSON content in ${name}`, 'warn');
+        } else if (ext === 'pcd' || ext === 'ply') {
+          const { importPointCloud } = await import('./ui/vision_ui');
+          importPointCloud(this, f.name, await f.arrayBuffer());
         } else if (ext === 'geojson') {
           await this.importGeoJSON(JSON.parse(await f.text()), name);
         } else if (ext === 'urdf' || ext === 'xacro') {

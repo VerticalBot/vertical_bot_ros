@@ -11,12 +11,14 @@ import { Robolink, robomath, RobolinkItem, Mat } from '../api/robolink';
 import * as RobolinkConsts from '../api/robolink';
 import { t } from './i18n';
 import { buildNavPanel } from './navstack_ui';
+import { buildVisionPanel } from './vision_ui';
 
 /** Bottom dock: Program | Simulation | Fleet | Process | Console | Log. */
 export class BottomPanel {
   el: HTMLElement;
   private tabs: Record<string, HTMLElement> = {};
   private navPanel!: { el: HTMLElement; render: () => void };
+  private visionPanel!: { el: HTMLElement; render: () => void };
   private active = 'program';
   private programEditor: ProgramEditor;
   private timelineRange!: HTMLInputElement;
@@ -39,6 +41,7 @@ export class BottomPanel {
       ['fleet', 'Fleet', (this.fleetBody = h('div', { class: 'pad' }))],
       ['process', 'Process', (this.processBody = h('div', { class: 'pad' }))],
       ['nav', 'Navigation', (this.navPanel = buildNavPanel(app)).el],
+      ['vision', 'Vision', (this.visionPanel = buildVisionPanel(app)).el],
       ['camera', 'Camera', this.buildCamera()],
       ['console', 'Console (RoboDK API)', this.buildConsole()],
       ['log', 'Log', (this.logOut = h('div', { class: 'log-out' }))],
@@ -65,6 +68,7 @@ export class BottomPanel {
     if (id === 'fleet') this.renderFleet();
     if (id === 'process') this.renderProcess();
     if (id === 'nav') this.navPanel.render();
+    if (id === 'vision') this.visionPanel.render();
   }
 
   private buildSim(): HTMLElement {

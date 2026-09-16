@@ -53,6 +53,7 @@ programming/curve-follow
 programming/collisions
 programming/calibration
 programming/cameras-spray
+programming/vision-stack
 ```
 
 ```{toctree}

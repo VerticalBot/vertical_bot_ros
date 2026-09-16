@@ -50,7 +50,9 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 - [ ] Terrain elevation (DEM import, slopes in planning and energy)
 - [ ] Seasonal/phenology model for yield forecasting; weather windows in mission scheduling
 - [ ] Multi-arm harvesting cycle optimisation (fruit assignment between arms, reach clustering)
-- [ ] Real perception pipeline hooks (ROS 2 topics with detections → targets) validated on hardware
+- [x] Machine-vision stack: sensor / compute / model catalogue (YOLO, DETR, SAM, trackers, 6D pose, depth, point-cloud nets, VLM, VLA), recommender, simulated pipeline with detection statistics and 3D localisation, pluggable adapters (ONNX Runtime Web, studio server, OpenAI-compatible VLM, VLA policy servers, ROS 2 vision_msgs), point clouds (PCD/PLY, ground, clusters, rows), targets / follow / VLA actions, ROS 2 perception package
+- [ ] Real perception pipeline validated on hardware (ROS 2 detections → targets with a physical camera and arm)
+- [ ] Vision: photorealistic rendering for real detectors on simulated images (textures, lighting, leaves), depth from the WebGL depth buffer, appearance-based simulated failures
 
 ## 5. Interoperability (обмен данными)
 
@@ -63,7 +65,7 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 
 ## 6. Platform & quality (платформа и качество)
 
-- [x] Vite + TypeScript + three.js app, vitest (83 tests), Playwright smoke, GitHub Actions
+- [x] Vite + TypeScript + three.js app, vitest (117 tests), Playwright smoke, GitHub Actions
 - [x] Read the Docs documentation (`docs/`, Sphinx + MyST) — this roadmap is published there
 - [x] Screenshots generated from the running app (`studio/scripts/docs-screenshots.mjs`), tutorial station + guide, RoboDK documentation map
 - [ ] Russian translation of the documentation (sphinx-intl) — UI is already RU/EN
