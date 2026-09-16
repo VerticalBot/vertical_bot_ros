@@ -1,9 +1,13 @@
 # VerticalBot Studio documentation
 
-**VerticalBot Studio** is a browser-native platform for robot simulation and offline programming — a
-RoboDK / Visual Components class tool that also covers mobile robots, fleets and agricultural robotics
-(orchards, greenhouses, field work). It runs in any modern browser, needs no installation, and speaks the
-RoboDK API, VDA 5050, ROS 2, glTF/URDF and the native formats of the major robot controllers.
+**VerticalBot Studio** is a browser-native platform for robot simulation, offline programming and
+perception / navigation engineering — a RoboDK / Visual Components class tool that also covers mobile robots,
+fleets and agricultural robotics (orchards, greenhouses, field work). It runs in any modern browser, needs no
+installation, and speaks the RoboDK API, VDA 5050, ROS 2, glTF/URDF and the native formats of the major robot
+controllers. Two engineering stacks turn the simulation into a design tool for real machines: the
+**navigation & SLAM stack** (choose and simulate localization for a platform, export Nav2 + SLAM) and the
+**machine-vision stack** (choose sensor / compute / models, run YOLO-class detectors, VLMs and VLA policies on
+the station's cameras, export a ROS 2 perception package). Every method has a published demo scenario.
 
 This documentation is organised like a robot-programming manual: start with the **Basic Guide**, then go to the
 topic you need. Every page is generated from the repository (`docs/` folder) and published on Read the Docs.

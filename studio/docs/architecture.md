@@ -10,14 +10,18 @@
 │   ├ Robot (chain, FK/IK)      ├ ProgramSimulator                │
 │   ├ Program/Instruction       ├ FleetManager (per FleetItem)    │
 │   ├ MobileRobot/Map/Zone      ├ ProcessSimulator (components)   │
-│   ├ Field/CropRow/Mission     └ posts (compileForPost → files)  │
-│   └ Component (VC behaviours)                                   │
-└─────────────────────────────────────────────────────────────────┘
-            ▲ JSON-RPC (ws://:20500)             ▲ rosbridge (ws://:9090)
-   ┌────────┴────────┐                    ┌──────┴──────┐
-   │ studio server   │◄── python/robodk   │ ROS 2 graph │
-   │ relay/headless  │    (drop-in)       │ (this repo) │
-   └─────────────────┘                    └─────────────┘
+│   ├ Field/CropRow/Mission     ├ posts (compileForPost → files)  │
+│   ├ Component (VC behaviours) ├ NavRuntime (estimator, SLAM)    │
+│   └ Camera (visionStack)      └ VisionRuntime (models, tracker) │
+│                                  │  publishers (ROS msgs, JSON) │
+└──────────────────────────────────┼──────────────────────────────┘
+            ▲ JSON-RPC (ws://:20500)  │ rosbridge (ws://:9090)  │ http: inference / VLM / VLA / webhook
+   ┌────────┴────────┐          ┌─────┴───────┐            ┌─────┴──────────────┐
+   │ studio server   │◄─ python │ ROS 2 graph │            │ model servers,     │
+   │ relay/headless  │  robodk  │ Nav2, yolo_ │            │ Ollama / vLLM,     │
+   │ drivers, VDA,   │          │ ros, RViz   │            │ openpi, your nodes │
+   │ /vision/infer   │          └─────────────┘            └────────────────────┘
+   └─────────────────┘
 ```
 
 ## Core concepts
@@ -41,6 +45,22 @@
 - **Agri** (`src/agri`): `FieldItem` polygon + `CropParams` → `CropRow`s with `PlantRecord`s (fruit positions,
   ripeness). `planMission` converts a `MissionItem` into fleet tasks (work lines beside rows); `generateHarvestProgram`
   creates arm programs from fruit positions using `poseFromZ` approach frames and IK.
+- **Navigation stack** (`src/mobile/navstack.ts`, `navstack_ros.ts`): a catalogue of localization / navigation
+  methods with sensor requirements, suitability and error figures; `recommendStacks` ranks them; the chosen
+  `NavStackConfig` lives in `robot.params.navStack`. `stepNavRuntime` runs a `LocalizationEstimator` (drift,
+  GNSS availability from `gnss_denied` zones, loop closures, scale drift, tracking loss) and an incremental
+  `SlamMap` from a simulated 2D LiDAR; the fleet controller steers from the *estimate*, so localization errors
+  become path errors. `generateRosNavPackage` writes Nav2 / SLAM / EKF configuration and launch files.
+- **Vision stack** (`src/vision`): `stack.ts` holds sensors, compute targets and models with a recommender and the
+  per-camera `VisionStackConfig` (`camera.params.visionStack`); `models.ts` defines the `VisionModel` adapter
+  interface (simulated, ONNX Runtime Web, HTTP inference, OpenAI-compatible VLM, VLA policy servers, ROS 2 topics)
+  and `ByteTracker`; `pipeline.ts` (`VisionRuntime`) captures ground truth / depth / clouds from the station,
+  runs the tasks, tracks, localises in 3D with the sensor error model and produces targets, follow commands and
+  VLA actions; `pointcloud.ts` and `camera_model.ts` are the geometry libraries; `vision_ros.ts` exports the ROS 2
+  perception package.
+- **Publishers and scenarios** (`src/ros/publishers.ts`, `src/scenarios`): ROS 2 message builders shared by the
+  rosbridge twin, the API summaries (`visionLast`, `navEstimate`) and webhooks; the scenario module builds small
+  stations per method, drives them headlessly and scores the result (report → docs).
 - **Rendering** (`src/scene`): flat map item → `THREE.Group`, matrices set from `poseAbs()` each frame; robots get
   per-link groups updated from FK; orchards use instanced meshes; maps are canvas textures.
 
@@ -62,3 +82,9 @@ its pedestal) are reported once as warnings and ignored along the trajectory.
   and a properties section.
 - New behaviour component: add a `Behaviour` variant and handle it in `ProcessSimulator.step`.
 - New mission type: extend `MissionType` maps in `src/agri/missions.ts`.
+- New localization / navigation method: add an entry to `LOCALIZATION_METHODS` / `NAVIGATION_METHODS` (accuracy,
+  drift, sensors, software), a config block in `navstack_ros.ts`, and a `NAV_CASES` entry in `src/scenarios`.
+- New vision sensor / model / adapter: add to `VISION_SENSORS` / `VISION_MODELS` (with `adapter`), implement
+  `VisionModel` in `models.ts` if it is a new execution path, map it in `createModel`, and add a scenario.
+- New outgoing protocol: build the message in `src/ros/publishers.ts` and call it from `RosBridge.publishState`
+  or the `onOutput` hook of `VisionRuntime`.

@@ -1,165 +1,111 @@
 # VerticalBot Studio
 
-Browser-native robot simulation and offline programming platform in the class of **RoboDK** and
-**Visual Components**, extended to **mobile robotics, fleet management and agricultural robotics**
-(orchards, vineyards, greenhouses, field crops and the surrounding logistics). No install: it runs
-in the browser; a small Node server adds a RoboDK-compatible Python API and headless batch use.
+Browser-native robot simulation, offline programming and perception / navigation engineering platform in the
+class of **RoboDK** and **Visual Components**, extended to **mobile robotics, fleet management and agricultural
+robotics** (orchards, vineyards, greenhouses, field crops and the surrounding logistics). No install: it runs in
+the browser; a small Node server adds the RoboDK-compatible API, robot drivers, VDA 5050, vision inference and
+headless batch use.
 
-Part of the `vertical_bot_ros` repository — the ROS 2 packages in the repo root (vertical robot,
-palletizer) can be imported directly (URDF/xacro + STL) and driven through the ROS 2 post processor
-or the rosbridge connection.
+Part of the `vertical_bot_ros` repository — the ROS 2 packages in the repo root (vertical robot, palletizer) can be
+imported directly (URDF/xacro + STL) and driven through the ROS 2 post processor or the rosbridge connection.
 
-## Features
+Documentation: **https://vertical-bot-ros.readthedocs.io** (built from `../docs/`). Roadmap and status: `TODO.md`.
 
-**Industrial robot OLP (RoboDK class)**
-- Station tree: frames, robots, tools (TCP), targets (cartesian/joint), programs, objects, folders, cameras, notes.
-- Kinematics engine: generic serial chains (URDF-style origin/axis joints, DH tables, mimic joints, prismatic axes),
-  forward kinematics, geometric Jacobian, damped-least-squares IK with limits, restarts, automatic orientation
-  relaxation for < 6-DOF robots (palletizers, SCARA, gantries), multi-solution IK.
-- Robot library: UR3e/5e/10e/16e/20 (official DH), KUKA Agilus/Cybertech/Quantec, ABB IRB 120/1200/2600/6700,
-  Fanuc LR Mate/M-20iA/M-410iC, Yaskawa GP12, Stäubli TX2-60, Doosan M1013, Mecademic Meca500, generic palletizer,
-  SCARA, XYZ gantry, 7-DOF telescopic harvesting arm — plus any URDF/xacro import with STL/DAE meshes.
-- Fleet interface: VDA 5050 v2 over MQTT in both roles — master for real AGV/AMR fleets (KUKA Fleet, MiR, …) and
-  digital-twin bridge exposing simulated robots as VDA 5050 vehicles (`docs/fleet-vda5050.md`).
-- Blender add-on (`blender/vertical_bot_studio.py`): direct `.vbstation` import with robots, exact FK and program
-  animation keyframes; export meshes and pose logs back.
-- Interop: animated glTF export of simulations for Blender/Unity/Unreal, URDF package export (ROS 2, Gazebo,
-  MoveIt, Phobos), glTF/GLB/COLLADA/OBJ/STL import, best-effort Visual Components / KUKA.Sim `.vcmx` import,
-  original RoboDK Python post processors running unmodified in the browser — see `docs/interop.md`.
-- Online robot library: 91 robots (Fanuc, ABB, KUKA, Yaskawa/Motoman, Stäubli, UR incl. e-Series, Franka, Kinova,
-  Doosan) downloaded on demand from the open ROS-Industrial / vendor URDF packages on GitHub — exact kinematics,
-  vendor meshes, `tool0` flange — the open counterpart of RoboDK's online library.
-- Programs: MoveJ/MoveL/MoveC, speed/acceleration, rounding (blending), frames/tools, pauses, digital IO,
-  gripper/attach/detach events, raw code, comments/messages, sub-program calls, mobile navigation and signals.
-- Simulator: trapezoidal joint/cartesian trajectory generation, cycle time, TCP distance, reachability and
-  singularity/joint-jump detection, object attachment, timeline scrubbing, speed factor.
-- Collision detection: capsule/OBB/sphere colliders (procedural links, primitives, mesh bounding boxes) with
-  optional triangle-accurate mesh checks; static checks and sampled checks along program trajectories with
-  per-instruction reporting and red highlighting.
-- External axes: a robot dropped onto a rail/gantry/positioner hangs on its flange; combined-chain IK solves
-  carrier + arm together (`Robot › Move with external axes`).
-- Curve / point following (machining, welding, glue, pruning, drilling): programs generated from object curves
-  or points with normals, approach/retract, tool-Z freedom and IO switching. G-code / NC files (G0-G3, arcs,
-  inch/mm, spindle M-codes) import as cutting curves for robot machining.
-- Post processors: KUKA KRC4 (KRL .src/.dat), ABB RAPID (.mod), Fanuc (.ls), Universal Robots (URScript),
-  Yaskawa Motoman (INFORM .JBI), Stäubli VAL3 (.pgx), Doosan (DRL), Mecademic (Python), generic CSV, JSON,
-  ROS 2 (rclpy node + JointTrajectory JSON), **RoboDK API Python script** (rebuilds the program inside RoboDK).
-- Program importers: KRL, RAPID, Fanuc LS, URScript, CSV → targets + instructions.
-- Robot definition import/export from DH tables (`.dh` text / JSON, RoboDK "Robot Parameters" style), meshes
-  from STL and OBJ.
-- Pose conventions: RoboDK XYZ-Rx-Ry-Rz, KUKA ABC, Fanuc/Motoman WPR, ABB quaternion, UR rotation vector, ZYZ.
-- Configuration-aware IK (keeps the seed's elbow-up/down and wrist-flip configuration, like RoboDK's
-  front/elbow/wrist flags), reach-sphere display, singularity diagnostics for linear moves.
-- UI in English and Russian (View › Language).
+## What it does
 
-**RoboDK feature parity additions**
-- Calibration: TCP (by point/line), reference frames (3P/6P/turntable), robot DH identification from tracker
-  measurements; ISO 9283 cube and ballbar programs with accuracy/repeatability statistics; simulated measuring devices.
-- Mechanism builder (`BuildMechanism`, modified DH `setRobotParams`), machining projects with tool-orientation and
-  external-axis optimisation, spray deposition simulation, collision map dialog, threads/wait instructions.
-- STEP/IGES/BREP import (OpenCascade WebAssembly), genuine RoboDK Python post processors executed in the browser
-  (Pyodide), 27 built-in posts, live robot drivers on the server (UR, ABB RWS, KUKA KVP) with `RUNMODE_RUN_ROBOT`.
-- Station tabs, clipboard, measurements, camera parameters, WebM video recording, 3D HTML / glTF export, plugins,
-  event queue, C#/C++/MATLAB clients.
+| Area | Highlights | Docs |
+|---|---|---|
+| **Industrial OLP (RoboDK class)** | station tree, FK / Jacobian / DLS IK with configuration awareness and < 6-DOF relaxation, external axes, 22 built-in + **91 online robots** (ROS-Industrial / vendor URDFs), MoveJ/L/C programs with IO / events / threads, trapezoidal simulator with timeline, collision checking, singularity diagnostics, **28 post processors + RoboDK's own Python posts running in the browser**, program importers (KRL, RAPID, LS, URScript, CSV, G-code), calibration (TCP, frames, DH identification, ISO 9283, ballbar), machining (curve / point follow, NC → milling / cutting / 3D printing), mechanism builder, spray simulation | Basic Guide, Robots, Programming |
+| **RoboDK interoperability** | RoboDK-compatible API (JS console, Python `robodk` drop-in, C#/C++/MATLAB, WS/TCP server on 20500/20501), lossless `.rdk/.robot/.tool` import through a headless RoboDK behind the server, targets / programs / machining projects / joint paths transfer, export of a station as a RoboDK API script | Interop › RoboDK, Reference › RoboDK coverage |
+| **Process simulation (Visual Components class)** | feeders, conveyors, machines with failures, buffers, sinks; signals, threads, world clock, KPIs; best-effort `.vcmx` import | Process components |
+| **Mobile robots & fleets** | differential / Ackermann / omni / tracked platforms, occupancy maps, A*, coverage and row-traversal planners, pure pursuit, fleet manager (auctions, alley reservations, deadlock-free braking, charging, KPIs), **VDA 5050 v2** master and AGV-twin bridge over MQTT | Mobile robots, Fleet, VDA 5050 |
+| **Navigation & SLAM stack** | catalogue of 21 localization methods (2D / 3D LiDAR SLAM, LIO, visual SLAM, VIO, RTK / INS, UWB, tape / QR / reflectors / rail, hybrids, dead reckoning) and 7 navigation methods with a recommender per platform / environment / sensors; localization error simulation (drift, outages under canopy, loop closures, scale drift, tracking loss) that drives the controller; 2D LiDAR and SLAM-map view; **Nav2 + SLAM + EKF ROS 2 package export** | Mobile › Navigation & SLAM stack |
+| **Machine-vision stack (СТЗ)** | catalogue of 15 sensors (mono, stereo, RGB-D, ToF, 3D LiDAR, thermal, multispectral, event), 10 compute targets, 45 models (YOLOv8/10/11, RT-DETR, YOLO-World, Grounding DINO, YOLO-seg, FastSAM, SAM 2, Mask2Former, CLIP, ByteTrack / BoT-SORT / OC-SORT, YOLO-pose, FoundationPose / MegaPose / DOPE, Depth Anything, RAFT-Stereo, PCL / Patchwork++ / PointPillars / PointNet++, GraspNet, Florence-2 / PaliGemma / Qwen2.5-VL / LLaVA, OpenVLA / π0 / Octo / GR00T / ACT) with a recommender; the **pipeline runs on the station's cameras**: simulated ground truth with model statistics, or real models through **ONNX Runtime Web**, an inference server, an **OpenAI-compatible VLM**, a **VLA policy server** or ROS 2 `vision_msgs`; tracking, 3D localisation with sensor error models, grasp / approach targets, following, point clouds (PCD / PLY, ground, clusters, crop rows, canopy metrics), ROS 2 perception package export | Programming › Machine vision stack |
+| **Agriculture** | 15 crop presets, orchard / greenhouse generators, GeoJSON fields, missions (harvest, spray, mow, prune, scout, pollinate, weed, transport, thin, irrigate), harvesting program generator, canopy GNSS-denied zones | Agriculture |
+| **Interoperability** | URDF / xacro / STL / OBJ / COLLADA / glTF / STEP import, URDF package and animated glTF export, **Blender add-on** (`blender/`), best-effort Visual Components / KUKA.Sim import | Interop › Blender, ROS, VC |
+| **Integration** | rosbridge digital twin (joints, TCP, cmd_vel; navigation estimate / truth / scan / SLAM map; `vision_msgs` detections, targets, point clouds, images), `visionLast` / `navEstimate` readable through the API, webhooks, HTTP contracts for inference / VLM / VLA, drivers (UR, ABB RWS, KUKA KVP, ROS 2) | Developer › Integration |
+| **Verification** | 157 vitest tests (kinematics, posts, importers, planners, fleet, VDA 5050 with an embedded MQTT broker, vision adapters with mock servers, a real onnxruntime-web run), Playwright smoke, **32 demo scenarios** (every localization method, every vision task) with published results | Reference › Demo scenarios |
 
-**RoboDK project interoperability** (see `docs/robodk-compatibility.md`)
-- RoboDK-compatible scripting API (JavaScript in the built-in console and a **Python drop-in `robodk` package**
-  in `python/`): `Robolink`, `Item`, `AddFrame/AddTarget/AddProgram`, `MoveJ/MoveL/MoveC`, `SolveFK/SolveIK`,
-  `setPoseFrame/setPoseTool`, `Update`, `MakeProgram`, `RunInstruction`, `setDO/waitDI`, …
-- Studio server on port 20500 (RoboDK's API port) relays API calls into the live browser session.
-- `python/rdk_export.py` runs inside RoboDK and dumps a station to the studio format; on load the studio rebuilds
-  robots (DH table or library match by name) and programs (instruction list → targets + moves);
-  `File > Export station as RoboDK API script` rebuilds a studio station inside RoboDK (then save as .rdk).
-- Best-effort `.rdk` reader (the container is proprietary): recovers names, poses and embedded meshes.
-- Target CSV/TXT import/export in RoboDK conventions.
-
-**Process simulation (Visual Components class)**
-- Behaviour components: feeder, conveyor (path, speed, spacing, stop signal), process/machine (cycle time,
-  capacity, MTBF/MTTR failures), buffer/pallet grid, transfer/human, sensor, sink. Signals, statistics
-  (throughput, utilisation, blocking, WIP, output/WIP history chart), products as live 3D objects.
-
-**Mobile robotics & fleets**
-- Mobile robot item: differential/Ackermann/omni/tracked kinematics, battery model, sensors, capabilities,
-  ROS namespace; arms and sensors mount on platforms (full pose chain).
-- Occupancy grid maps (inflation, rasterised from fields/objects), A* with smoothing, pure-pursuit tracking,
-  coverage (boustrophedon) and orchard row traversal planners, travel time estimation.
-- Fleet manager: task queue, cost-based auction / nearest / round-robin allocation, alley/row traffic reservations,
-  inter-robot proximity braking with deadlock recovery, charging policy, KPIs (throughput, utilisation, distance,
-  energy, wait, harvested fruit/kg, worked area), live dashboard.
-
-**Agriculture**
-- Field/orchard generator: 15 crop presets (apple, pear, cherry, citrus, grape, strawberry, tomato, cucumber,
-  blueberry, olive, almond, kiwi, …) with training systems, row/plant spacing, headlands, procedural canopies and
-  fruit with ripeness; greenhouse (indoor) mode; GeoJSON field import/export with WGS84 ↔ local conversion.
-- Missions: harvest, spray, mow, prune, scout, weed, pollinate, transport, thin, irrigate → fleet tasks per row
-  side with traffic segments; progress tracking.
-- Arm harvesting program generator: reachable ripe fruit → approach/pick/retreat targets + gripper events.
-
-**Perception simulation**
-- Camera items (RGB/depth/lidar placeholders) render the scene from their viewpoint (Camera tab) and produce
-  simulated fruit detections (pinhole projection, occlusion model) for detect-and-pick scenarios.
-
-**ROS 2**
-- rosbridge client: publishes `/cmd_joint_state`, `/cmd_point`, `/tcp_pose`, `/cmd_vel`, `/robot_pose`,
-  `/battery_state` (namespaced), follows `/joint_states` and `/odom` (digital twin).
-- ROS 2 post generates an rclpy node compatible with the controllers in this repository.
+UI in English and Russian (View › Language).
 
 ## Quick start
 
 ```bash
-cd studio
 npm install
-npm run dev          # http://localhost:5173  (?demo=orchard | pickplace | packing | welding | greenhouse | verticalbot)
-npm test             # unit tests (kinematics, posts, importers, planners, fleet, agri, API)
+npm run dev          # http://localhost:5173  (?demo=orchard | pickplace | tutorial | packing | welding | greenhouse | verticalbot)
+npm test             # unit + integration tests
+npm run scenarios    # demo scenarios → docs/scenario-results.md
 npm run build        # static build in dist/
-npm run server       # RoboDK-compatible API server on ws://localhost:20500
+npm run server       # RoboDK-compatible API server: ws/http :20500, tcp :20501 (+ drivers, VDA 5050, /vision/infer)
 ```
 
-Open the studio with `?server=ws://localhost:20500` to let Python scripts drive the browser session:
+Typical first session: *Help › Quick start* or the documentation tutorial (`?demo=tutorial`). To see the stacks:
+*Help › Demo scenarios…* → *Load into the studio* (navigation scenarios open the Navigation tab with truth vs
+estimate; vision scenarios open the Vision tab with detections on the camera image).
+
+Drive the browser session from Python (RoboDK API):
 
 ```bash
-PYTHONPATH=studio/python python studio/python/examples/hello_studio.py
+npm run server                                   # in one terminal
+# open http://localhost:5173/?server=ws://localhost:20500 in the browser
+PYTHONPATH=python python python/examples/hello_studio.py
+python python/examples/robolink_poll_vision_nav.py --camera "Camera 1" --robot "Harvest platform 1"
 ```
 
-Import this repository's robots: drag `vertical_robot_model/urdf/vertical_robot.urdf` together with the STL
-files from `vertical_robot_model/meshes/` onto the 3D view (or `palletizer_model_pkg/urdf/*.xacro` + meshes).
+Import this repository's robots: drag `vertical_robot_model/urdf/vertical_robot.urdf` together with the STL files
+from `vertical_robot_model/meshes/` onto the 3D view (or `palletizer_model_pkg/urdf/*.xacro` + meshes).
+
+## Connecting to the outside world
+
+| Path | Port / protocol | Use |
+|---|---|---|
+| RoboDK-compatible API | ws/http 20500, tcp 20501 (JSON-RPC) | Python / C# / C++ / MATLAB scripts, `getParam('visionLast' / 'navEstimate')` |
+| rosbridge | ws 9090 | ROS 2 twin, navigation and perception topics, real robot feedback |
+| VDA 5050 | MQTT 1883 / 8883 | KUKA Fleet, MiR, any VDA 5050 master or vehicles |
+| Inference / VLM / VLA | http (8500 example, 11434 Ollama, 8000 vLLM / openpi) | real models behind the vision stack |
+| Webhook | http POST to your URL | custom nodes without ROS |
+| Robot drivers | UR 30001–30003, KUKA KVP 7000, ABB RWS 80/443, ROS 2 9090 | online programming |
+
+Details, message layouts and example nodes (`python/examples/`): documentation page *Developer › Integration*.
 
 ## Layout
 
 ```
 studio/
-  src/core        pose math, item tree, kinematics (FK/IK/DH), motion planning, program simulator, robot library
-  src/io          station file, URDF/xacro/XML, STL, RoboDK (targets, .rdk, station script), program importers
-  src/posts       post processors (KUKA, ABB, Fanuc, UR, Motoman, Stäubli, Doosan, Mecademic, CSV, JSON, RoboDK, ROS 2)
+  src/core        pose math, item tree, kinematics (FK/IK/DH), motion, program simulator, collision, calibration, robot library
+  src/io          station file, URDF/xacro, meshes (STL/OBJ/DAE/glTF/STEP), RoboDK (.rdk, targets, scripts), programs, containers, exports
+  src/posts       post processors (KUKA, ABB, Fanuc, UR, Motoman, Stäubli, Doosan, Mecademic, CSV, JSON, RoboDK, ROS 2, Pyodide runner)
   src/vc          Visual-Components-style process components and simulator
-  src/mobile      mobile robot items, maps, planners, controllers
-  src/fleet       fleet manager (tasks, allocation, traffic, charging, KPIs)
-  src/agri        geo, fields/rows/missions, orchard generator, mission planners, harvest program generator
+  src/mobile      mobile robot items, maps, planners, controllers, navigation & SLAM stack (catalogue, recommender, estimator, ROS 2 export)
+  src/fleet       fleet manager (tasks, allocation, traffic, charging, KPIs), VDA 5050
+  src/agri        geo, fields/rows/missions, orchard generator, mission planners, harvest program generator, fruit detection sim
+  src/vision      machine-vision stack: catalogue & recommender, model adapters, pipeline, point clouds, camera model, ROS 2 export
+  src/scenarios   demo scenarios (navigation per method, vision per task) and the report generator
   src/api         RoboDK-compatible JS API + JSON-RPC + browser bridge
-  src/ros         rosbridge client
+  src/ros         rosbridge client and ROS 2 message publishers (navigation, perception)
   src/scene       three.js renderer & assets
-  src/ui          panels, dialogs, menu, console
-  server/         WebSocket/HTTP server (relay + headless)
-  python/         robodk drop-in package, rdk_export.py, examples
-  tests/          vitest suites
-  docs/           architecture, RoboDK compatibility, file formats, agriculture workflow
+  src/ui          panels, dialogs, menu, tabs (Program, Simulation, Fleet, Process, Navigation, Vision, Camera, Console, Log)
+  server/         WebSocket/HTTP/TCP server (relay + headless), drivers, VDA 5050 service, vision inference endpoint
+  python/         robodk drop-in package, rdk_export.py / rdk2vbs.py, vision_infer.py, examples (ROS 2 consumer, webhook sink, inference server, polling)
+  blender/        Blender add-on (.vbstation import/export, program animation)
+  scripts/        Playwright smoke and documentation screenshots
+  tests/          vitest suites (unit, integration with mock servers / embedded broker, demo scenarios)
+  docs/           developer notes included in the Read the Docs build (architecture, RoboDK compatibility, formats, scenario results)
 ```
 
 ## Status and honest limits
 
 - Built-in library robots not marked *(official DH)* use representative geometry; use the online library or import
   the vendor URDF for exact kinematics.
-- The `.rdk` / `.robot` binary containers are proprietary and undocumented. Lossless import needs a RoboDK
-  installation: run the studio server on a machine with RoboDK (`STUDIO_ROBODK_PYTHON=…`) and `.rdk` files dropped
-  into the browser are converted through `python/rdk2vbs.py`; without it the reader is best-effort. `rdk_export.py`
-  (inside RoboDK) and the API bridge remain the other lossless paths.
-- Collision checking is bounding-box based (attachment proximity, map rasterisation); mesh-level collision
-  is on the roadmap (three-mesh-bvh).
-- ROS 2 integration is via rosbridge websocket; native DDS is out of scope for a browser.
+- The `.rdk` / `.robot` binary containers are proprietary. Lossless import needs a RoboDK installation behind the
+  server (`STUDIO_ROBODK_PYTHON`); without it the reader is best-effort. `rdk_export.py` inside RoboDK and the API
+  bridge remain the other lossless paths.
+- Navigation and vision **simulations model statistics** (drift, outages, loss of tracking; recall vs. object size,
+  false positives, box jitter, attribute confusion, sensor depth error), not physics or appearance. They compare
+  stacks honestly before hardware exists; they do not certify a stack. Real models, VLM / VLA servers and MQTT brokers
+  are verified at the protocol level with mock servers and an embedded broker, not against live services.
+- Collision checking is analytic-primitive based with optional triangle checks; mesh/mesh everywhere is on the roadmap.
+- ROS 2 integration is via rosbridge websocket; native DDS is out of scope for a browser. The server has no
+  authentication — run it on a trusted network.
 
 License: MIT.
-
-## Documentation and roadmap
-
-User and developer documentation is built with Sphinx from the repository `docs/` folder and published on Read the
-Docs (https://vertical-bot-ros.readthedocs.io). The task list lives in `TODO.md` and is rendered as the *Roadmap* page.
