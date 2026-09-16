@@ -19,6 +19,8 @@ or the rosbridge connection.
 - Robot library: UR3e/5e/10e/16e/20 (official DH), KUKA Agilus/Cybertech/Quantec, ABB IRB 120/1200/2600/6700,
   Fanuc LR Mate/M-20iA/M-410iC, Yaskawa GP12, Stäubli TX2-60, Doosan M1013, Mecademic Meca500, generic palletizer,
   SCARA, XYZ gantry, 7-DOF telescopic harvesting arm — plus any URDF/xacro import with STL/DAE meshes.
+- Fleet interface: VDA 5050 v2 over MQTT in both roles — master for real AGV/AMR fleets (KUKA Fleet, MiR, …) and
+  digital-twin bridge exposing simulated robots as VDA 5050 vehicles (`docs/fleet-vda5050.md`).
 - Interop: animated glTF export of simulations for Blender/Unity/Unreal, URDF package export (ROS 2, Gazebo,
   MoveIt, Phobos), glTF/GLB/COLLADA/OBJ/STL import, best-effort Visual Components / KUKA.Sim `.vcmx` import,
   original RoboDK Python post processors running unmodified in the browser — see `docs/interop.md`.

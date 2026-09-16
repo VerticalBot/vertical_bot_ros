@@ -75,5 +75,7 @@ the VC API. There is no public specification, so:
   KUKA.Sim/OfficeLite exchange goes through those KRL files.
 - **Export** — glTF (static or animated) and URDF packages are the exchange formats VC/KUKA.Sim can consume
   (VC imports glTF/STL/OBJ/DAE geometry; kinematics are re-created with VC's mechanism wizard).
-- **KUKA Fleet / AMR** — the fleet manager is the studio's own (auctions, alley reservations, charging, KPIs); the
-  ROS 2 driver and rosbridge client are the integration points for real AMR fleets (Nav2 / Open-RMF style).
+- **KUKA Fleet / AMR** — the fleet manager is the studio's own (auctions, alley reservations, charging, KPIs) and
+  speaks **VDA 5050** in both directions: master (dispatch orders to KUKA / MiR / any VDA 5050 vehicles and mirror
+  them) and AGV bridge (the station's robots appear as VDA 5050 vehicles to KUKA Fleet or another master). See
+  `docs/fleet-vda5050.md`. ROS 2 (Nav2) stays available through the ROS 2 driver and rosbridge.

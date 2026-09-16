@@ -1,6 +1,6 @@
 import { App } from '../app';
 import { h, contextMenu, MenuEntry, downloadText, toast, dialog } from './dom';
-import { robotLibraryDialog, onlineLibraryDialog, mobileRobotDialog, orchardDialog, fleetDialog, missionDialog, mapDialog, zoneDialog, componentDialog, exportDialog, importDialog, harvestArmDialog, curveFollowDialog, machiningDialog, railIKDialog } from './dialogs';
+import { robotLibraryDialog, onlineLibraryDialog, mobileRobotDialog, orchardDialog, fleetDialog, missionDialog, mapDialog, zoneDialog, componentDialog, exportDialog, importDialog, harvestArmDialog, curveFollowDialog, machiningDialog, railIKDialog, vdaDialog } from './dialogs';
 import { ItemType, Folder } from '../core/items/item';
 import { demos } from '../demos';
 import { t, getLang, setLang } from './i18n';
@@ -112,6 +112,9 @@ export class MenuBar {
         { label: 'Disconnect rosbridge', action: () => { (app as any).ros?.disconnect(); (app as any).ros = null; } },
         { separator: true },
         { label: 'Studio server (Python RoboDK API clients)…', action: () => this.serverInfo() },
+        { separator: true },
+        { label: 'VDA 5050 fleet interface (AGV / AMR, KUKA Fleet, MiR)…', action: () => vdaDialog(app) },
+        { label: 'Disconnect VDA 5050', action: async () => { const c = (app as any).vda; if (c) { await c.disconnect(); (app as any).vda = null; toast('VDA 5050 disconnected', 'info'); } } },
       ]],
       ['View', () => [
         { label: 'Fit all', shortcut: 'F', action: () => app.renderer.fitAll() },

@@ -23,6 +23,7 @@ import { loadStation, saveStation } from '../src/io/station-file.ts';
 import '../src/posts/index.ts';
 import { createDriver, drivers, RobotDriver } from './drivers/index.ts';
 import { parseTcpJsonLines } from './tcp.ts';
+import { Vda5050Service, mqttConnector } from './vda5050.ts';
 
 const PORT = Number(process.env.STUDIO_PORT ?? 20500);
 const STATION_FILE = process.env.STUDIO_STATION ?? '';
@@ -59,10 +60,16 @@ async function driverCommand(msg: any): Promise<any> {
 const pending = new Map<string, { ws: WebSocket; id: number | string }>();
 let seq = 0;
 
-const httpServer = http.createServer((req, res) => {
+/** VDA 5050 (AGV fleets over MQTT): master + digital-twin bridge, see server/vda5050.ts */
+const vda = new Vda5050Service(() => station, (url, opts) => { throw new Error(`MQTT connector not ready for ${url} (${Object.keys(opts).length} opts)`); });
+mqttConnector().then((fn) => { vda.connectFn = fn; if (process.env.STUDIO_MQTT_URL) vda.connect({ url: process.env.STUDIO_MQTT_URL, prefix: process.env.STUDIO_VDA_PREFIX, role: (process.env.STUDIO_VDA_ROLE as any) ?? 'master', manufacturer: process.env.STUDIO_VDA_MANUFACTURER }); }).catch((e) => console.warn(`[studio-server] mqtt unavailable: ${e.message}`));
+const readJson = (req: http.IncomingMessage) => new Promise<any>((resolve, reject) => { let body = ''; req.on('data', (c) => (body += c)); req.on('end', () => { try { resolve(body ? JSON.parse(body) : {}); } catch (e) { reject(e); } }); req.on('error', reject); });
+
+const httpServer = http.createServer(async (req, res) => {
+  if ((req.url ?? '').startsWith('/vda5050/') && (await vda.handleHttp(req, res, () => readJson(req)))) return;
   if (req.method === 'OPTIONS') { res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS' }); res.end(); return; }
   res.setHeader('access-control-allow-origin', '*');
-  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify({ ok: true, host: !!host, station: station.name, rdkConverter: !!process.env.STUDIO_ROBODK_PYTHON || existsSync(path.join(process.cwd(), 'python', 'rdk2vbs.py')) })); return; }
+  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify({ ok: true, host: !!host, station: station.name, rdkConverter: !!process.env.STUDIO_ROBODK_PYTHON || existsSync(path.join(process.cwd(), 'python', 'rdk2vbs.py')), vda5050: vda.connected })); return; }
   if (req.url === '/station.json' && req.method === 'GET') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(saveStation(station))); return; }
   if (req.url === '/convert/rdk' && req.method === 'POST') {
     // Convert an uploaded .rdk/.robot/.tool with a locally installed RoboDK (python + robodk package) -> .vbstation JSON

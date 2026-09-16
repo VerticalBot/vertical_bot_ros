@@ -16,6 +16,7 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
+    "mqtt": "^5.15.2",
     "three": "^0.186.0",
     "ws": "^8.21.3"
   },

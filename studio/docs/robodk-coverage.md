@@ -97,6 +97,7 @@ robots replace their DH tables instead).
 | Blender | ✅ | animated glTF export of program simulations (keyframes per link/tool/object), static glTF, URDF package for Phobos; glTF/GLB, COLLADA, OBJ, STL import |
 | ROS / ROS 2 | ✅ | URDF/xacro import (+ online package meshes), URDF package export, ROS 2 post, rosbridge client, ROS 2 driver |
 | Visual Components / KUKA.Sim Pro | 🟡 | best-effort `.vcmx`/`.vcm` import (standard meshes + metadata: names, transforms, joints); VC-style process components, signals, fleets natively; glTF/URDF as exchange formats; binary `.rsc` behaviours are proprietary |
-| KUKA (OfficeLite / WorkVisual / Fleet) | 🟡 | KRC4/KRC5 KRL posts, KUKA KVP driver, kuka_experimental robots with meshes; fleet via the studio's own manager + ROS 2 |
+| KUKA (OfficeLite / WorkVisual / Fleet) | ✅ | KRC4/KRC5 KRL posts, KUKA KVP driver, kuka_experimental robots with meshes; KUKA Fleet / KMP via **VDA 5050** (master and AGV-twin bridge, `docs/fleet-vda5050.md`) |
+| AGV / AMR fleets (MiR, SEW, Jungheinrich, Omron, Open-RMF) | ✅ | VDA 5050 v2 over MQTT: orders, instant actions, state/connection/visualization/factsheet; digital-twin bridge for testing masters |
 
 See `docs/interop.md`.

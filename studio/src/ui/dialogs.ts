@@ -118,6 +118,37 @@ export async function onlineLibraryDialog(app: App): Promise<void> {
   }
 }
 
+/** VDA 5050 fleet connection (KUKA Fleet, MiR, Open-RMF, any VDA 5050 master/AGVs) through the studio server. */
+export async function vdaDialog(app: App): Promise<void> {
+  const base = app.serverHttpBase();
+  if (!base) return toast('Start the studio server (npm run server) and open the studio with ?server=ws://host:20500 — the server holds the MQTT connection', 'warn', 7000);
+  const current = (app as any).vda as import('../fleet/vda_client').VdaClient | null;
+  const status = h('pre', { class: 'code-preview', style: { maxHeight: '200px' } }, current?.status ? JSON.stringify({ connected: current.status.connected, agvs: current.status.agvs?.length, twins: current.status.twins?.length }, null, 1) : 'not connected');
+  const r = await dialog<{ url: string; prefix: string; role: string; manufacturer: string; mapId: string; user: string; pass: string; shadow: boolean; auto: boolean }>('VDA 5050 fleet interface (AGV / AMR)', [
+    { key: 'url', label: 'MQTT broker URL', type: 'text', value: current?.opts.url ?? 'mqtt://localhost:1883', hint: 'mqtt://, mqtts://, ws:// or wss:// — the broker of KUKA Fleet / your fleet manager' },
+    { key: 'prefix', label: 'Topic prefix (interfaceName)', type: 'text', value: current?.opts.prefix ?? 'uagv' },
+    { key: 'role', label: 'Role', type: 'select', value: current?.opts.role ?? 'master', options: [{ value: 'master', label: 'Master: dispatch fleet tasks to real AGVs and mirror them here' }, { value: 'bridge', label: 'AGV bridge: expose the station\'s mobile robots as VDA 5050 AGVs (digital twins)' }, { value: 'both', label: 'Both' }] },
+    { key: 'manufacturer', label: 'Manufacturer (bridge twins topic segment)', type: 'text', value: current?.opts.manufacturer ?? 'VerticalBot' },
+    { key: 'mapId', label: 'Map id', type: 'text', value: current?.opts.mapId ?? 'station' },
+    { key: 'user', label: 'Username (optional)', type: 'text', value: '' },
+    { key: 'pass', label: 'Password (optional)', type: 'password' as any, value: '' },
+    { key: 'shadow', label: 'Mirror AGV states onto robots with the same name (serial)', type: 'checkbox', value: current?.opts.shadow ?? true },
+    { key: 'auto', label: 'Send fleet tasks as VDA orders automatically', type: 'checkbox', value: current?.opts.autoDispatch ?? true },
+  ], { width: 620, okLabel: current ? 'Reconnect' : 'Connect', body: h('div', null, h('p', { class: 'hint' }, 'VDA 5050 v2: orders with nodes/edges/actions, instantActions (cancelOrder, startPause, initPosition…), state, connection (LWT), visualization, factsheet. Metres/radians on the wire, mm/deg in the station. Robots are paired by serial number = robot name.'), status) });
+  if (!r) return;
+  const { VdaClient } = await import('../fleet/vda_client');
+  if (current) await current.disconnect();
+  const client = new VdaClient(app, base, { url: r.url, prefix: r.prefix, role: r.role as any, manufacturer: r.manufacturer, mapId: r.mapId, username: r.user || undefined, password: r.pass || undefined, shadow: !!r.shadow, autoDispatch: !!r.auto });
+  (app as any).vda = client;
+  try {
+    const st = await client.connect();
+    app.log(`VDA 5050: ${st.connected ? 'connected' : 'connecting'} to ${r.url} as ${r.role}; ${st.agvs?.length ?? 0} AGVs seen, ${st.twins?.length ?? 0} twins`);
+    toast(`VDA 5050 ${st.connected ? 'connected' : 'connecting…'}`, 'ok');
+  } catch (e) {
+    toast(`VDA 5050: ${(e as Error).message}`, 'error', 6000);
+  }
+}
+
 export async function mobileRobotDialog(app: App): Promise<void> {
   const r = await dialog<{ preset: any; name: string }>('Add mobile robot', [
     { key: 'preset', label: 'Type', type: 'select', value: 'amr', options: [{ value: 'amr', label: 'AMR (differential)' }, { value: 'tractor', label: 'Autonomous tractor (Ackermann)' }, { value: 'harvester', label: 'Harvest platform (tracked)' }, { value: 'sprayer', label: 'Orchard sprayer' }, { value: 'scout', label: 'Scout rover' }] },
