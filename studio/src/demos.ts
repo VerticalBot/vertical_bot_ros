@@ -324,8 +324,8 @@ function tutorialCell(): Station {
 }
 
 export const demos: Demo[] = [
-  { id: 'tutorial', name: 'Tutorial — first station (UR5e)', description: 'The station built in the documentation tutorial: UR5e on a pedestal, table frame, part and bin, gripper, pick-and-place program. Follow docs › Getting started › Your first station.', build: tutorialCell },
   { id: 'pickplace', name: 'Pick & place cell (UR10e)', description: 'Robot arm, tool, targets, program with attach/detach. Run it and export with any post processor.', build: pickPlaceCell },
+  { id: 'tutorial', name: 'Tutorial — first station (UR5e)', description: 'The station built in the documentation tutorial: UR5e on a pedestal, table frame, part and bin, gripper, pick-and-place program. Follow docs › Getting started › Your first station.', build: tutorialCell },
   { id: 'welding', name: 'Multi-robot welding cell', description: 'Two robots with torches following a seam on a fixture; positioner as external axis.', build: weldingCell },
   { id: 'packing', name: 'Packing line (process flow)', description: 'Visual-Components-style feeder → conveyor → grader (with failures) → conveyor → pallet buffer → truck. Start the world clock.', build: packingLine },
   { id: 'orchard', name: 'Apple orchard with harvesting fleet', description: 'Field with rows/trees/fruit, occupancy map, 3 tracked platforms with UR10e arms and a sprayer; harvest + spray missions. Start the world clock and watch the fleet.', build: orchard },
