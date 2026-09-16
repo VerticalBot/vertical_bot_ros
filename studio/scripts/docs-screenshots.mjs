@@ -143,6 +143,7 @@ await page.click('.vision-panel button:has-text("Run")').catch(() => {}); await 
 await shot('37-vision-tab');
 await menu('Connect', 'ROS 2 via rosbridge'); await dialogShot('31-ros2-dialog'); await closeDialog();
 await menu('Connect', 'VDA 5050'); await page.waitForTimeout(400); if (await page.$('.dialog')) { await dialogShot('32-vda5050-dialog'); await closeDialog(); } else console.log('vda dialog needs server (toast shown)');
+await menu('Help', 'Demo scenarios'); await page.waitForSelector('.dialog', { timeout: 40000, state: 'attached' }).catch(() => {}); await dialogShot('38-scenarios-dialog'); await closeDialog();
 await menu('View', 'Language'); await page.waitForTimeout(700); await shot('33-russian-ui');
 console.log('errors:', errors.slice(0, 8));
 await browser.close();

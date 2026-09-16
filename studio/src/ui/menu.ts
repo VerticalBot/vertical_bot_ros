@@ -142,6 +142,7 @@ export class MenuBar {
         { label: 'Language: Русский', action: () => { setLang(getLang() === 'ru' ? 'en' : 'ru'); location.reload(); } },
       ]],
       ['Help', () => [
+        { label: 'Demo scenarios (navigation & vision)…', action: async () => { const { scenariosDialog } = await import('./scenarios_ui'); scenariosDialog(app); } },
         { label: 'Quick start', action: () => this.help() },
         { label: 'RoboDK API compatibility notes', action: () => window.open('docs/robodk-compatibility.md', '_blank') },
         { label: 'About', action: () => toast('VerticalBot Studio — browser-native robot simulation & offline programming (RoboDK / Visual Components class) for industrial, mobile and agricultural robotics. MIT.', 'info', 8000) },

@@ -245,6 +245,10 @@ export interface VisionStackConfig {
   objectSizeMm?: number;
   /** Working distance (m) used for the error budget. */
   workingDistance: number;
+  /** Webhook: POST the JSON summary of every run to this URL (custom nodes without ROS). */
+  publishUrl?: string;
+  /** Publish results to ROS 2 through the connected rosbridge (Vision tab / RosBridge). */
+  publishRos?: boolean;
   /** Simulation: inject false negatives / positives / box noise according to the model accuracy. */
   simulate: boolean;
   seed?: number;

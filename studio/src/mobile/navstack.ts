@@ -19,6 +19,7 @@
  */
 import type { MobileRobot } from './items';
 import type { MapItem, ZoneItem } from './items';
+import { navSummary } from '../ros/publishers';
 
 // ---------------------------------------------------------------------------------------------
 // Catalogue
@@ -477,6 +478,7 @@ export function stepNavRuntime(robot: MobileRobot, dt: number, map: MapItem | nu
     const e = rt.estimator.state;
     rt.slam.integrate(rt.lastScan, e.x, e.y, e.theta, st.theta);
   }
+  robot.params.navEstimate = navSummary(robot, rt) as any; // readable through the API (getParam) and webhooks
   if (Math.abs(st.v) > 1) {
     const e = rt.estimator.state;
     if (!rt.trueTrail.length || Math.hypot(st.x - rt.trueTrail[rt.trueTrail.length - 1][0], st.y - rt.trueTrail[rt.trueTrail.length - 1][1]) > 200) { rt.trueTrail.push([st.x, st.y]); rt.estTrail.push([e.x, e.y]); if (rt.trueTrail.length > 3000) { rt.trueTrail.shift(); rt.estTrail.shift(); } }

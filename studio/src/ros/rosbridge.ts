@@ -8,6 +8,10 @@ import { Robot } from '../core/items/robot';
 import { MobileRobot } from '../mobile/items';
 import { ItemType } from '../core/items/item';
 import { DEG, RAD, poseToQuat, getPos } from '../core/math/pose';
+import { publishNavRuntime, publishVisionOutput } from './publishers';
+import { visionRuntimeOf } from '../vision/pipeline';
+import { getVisionStack } from '../vision/stack';
+import { Camera as CameraItem } from '../core/items/item';
 
 export interface RosBridgeOptions {
   url: string;
@@ -128,8 +132,21 @@ export class RosBridge {
       this.publish(`${ns}/cmd_vel`, 'geometry_msgs/msg/Twist', { linear: { x: m.state.v / 1000, y: 0, z: 0 }, angular: { x: 0, y: 0, z: m.state.omega * DEG } });
       this.publish(`${ns}/robot_pose`, 'geometry_msgs/msg/Pose', poseMsg(m.poseAbs()));
       this.publish(`${ns}/battery_state`, 'sensor_msgs/msg/BatteryState', { percentage: m.batteryLevel(), voltage: 48, present: true });
+      // navigation stack simulation: localization estimate, ground truth, LiDAR scan, SLAM map
+      const rt = (m as any)._nav;
+      if (rt) { this.mapCounter = (this.mapCounter + 1) % 20; publishNavRuntime(this, m, rt, { map: this.mapCounter === 0 }); }
+    }
+    // machine vision: publish each new pipeline output of cameras whose stack has "publish to ROS 2" enabled
+    for (const cam of this.app.station.itemsOfType<CameraItem>(ItemType.CAMERA)) {
+      const cfg = getVisionStack(cam); const vrt = visionRuntimeOf(cam);
+      if (!cfg?.publishRos || !vrt?.last || this.lastVision.get(cam) === vrt.last) continue;
+      this.lastVision.set(cam, vrt.last);
+      const parent = cam.parent instanceof MobileRobot ? cam.parent : cam.parent?.parent instanceof MobileRobot ? cam.parent.parent : null;
+      publishVisionOutput(this, cam, vrt.last, { namespace: parent?.rosNamespace ?? '' });
     }
   }
+  private mapCounter = 0;
+  private lastVision = new WeakMap<CameraItem, unknown>();
 }
 
 function poseMsg(m: Float64Array) {

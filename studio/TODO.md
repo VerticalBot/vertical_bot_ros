@@ -65,9 +65,10 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 
 ## 6. Platform & quality (платформа и качество)
 
-- [x] Vite + TypeScript + three.js app, vitest (117 tests), Playwright smoke, GitHub Actions
+- [x] Vite + TypeScript + three.js app, vitest (157 tests), Playwright smoke, GitHub Actions
 - [x] Read the Docs documentation (`docs/`, Sphinx + MyST) — this roadmap is published there
 - [x] Screenshots generated from the running app (`studio/scripts/docs-screenshots.mjs`), tutorial station + guide, RoboDK documentation map
+- [x] Demo scenarios for every localization method and vision task (`npm run scenarios`, Help › Demo scenarios…), published results; integration page (ports, ROS 2 topics, JSON contracts, webhooks, example nodes); rosbridge publishers for navigation and perception; protocol tests with mock servers
 - [ ] Russian translation of the documentation (sphinx-intl) — UI is already RU/EN
 - [ ] Undo/redo coverage audit for every dialog; keyboard-only workflow
 - [ ] Performance: instanced rendering for orchards > 10k trees, worker-thread simulation

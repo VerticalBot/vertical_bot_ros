@@ -43,12 +43,13 @@ export function detectFruit(station: Station, camera: CameraItem, opts: { onlyRi
   out.sort((a, b) => a.range - b.range);
   const kept: Detection[] = [];
   const occ = opts.occlusionPerMeter ?? 0.25;
-  let seed = 12345;
-  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  // canopy occlusion is a property of the fruit (leaves around it), not of the frame: hash its position so a
+  // hidden fruit stays hidden and a visible one stays visible while the camera moves (approaching reveals more)
+  const hash01 = (p: [number, number, number]) => { let h = 2166136261; for (const v of p) { h ^= Math.round(v) & 0xffff; h = Math.imul(h, 16777619) >>> 0; } return (h % 100000) / 100000; };
   for (const d of out) {
     const covered = kept.some((k) => Math.abs(k.u - d.u) < (k.w + d.w) / 4 && Math.abs(k.v - d.v) < (k.h + d.h) / 4);
     if (covered) continue;
-    if (rnd() < Math.min(0.9, occ * (d.range / 1000))) continue;
+    if (hash01(d.p) < Math.min(0.9, occ * (d.range / 1000))) continue;
     kept.push(d);
   }
   return kept;

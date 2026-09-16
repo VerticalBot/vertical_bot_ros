@@ -150,6 +150,9 @@ function gauss(r: () => number) { return Math.sqrt(-2 * Math.log(r() + 1e-12)) *
 export class SimulatedModel implements VisionModel {
   id: string; name: string; tasks: VisionTask[];
   private frameNo = 0;
+  private vlaTarget: string | null = null;
+  private vlaLast: number[] | null = null;
+  private vlaHold = 0;
   constructor(readonly spec: VisionModelSpec, private seed = 1) { this.id = spec.id; this.name = `${spec.name} (simulated)`; this.tasks = spec.tasks; }
   async run(frame: VisionFrame, opts: RunOptions): Promise<VisionResult> {
     const t0 = now();
@@ -183,7 +186,7 @@ export class SimulatedModel implements VisionModel {
       if (opts.task === 'segment') b.mask = ellipseMask(b, frame.width, frame.height);
       if (opts.task === 'keypoints') { const kps = t.keypoints ?? [[t.box.x + t.box.w / 2, t.box.y]]; b.keypoints = kps.map(([kx, ky]) => [kx + gauss(rnd) * jit, ky + gauss(rnd) * jit, Math.min(0.99, acc + 0.2 * rnd())]); }
       // classification attribute confusion (e.g. ripeness) scales with accuracy
-      if (b.attr && typeof b.attr.ripe === 'number' && rnd() > acc) b.attr.ripe = 1 - (b.attr.ripe as number);
+      if (b.attr && typeof b.attr.ripe === 'number' && rnd() < (1 - acc) * 0.5) b.attr.ripe = 1 - (b.attr.ripe as number); // coarse attribute confusion
       boxes.push(b);
     }
     // false positives: (1 - acc) * 2 per frame on average
@@ -215,12 +218,19 @@ export class SimulatedModel implements VisionModel {
     const q = (opts.prompt ?? '').toLowerCase();
     const cands = (frame.truth ?? []).filter((t) => t.visible && (!q || q.includes(t.cls.toLowerCase()) || opts.classes.some((c) => q.includes(c.toLowerCase()) && t.cls.toLowerCase() === c.toLowerCase())));
     if (!cands.length) return { task: 'vla_policy', model: this.id, boxes: [], action: [0, 0, 0, 0, 0, 0, 0], text: 'no target visible', latencyMs: now() - t0 };
-    const tgt = cands.reduce((a, b) => (a.z < b.z ? a : b));
+    // lock on the first chosen target (a real policy keeps attending to one object); if it is momentarily occluded,
+    // repeat the last action for a few frames instead of switching to another fruit
+    const locked = this.vlaTarget ? cands.find((t) => t.id === this.vlaTarget) : undefined;
+    if (!locked && this.vlaTarget && this.vlaLast && this.vlaHold < 6) { this.vlaHold++; return { task: 'vla_policy', model: this.id, boxes: [], action: this.vlaLast, text: 'approach (target occluded, holding)', latencyMs: now() - t0 }; }
+    const tgt = locked ?? cands.reduce((a, b) => (a.z < b.z ? a : b));
+    this.vlaTarget = tgt.id; this.vlaHold = 0;
     const cx = tgt.box.x + tgt.box.w / 2, cy = tgt.box.y + tgt.box.h / 2;
     const ex = (cx - frame.K.cx) / frame.K.fx, ey = (cy - frame.K.cy) / frame.K.fy;
     const near = tgt.z < 150;
     // normalised deltas in the camera frame: x right, y down, z forward
-    const action = [Math.max(-1, Math.min(1, ex * 3)), Math.max(-1, Math.min(1, ey * 3)), near ? 0 : Math.min(1, tgt.z / 1000), 0, 0, 0, near ? 1 : 0];
+    const action = [Math.max(-1, Math.min(1, ex * 3)), Math.max(-1, Math.min(1, ey * 3)), near ? 0 : Math.min(1, Math.max(0.3, tgt.z / 500)), 0, 0, 0, near ? 1 : 0];
+    this.vlaLast = action;
+    if (near) { this.vlaTarget = null; this.vlaLast = null; }
     return { task: 'vla_policy', model: this.id, boxes: [{ ...tgt.box, score: 0.9, cls: tgt.cls, truthId: tgt.id }], action, text: near ? 'grasp' : `approach ${tgt.cls}`, latencyMs: now() - t0 };
   }
 }

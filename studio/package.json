@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "server": "npm run build:server && node dist-server/index.js",
     "build:server": "vite build -c vite.server.config.ts",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "scenarios": "SCENARIO_REPORT=1 vitest run tests/scenarios.test.ts"
   },
   "dependencies": {
     "mqtt": "^5.15.2",

@@ -10,6 +10,7 @@ import { ensureVisionRuntime, visionRuntimeOf, createTargetsFromOutput, followCo
 import { generateRosVisionPackage, rosVisionPackageZip } from '../vision/vision_ros';
 import { parsePCD, parsePLY, PointCloud, decimate, pointCount, cloudStats, writePCD } from '../vision/pointcloud';
 import { intrinsicsFromCamera } from '../vision/camera_model';
+import { visionSummary, publishVisionOutput } from '../ros/publishers';
 import { multiply, transl, rotx, DEG } from '../core/math/pose';
 import { t } from './i18n';
 
@@ -102,7 +103,7 @@ export async function visionStackDialog(app: App, cam: CameraItem): Promise<void
   };
   const taskBoxes = TASK_ORDER.map((task) => formField({ key: task, label: TASK_LABELS[task], type: 'checkbox', value: state.tasks.has(task) }, (v) => { if (v) state.tasks.add(task); else state.tasks.delete(task); render(); }).el);
   const runtimeBox = h('div', { class: 'grid' });
-  const rtState = { runtime: cur?.runtime ?? 'simulated', modelUrl: cur?.modelUrl ?? '', inputSize: cur?.inputSize ?? 640, serverModel: cur?.serverModel ?? 'yolov8n.pt', rosTopic: cur?.rosTopic ?? '/yolo/detections', vlmUrl: cur?.vlm?.url ?? 'http://localhost:11434/v1', vlmModel: cur?.vlm?.model ?? 'qwen2.5vl:7b', vlmKey: cur?.vlm?.apiKey ?? '', vlaUrl: cur?.vla?.url ?? 'http://localhost:8000', vlaModel: cur?.vla?.model ?? 'pi0', vlaFormat: cur?.vla?.format ?? 'openpi', instruction: cur?.vla?.instruction ?? 'pick the ripe apple', simulate: cur?.simulate ?? true, objectSize: cur?.objectSizeMm ?? 75, handEye: cur?.handEyeMode ?? (cam.parent instanceof Robot || cam.parent?.type === ItemType.TOOL ? 'eye_in_hand' : 'eye_to_hand') };
+  const rtState = { runtime: cur?.runtime ?? 'simulated', modelUrl: cur?.modelUrl ?? '', inputSize: cur?.inputSize ?? 640, serverModel: cur?.serverModel ?? 'yolov8n.pt', rosTopic: cur?.rosTopic ?? '/yolo/detections', vlmUrl: cur?.vlm?.url ?? 'http://localhost:11434/v1', vlmModel: cur?.vlm?.model ?? 'qwen2.5vl:7b', vlmKey: cur?.vlm?.apiKey ?? '', vlaUrl: cur?.vla?.url ?? 'http://localhost:8000', vlaModel: cur?.vla?.model ?? 'pi0', vlaFormat: cur?.vla?.format ?? 'openpi', instruction: cur?.vla?.instruction ?? 'pick the ripe apple', simulate: cur?.simulate ?? true, objectSize: cur?.objectSizeMm ?? 75, publishUrl: cur?.publishUrl ?? '', publishRos: cur?.publishRos ?? false, handEye: cur?.handEyeMode ?? (cam.parent instanceof Robot || cam.parent?.type === ItemType.TOOL ? 'eye_in_hand' : 'eye_to_hand') };
   runtimeBox.append(
     formField({ key: 'rt', label: 'Runtime (where models execute)', type: 'select', value: rtState.runtime, options: [{ value: 'simulated', label: 'Simulated (ground truth + model statistics)' }, { value: 'onnx', label: 'ONNX Runtime Web in this browser (YOLO .onnx URL)' }, { value: 'server', label: 'Studio server (/vision/infer: ultralytics / onnxruntime)' }, { value: 'vlm', label: 'VLM endpoint for detection/classification too' }, { value: 'ros2', label: 'ROS 2 topic via rosbridge (vision_msgs)' }] }, (v) => { rtState.runtime = v; }).el,
     formField({ key: 'mu', label: 'ONNX model URL / path (Ultralytics export)', type: 'text', value: rtState.modelUrl, hint: 'e.g. /models/yolov8n.onnx or https://…/best.onnx' }, (v) => { rtState.modelUrl = v; }).el,
@@ -117,6 +118,8 @@ export async function visionStackDialog(app: App, cam: CameraItem): Promise<void
     formField({ key: 'af', label: 'VLA server format', type: 'select', value: rtState.vlaFormat, options: [{ value: 'openpi', label: 'openpi (π0) /infer' }, { value: 'openvla', label: 'OpenVLA /act' }, { value: 'studio', label: 'studio JSON /act (LeRobot, ACT, custom)' }] }, (v) => { rtState.vlaFormat = v; }).el,
     formField({ key: 'ai', label: 'Default instruction', type: 'text', value: rtState.instruction }, (v) => { rtState.instruction = v; }).el,
     formField({ key: 'os', label: 'Object size prior for mono (mm)', type: 'number', value: rtState.objectSize, min: 1 }, (v) => { rtState.objectSize = v; }).el,
+    formField({ key: 'pu', label: 'Publish results to URL (webhook, POST JSON after every run)', type: 'text', value: rtState.publishUrl, hint: 'e.g. http://localhost:8765/vision — see python/examples/vision_webhook_sink.py' }, (v) => { rtState.publishUrl = v; }).el,
+    formField({ key: 'pr', label: 'Publish to ROS 2 through rosbridge (Connect › ROS 2): vision_msgs, PoseArray, PointCloud2, CompressedImage', type: 'checkbox', value: rtState.publishRos }, (v) => { rtState.publishRos = !!v; }).el,
     formField({ key: 'he', label: 'Camera mounting', type: 'select', value: rtState.handEye, options: [{ value: 'eye_in_hand', label: 'eye-in-hand (on the flange / tool)' }, { value: 'eye_to_hand', label: 'eye-to-hand (fixed, on the vehicle or cell)' }] }, (v) => { rtState.handEye = v; }).el);
   const body = h('div', null,
     h('div', { class: 'prop-title' }, t('Tasks')), h('div', { class: 'vision-tasks' }, ...taskBoxes),
@@ -140,7 +143,7 @@ export async function visionStackDialog(app: App, cam: CameraItem): Promise<void
   if (!r || !recs.length) return;
   const rec = recs[chosen];
   const classes = state.classes.split(',').map((s) => s.trim()).filter(Boolean);
-  const cfg: VisionStackConfig = { ...configFromRecommendation(rec, request(), classes), runtime: rtState.runtime as VisionStackConfig['runtime'], modelUrl: rtState.modelUrl || undefined, inputSize: rtState.inputSize, serverModel: rtState.serverModel || undefined, rosTopic: rtState.rosTopic || undefined, simulate: !!r.sim, objectSizeMm: rtState.objectSize, handEyeMode: rtState.handEye as any };
+  const cfg: VisionStackConfig = { ...configFromRecommendation(rec, request(), classes), runtime: rtState.runtime as VisionStackConfig['runtime'], modelUrl: rtState.modelUrl || undefined, inputSize: rtState.inputSize, serverModel: rtState.serverModel || undefined, rosTopic: rtState.rosTopic || undefined, simulate: !!r.sim, objectSizeMm: rtState.objectSize, handEyeMode: rtState.handEye as any, publishUrl: rtState.publishUrl || undefined, publishRos: rtState.publishRos };
   if (state.tasks.has('vlm_query') || rtState.runtime === 'vlm') cfg.vlm = { url: rtState.vlmUrl, model: rtState.vlmModel, apiKey: rtState.vlmKey || undefined, prompt: '' };
   if (state.tasks.has('vla_policy')) cfg.vla = { url: rtState.vlaUrl, model: rtState.vlaModel, format: rtState.vlaFormat as any, instruction: rtState.instruction, actionScaleMm: 20, actionScaleDeg: 5 };
   app.cmd(() => {
@@ -202,6 +205,7 @@ export function buildVisionPanel(app: App): { el: HTMLElement; render: () => voi
   const showTruth = h('input', { type: 'checkbox' }) as HTMLInputElement;
   let busy = false;
   let lastOut: PipelineOutput | null = null;
+  let lastWebhook = 0;
   const camOf = () => app.station.findById(sel.value) as CameraItem | null;
   const robotOf = () => app.station.findById(robotSel.value) as MobileRobot | null;
   const refreshLists = () => {
@@ -269,7 +273,12 @@ export function buildVisionPanel(app: App): { el: HTMLElement; render: () => voi
   const run = async (opts: { prompt?: string } = {}) => {
     const cam = camOf();
     if (!cam || busy) return;
-    const rt = ensureVisionRuntime(cam, { serverBase: app.serverHttpBase(), ros: (app as any).ros });
+    const rt = ensureVisionRuntime(cam, { serverBase: app.serverHttpBase(), ros: (app as any).ros, onOutput: (o, c) => {
+      const cfg = getVisionStack(c);
+      if (cfg?.publishUrl && performance.now() - lastWebhook > 200) { lastWebhook = performance.now(); fetch(cfg.publishUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(visionSummary(c, o)) }).catch((e) => app.log(`webhook ${cfg.publishUrl}: ${(e as Error).message}`, 'warn')); }
+      const ros = (app as any).ros;
+      if (cfg?.publishRos && ros?.connected) { const parent = c.parent instanceof MobileRobot ? c.parent : null; publishVisionOutput(ros, c, o, { namespace: parent?.rosNamespace ?? '' }); }
+    } });
     if (!rt) { info.textContent = t('No vision stack on this camera — press Stack… to choose one.'); draw(cam, null); return; }
     busy = true;
     try {

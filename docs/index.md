@@ -12,7 +12,8 @@ topic you need. Every page is generated from the repository (`docs/` folder) and
 :class: tip
 - New here? Read {doc}`getting-started/quick-start` (10 minutes) and build {doc}`getting-started/tutorial`.
 - Coming from RoboDK? See {doc}`reference/robodk-guide-map`, {doc}`interop/robodk` and the {doc}`reference/coverage`.
-- Driving real machines? {doc}`api/server`, {doc}`api/drivers`, {doc}`mobile/vda5050`.
+- Driving real machines? {doc}`api/server`, {doc}`api/drivers`, {doc}`mobile/vda5050`, and the wiring diagram in {doc}`developer/integration`.
+- Want to see it work first? {doc}`reference/scenarios` — demo cases for every navigation method and vision task, with results.
 ```
 
 ```{toctree}
@@ -94,10 +95,12 @@ api/plugins
 
 reference/coverage
 reference/robodk-guide-map
+reference/scenarios
 reference/shortcuts
 reference/faq
 developer/architecture
 developer/building
+developer/integration
 developer/contributing
 roadmap
 ```

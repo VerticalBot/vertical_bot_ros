@@ -20,7 +20,8 @@ import { plantPosition } from '../agri/orchard';
 import type { MobileRobot } from '../mobile/items';
 import { VisionStackConfig, VisionTask, VISION_SENSORS, VISION_MODELS, getVisionStack } from './stack';
 import { Intrinsics, intrinsicsFromCamera, project, backproject, depthSigmaMm, rangeFromSize, targetPoseFromPoint, medianDepthInBox } from './camera_model';
-import { VisionModel, VisionFrame, VisionResult, Box2D, TruthObject, ByteTracker, createModel, ModelContext, applyVlaAction } from './models';
+import { VisionModel, VisionFrame, VisionResult, Box2D, TruthObject, ByteTracker, createModel, applyVlaAction, ModelContext as BaseModelContext } from './models';
+import { visionSummary } from '../ros/publishers';
 import { PointCloud, simulateLidar3D, voxelDownsample, fitGroundPlane, removeGround, euclideanCluster, Cluster, detectRows, Line2D, simulateDepthCamera, pointCount, selectPoints, fitLine2D } from './pointcloud';
 
 // ---------------------------------------------------------------------------------------------
@@ -121,6 +122,8 @@ export function captureTruth(station: Station, cam: CameraItem, opts: { maxRange
 // Runtime
 // ---------------------------------------------------------------------------------------------
 
+export interface ModelContext extends BaseModelContext { /** Called after every pipeline run (webhooks, ROS publishers). */ onOutput?: (out: PipelineOutput, cam: CameraItem) => void }
+
 export interface PipelineStats { frames: number; tp: number; fp: number; fn: number; posErrSum: number; posErrN: number; fps: number; lastLatencyMs: number }
 
 export interface CloudAnalysis { cloud: PointCloud; ground: PointCloud; objects: PointCloud; clusters: Cluster[]; rows: Line2D[]; classes: string[] }
@@ -195,6 +198,13 @@ export class VisionRuntime {
     }
     // classification of crops: attach the top label as an attribute when a classifier is configured
     if (cfg.tasks.includes('classify') && cfg.models.classify && !imageTasks.includes('classify')) await run('classify');
+    if (cfg.models.classify && frame.truth) {
+      // a dedicated classifier re-labels the per-detection attributes with its own accuracy (simulation)
+      const acc = VISION_MODELS.find((m) => m.id === cfg.models.classify)?.accuracy ?? 0.7;
+      const rndC = makeRng((cfg.seed ?? 1) * 17 + this.stats.frames);
+      const byId = new Map(frame.truth.map((t) => [t.id, t]));
+      for (const b of boxes) { const t = b.truthId ? byId.get(b.truthId) : undefined; if (t?.attrs && typeof t.attrs.ripe === 'number') { b.attr = { ...(b.attr ?? {}), ripe: rndC() < (1 - acc) * 0.5 ? 1 - t.attrs.ripe : t.attrs.ripe }; } }
+    }
     // tracking
     const dt = this.lastTime ? Math.max(1e-3, frame.time - this.lastTime) : 1 / 15;
     this.lastTime = frame.time;
@@ -270,6 +280,8 @@ export class VisionRuntime {
     this.stats.frames++; this.stats.lastLatencyMs = lat; this.stats.fps = lat > 0 ? Math.min(1000 / lat, 1 / dt) : 0;
     const out: PipelineOutput = { frame, results, detections: boxes, cloud, targets, vla, text, warnings };
     this.last = out;
+    this.cam.setParam('visionLast', visionSummary(this.cam, out) as any);
+    try { this.ctx.onOutput?.(out, this.cam); } catch (e) { warnings.push(`onOutput: ${(e as Error).message}`); }
     return out;
   }
 
@@ -355,7 +367,7 @@ export function followCommand(box: Box2D | null, K: Intrinsics, opts: { desiredR
   const omega = Math.max(-maxW, Math.min(maxW, -(opts.kAng ?? 1.5) * bearing * (180 / Math.PI)));
   const z = box.z ?? desired;
   const err = z - desired;
-  const v = Math.abs(err) < 150 ? 0 : Math.max(-maxV * 0.3, Math.min(maxV, (opts.kLin ?? 0.8) * err));
+  const v = Math.abs(err) < 150 ? 0 : Math.max(-maxV * 0.3, Math.min(maxV, (opts.kLin ?? 1.5) * err));
   return { v, omega, state: Math.abs(err) < 150 && Math.abs(bearing) < 0.05 ? 'arrived' : 'tracking' };
 }
 

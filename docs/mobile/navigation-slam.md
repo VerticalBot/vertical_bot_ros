@@ -95,3 +95,11 @@ Values follow the studio model of the vehicle; calibrate sensors and tune on the
 `recommendStacks(request)`, `LOCALIZATION_METHODS`, `NAVIGATION_METHODS`, `setNavStack(robot, config)`,
 `LocalizationEstimator`, `simulateLidar2D`, `SlamMap` in `src/mobile/navstack.ts`; `generateRosNavPackage` in
 `src/mobile/navstack_ros.ts`. Tests: `tests/navstack.test.ts`.
+
+## Demo scenarios and connecting to ROS 2
+
+Every localization method has a reproducible demo case (warehouse loop, orchard alleys with GNSS-denied canopy,
+greenhouse rails, open-field passes) with measured RMSE, path deviation and lost events: {doc}`../reference/scenarios`.
+With *Connect › ROS 2 via rosbridge…* the simulated stack publishes `<ns>/odom_estimate`, `<ns>/ground_truth`,
+`<ns>/scan` and `<ns>/slam_map`; the estimate is also readable as `robot.getParam('navEstimate')` through the API.
+Topic names, ports and message contracts: {doc}`../developer/integration`.

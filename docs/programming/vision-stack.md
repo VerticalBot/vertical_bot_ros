@@ -160,6 +160,16 @@ adapters (`OnnxYoloModel`, `HttpModel`, `VlmOpenAIModel`, `VlaHttpModel`, `Ros2V
 custom pipelines and plugins. Programs consume the created targets like any taught target; missions use the
 harvest detections through the fleet manager.
 
+## Demo scenarios, ROS 2 topics, webhooks
+
+Ten reproducible scenarios (stereo picking, mono size prior, segmentation / keypoints / classification, RGB-D bin
+picking, LiDAR rows, ToF canopy measurement, following, VLM, VLA, open vocabulary) with measured precision / recall
+/ position error are listed in {doc}`../reference/scenarios` and loadable from *Help › Demo scenarios…*. The wizard's
+*Runtime & endpoints* section can also **publish every run**: to ROS 2 through rosbridge (`vision_msgs`
+detections, 3D detections, `PoseArray` targets, `PointCloud2`, `CompressedImage`) and/or to a webhook URL (JSON
+summary, also stored as `camera.getParam('visionLast')`). Contracts, ports and example nodes (ROS 2 consumer,
+webhook sink, custom inference server, Robolink polling): {doc}`../developer/integration`.
+
 ## Limits
 
 - Real-model inference in the browser needs the model served over HTTP (CORS) and WebGPU/WASM memory for
