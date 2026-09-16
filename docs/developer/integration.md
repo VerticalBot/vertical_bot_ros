@@ -190,7 +190,7 @@ the server: `POST /vda5050/connect`, `GET /vda5050/status`, `POST /vda5050/order
    perception / navigation packages (hardware). Example: `python/examples/ros2_vision_consumer.py`.
 2. **Custom node without ROS** — either receive the webhook (`vision_webhook_sink.py`), poll the API params
    (`robolink_poll_vision_nav.py`), or talk to the server's JSON-RPC directly:
-   ```json
+   ```text
    {"id": 1, "method": "Item", "params": ["Camera 1"]}                → {"id": 1, "result": {"$item": "<item id>"}}
    {"id": 2, "method": "getParam", "params": ["visionLast"], "target": "<item id>"}
    ```
