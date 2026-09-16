@@ -26,6 +26,22 @@ are driven by the studio's compiled program (`src/posts/base.ts › compileForPo
 
 ## Blender
 
+### Blender add-on (direct .vbstation exchange)
+
+`blender/vertical_bot_studio.py` — install in Blender (Edit › Preferences › Add-ons › Install…). It adds:
+
+- *File › Import › VerticalBot Studio station (.vbstation)*: objects with meshes/primitives, robots as link
+  hierarchies computed with the studio's exact forward kinematics (DH post transforms, mimic and prismatic joints),
+  tools on the flange, frames/targets as empties; when the file comes from *File › Save for Blender add-on* it also
+  contains the active program sampled at 30 Hz — every link, flange and moved object gets keyframes, the scene
+  frame range and fps are set. No glTF round trip, no unit surprises (mm → m applied on import).
+- *File › Export › VerticalBot Studio station*: selected meshes as a `.vbstation` (binary STL assets in mm) the
+  studio opens directly.
+- *File › Export › VerticalBot Studio pose log (.csv)*: selected objects' world poses per frame as XYZ + Rx Ry Rz
+  (mm/deg) — drop the CSV into the studio to get targets along an animated path.
+
+The add-on's kinematics are unit-tested against the TypeScript implementation (`tests/blender_addon.test.ts`).
+
 ### Studio → Blender
 
 - **Animated glTF** — `Tools › Export animation as glTF (Blender)…`. The active program is simulated from start to

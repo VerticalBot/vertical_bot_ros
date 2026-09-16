@@ -4,7 +4,7 @@ import { robotLibraryDialog, onlineLibraryDialog, mobileRobotDialog, orchardDial
 import { ItemType, Folder } from '../core/items/item';
 import { demos } from '../demos';
 import { t, getLang, setLang } from './i18n';
-import { collisionMapDialog, measureDialog, cameraDialog, VideoRecorder, exportHtml3D, exportGlb, exportAnimationGltf, exportUrdfPackage, importRoboDKPosts } from './tools';
+import { collisionMapDialog, measureDialog, cameraDialog, VideoRecorder, exportHtml3D, exportGlb, exportAnimationGltf, exportUrdfPackage, importRoboDKPosts, saveForBlender } from './tools';
 import { Camera as CameraItem } from '../core/items/item';
 import { Robot } from '../core/items/robot';
 
@@ -25,6 +25,7 @@ export class MenuBar {
         { label: 'Export program (post processor)…', action: () => exportDialog(app) },
         { label: 'Export station as RoboDK API script (.py)', action: () => downloadText(`${app.station.name.replace(/\W+/g, '_')}_robodk.py`, app.exportRoboDKScript()) },
         { label: 'Export URDF package (robot / station, zip)…', action: () => exportUrdfPackage(app) },
+        { label: 'Save for Blender add-on (.vbstation + animation)', action: () => saveForBlender(app) },
         { label: 'Export station JSON (for rdk_export.py / server)', action: () => downloadText(`${app.station.name.replace(/\W+/g, '_')}.vbstation`, app.saveToJSON(), 'application/json') },
         { label: 'Export screenshot (PNG)', action: () => { const a = document.createElement('a'); a.href = app.renderer.screenshot(); a.download = 'station.png'; a.click(); } },
       ]],

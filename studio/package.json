@@ -24,6 +24,7 @@
     "@types/node": "*",
     "@types/three": "^0.186.0",
     "@types/ws": "*",
+    "aedes": "^0.51.3",
     "jsdom": "*",
     "playwright": "^1.63.0",
     "typescript": "^7.0.2",

@@ -21,6 +21,8 @@ or the rosbridge connection.
   SCARA, XYZ gantry, 7-DOF telescopic harvesting arm — plus any URDF/xacro import with STL/DAE meshes.
 - Fleet interface: VDA 5050 v2 over MQTT in both roles — master for real AGV/AMR fleets (KUKA Fleet, MiR, …) and
   digital-twin bridge exposing simulated robots as VDA 5050 vehicles (`docs/fleet-vda5050.md`).
+- Blender add-on (`blender/vertical_bot_studio.py`): direct `.vbstation` import with robots, exact FK and program
+  animation keyframes; export meshes and pose logs back.
 - Interop: animated glTF export of simulations for Blender/Unity/Unreal, URDF package export (ROS 2, Gazebo,
   MoveIt, Phobos), glTF/GLB/COLLADA/OBJ/STL import, best-effort Visual Components / KUKA.Sim `.vcmx` import,
   original RoboDK Python post processors running unmodified in the browser — see `docs/interop.md`.

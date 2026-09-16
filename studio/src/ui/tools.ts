@@ -189,3 +189,30 @@ export async function importRoboDKPosts(app: App): Promise<void> {
   app.log(`RoboDK posts: ${r.added.length} imported${r.skipped.length ? `, ${r.skipped.length} skipped (no RobotPost class): ${r.skipped.slice(0, 5).join(', ')}` : ''}; ${listUserPosts().length} user posts available in the export dialog`);
   toast(`${r.added.length} post processors imported`, r.added.length ? 'ok' : 'warn');
 }
+
+
+/** Save the station as .vbstation with the active program sampled into an animation block for the Blender add-on. */
+export async function saveForBlender(app: App): Promise<void> {
+  const { saveStation } = await import('../io/station-file');
+  const file: any = saveStation(app.station, app.assets);
+  const prog = app.activeProgram;
+  if (prog) {
+    app.previewProgram();
+    const sim = app.sim;
+    const dt = 1 / 30;
+    const robots = app.station.itemsOfType<Robot>(ItemType.ROBOT);
+    const anim: any = { program: prog.name, duration: sim.duration, dt, robots: {}, items: {} };
+    for (const r of robots) anim.robots[r.id] = sim.jointsList(r.id, dt);
+    // items whose absolute pose changes during the program (attached objects, mobile robots, tools)
+    const movers = app.station.itemsOfType(ItemType.OBJECT).concat(app.station.itemsOfType(ItemType.MOBILE_ROBOT), app.station.itemsOfType(ItemType.TOOL));
+    const frames = Math.max(1, Math.ceil(sim.duration / dt) + 1);
+    const series = new Map<string, number[][]>(movers.map((m) => [m.id, []]));
+    const saved = sim.time;
+    for (let f = 0; f < frames; f++) { sim.seek(f * dt); for (const m of movers) series.get(m.id)!.push(Array.from(m.poseAbs())); }
+    sim.seek(saved);
+    for (const [id, poses] of series) { const p0 = poses[0]; if (poses.some((p) => p.some((v, i) => Math.abs(v - p0[i]) > 1e-6))) anim.items[id] = poses; }
+    file.animation = anim;
+  }
+  downloadText(`${app.station.name.replace(/\W+/g, '_')}_blender.vbstation`, JSON.stringify(file), 'application/json');
+  toast(prog ? `Saved with ${prog.name} animation for the Blender add-on` : 'Saved for the Blender add-on (no active program: no animation)', 'ok', 5000);
+}
