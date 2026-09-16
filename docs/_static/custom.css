@@ -1,0 +1,5 @@
+/* RoboDK-like reading width and tables */
+.wy-nav-content { max-width: 1100px; }
+.rst-content table.docutils td, .rst-content table.docutils th { white-space: normal; }
+.rst-content code.literal { color: #1f5fbf; }
+.menu-path { font-weight: 600; }

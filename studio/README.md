@@ -158,3 +158,8 @@ studio/
 - ROS 2 integration is via rosbridge websocket; native DDS is out of scope for a browser.
 
 License: MIT.
+
+## Documentation and roadmap
+
+User and developer documentation is built with Sphinx from the repository `docs/` folder and published on Read the
+Docs (https://vertical-bot-ros.readthedocs.io). The task list lives in `TODO.md` and is rendered as the *Roadmap* page.

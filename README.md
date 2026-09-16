@@ -14,7 +14,8 @@ npm test                                     # unit tests
 npm run server                               # RoboDK-compatible API server (ws://localhost:20500)
 ```
 
-See `studio/README.md` and `studio/docs/`.
+**Documentation**: https://vertical-bot-ros.readthedocs.io (built from `docs/` with Sphinx + MyST; see `.readthedocs.yaml`).
+Roadmap: `studio/TODO.md`. Developer notes: `studio/README.md`, `studio/docs/`.
 
 ## ROS 2 packages
 
