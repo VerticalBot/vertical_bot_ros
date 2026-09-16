@@ -2,7 +2,7 @@ import { Station, Item, Target, Tool, SceneObject, ItemType } from '../items/ite
 import { Robot } from '../items/robot';
 import { Program, Instruction, ProgramRunResult, MoveInstruction } from '../items/program';
 import { Mat4, fromArray, multiply, invert, identity } from '../math/pose';
-import { planMoveJ, planMoveL, planMoveC, Trajectory, sampleAt } from './trajectory';
+import { planMoveJ, planMoveL, planMoveC, Trajectory, TrajectorySample, sampleAt } from './trajectory';
 import { EventBus } from '../events';
 import { checkRobotCollisions, CollisionPair, CollisionOptions } from '../collision/collision';
 
@@ -154,6 +154,34 @@ export class ProgramSimulator {
               t += traj.duration;
               distance += traj.length;
             }
+            this.steps.push({ instruction: ins, robot, trajectory: traj, t0, t1: t });
+            break;
+          }
+          case 'jointPath': {
+            if (!robot) { problems.push({ instructionId: ins.id, message: 'Program has no robot', severity: 'error' }); break; }
+            const rows = d.joints.filter((r) => r.length >= robot.dof).map((r) => r.slice(0, robot.dof));
+            if (rows.length < 1) { problems.push({ instructionId: ins.id, message: 'Joint path is empty', severity: 'error' }); break; }
+            const q0 = jointsOf.get(robot.id) ?? robot.joints();
+            const tool = toolPose();
+            const samples: TrajectorySample[] = [];
+            let tt = 0, length = 0;
+            let prev = q0, prevPose = robot.solveFK(q0, tool);
+            samples.push({ t: 0, joints: q0, pose: prevPose });
+            for (const r of rows) {
+              const dq = Math.max(...r.map((v, i) => Math.abs(v - prev[i])), 0);
+              const pose = robot.solveFK(r, tool);
+              const dist = Math.hypot(pose[12] - prevPose[12], pose[13] - prevPose[13], pose[14] - prevPose[14]);
+              // time per row: explicit dt, else the slower of joint-speed and linear-speed limits
+              const dtRow = d.dt ?? Math.max(dq / Math.max(1, speed.speedJoints), dist / Math.max(1, speed.speedLinear), 0.001);
+              tt += dtRow;
+              length += dist;
+              samples.push({ t: tt, joints: r, pose });
+              prev = r; prevPose = pose;
+            }
+            const traj: Trajectory = { samples, duration: tt, length, ok: true };
+            jointsOf.set(robot.id, rows[rows.length - 1]);
+            t += tt;
+            distance += length;
             this.steps.push({ instruction: ins, robot, trajectory: traj, t0, t1: t });
             break;
           }

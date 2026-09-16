@@ -21,7 +21,7 @@
 | `.pgx` | export | Stäubli VAL3 |
 | `.drl` | export | Doosan DRL |
 | `.py` | export | Mecademic Python, RoboDK API script (program or whole station), ROS 2 rclpy node |
-| `.nc` `.gcode` `.ngc` `.tap` `.cnc` | import | G-code (G0/G1/G2/G3, G17-19, G20/21, G90/91, M3/M5) → object curves for curve following |
+| `.nc`, `.gcode`, `.ngc`, `.tap`, `.cnc`, `.gco` | import | NC / G-code (mm or inch, G0/G1/G2/G3, planes, F feeds, M3/M5 spindle, T tool changes, E extrusion for 3D printing) → object with rapid/cut curves + metadata; `Robot › Robot machining project` turns it into a program (speeds from feeds, spindle/extruder IO, approach/retract) |
 | `.csv` / `.txt` | import/export | Targets (X,Y,Z,Rx,Ry,Rz[,joints]) in RoboDK / KUKA / Fanuc conventions; generic program CSV |
 | `.json` | export | Program JSON (poses, quaternions, joints) and ROS 2 JointTrajectory |
 | `.geojson` | import/export | Field boundaries (WGS84) → local mm polygons around a computed origin |

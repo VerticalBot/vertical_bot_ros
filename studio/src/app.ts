@@ -19,7 +19,7 @@ import { importRdkBestEffort } from './io/robodk/rdk_container';
 import { parseOBJ } from './io/mesh/obj';
 import { parseDHText, robotFromDH } from './io/robodk/dh';
 import { isRdkExport, postProcessRdkExport } from './io/robodk/rdk_import';
-import { parseGcode, gcodeToCurves } from './io/programs/gcode';
+import { parseGcode, gcodeToMachiningCurves, gcodeStats } from './io/programs/gcode';
 import { isCadFile, importCad } from './io/mesh/step';
 import { stationToRoboDKScript } from './io/robodk/station_script';
 import { compileForPost, getPost, listPosts, PostFile } from './posts/index';
@@ -526,15 +526,17 @@ export class App {
           this.log(`Imported CAD ${name}: ${res.meshes.length} solids, ${res.meshes.reduce((a, m) => a + m.mesh.triangles, 0)} triangles`);
         } else if (['nc', 'gcode', 'ngc', 'tap', 'cnc', 'apt', 'gco'].includes(ext)) {
           const g = parseGcode(await f.text());
-          const curves = gcodeToCurves(g);
+          const curves = gcodeToMachiningCurves(g);
+          const st = gcodeStats(g);
           this.cmd(() => {
             const o = new SceneObject(name.replace(/\.[^.]+$/, ''));
             o.curves = curves;
+            o.setParam('nc', { file: name, units: g.units, ...st });
             const frame = this.activeRobot?.activeFrame() ?? this.station;
             frame.addChild(o);
             this.select(o);
           });
-          this.log(`Imported NC program ${name}: ${curves.length} cutting paths, ${(g.length / 1000).toFixed(2)} m (${g.units}). Use Robot > Follow curve to program it.`);
+          this.log(`Imported NC program ${name}: ${st.cuts} cuts (${(st.cutLength / 1000).toFixed(2)} m), ${st.rapids} rapids${st.extruding ? `, ${(st.extruding / 1000).toFixed(2)} m extruding (3D print)` : ''}${st.tools.length ? `, tools ${st.tools.join(',')}` : ''}, feeds ${st.feeds.slice(0, 4).join('/')} mm/min (${g.units}). Use Robot > Robot machining (NC) to program it.`);
         } else if (['zip', 'vcmx', 'vcm', 'vcax', 'rdkp'].includes(ext)) {
           // Visual Components / KUKA.Sim components and layouts, RoboDK packages, generic zips: best-effort container import
           const { importZipContainer } = await import('./io/containers/zip_import');

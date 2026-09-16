@@ -7,8 +7,13 @@
 export interface GcodeSegment {
   kind: 'rapid' | 'cut';
   points: number[][];
+  /** Feed rate in mm/min (G-code F word). */
   feed?: number;
   spindle?: boolean;
+  /** Filament / material is being extruded along this segment (E axis increasing, 3D printing). */
+  extrude?: boolean;
+  /** Active tool number (T word / M6). */
+  tool?: number;
 }
 
 export interface GcodeResult {
@@ -25,12 +30,15 @@ export function parseGcode(text: string, opts: { arcStep?: number } = {}): Gcode
   let pos = [0, 0, 0];
   let feed: number | undefined;
   let spindle = false;
+  let extrude = false;
+  let tool: number | undefined;
+  let e = 0, eAbsolute = true;
   let plane: 17 | 18 | 19 = 17;
   const segments: GcodeSegment[] = [];
   let cur: GcodeSegment | null = null;
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
   const push = (kind: 'rapid' | 'cut', p: number[]) => {
-    if (!cur || cur.kind !== kind || cur.spindle !== spindle) { cur = { kind, points: [pos.slice()], feed, spindle }; segments.push(cur); }
+    if (!cur || cur.kind !== kind || cur.spindle !== spindle || cur.extrude !== extrude || cur.tool !== tool || (kind === 'cut' && feed !== undefined && cur.feed !== feed)) { cur = { kind, points: [pos.slice()], feed, spindle, extrude, tool }; segments.push(cur); }
     cur.points.push(p.slice());
     for (let i = 0; i < 3; i++) { min[i] = Math.min(min[i], p[i]); max[i] = Math.max(max[i], p[i]); }
   };
@@ -49,10 +57,19 @@ export function parseGcode(text: string, opts: { arcStep?: number } = {}): Gcode
       if (g === 20) units = 'inch'; else if (g === 21) units = 'mm';
       else if (g === 90) absolute = true; else if (g === 91) absolute = false;
       else if (g === 17 || g === 18 || g === 19) plane = g as 17 | 18 | 19;
+      else if (g === 92 && w.E !== undefined) e = w.E; // reset extruder position
+      else if (g === 28) { /* homing: ignore */ }
       else if (g === 0 || g === 1 || g === 2 || g === 3) modal = g;
     }
-    for (const m of ms) { if (m === 3 || m === 4) spindle = true; else if (m === 5) spindle = false; }
+    for (const m of ms) { if (m === 3 || m === 4) spindle = true; else if (m === 5) spindle = false; else if (m === 82) eAbsolute = true; else if (m === 83) eAbsolute = false; }
+    if (w.T !== undefined) tool = w.T;
     if (w.F !== undefined) feed = w.F;
+    // extrusion (3D printing): a move with increasing E extrudes; retractions (E decreasing without XYZ) do not create moves
+    if (w.E !== undefined) {
+      const eNew = eAbsolute ? w.E : e + w.E;
+      extrude = eNew > e + 1e-9;
+      e = eNew;
+    } else extrude = false;
     const has = w.X !== undefined || w.Y !== undefined || w.Z !== undefined;
     if (!has) continue;
     const scale = units === 'inch' ? 25.4 : 1;
@@ -95,6 +112,38 @@ export function parseGcode(text: string, opts: { arcStep?: number } = {}): Gcode
 export function gcodeToCurves(g: GcodeResult): Array<{ name: string; points: number[][] }> {
   const curves: Array<{ name: string; points: number[][] }> = [];
   let n = 0;
-  for (const s of g.segments) if (s.kind === 'cut' && s.points.length > 1) curves.push({ name: `cut ${++n}${s.feed ? ` F${s.feed}` : ''}`, points: s.points });
+  let prevCut = false;
+  for (const s of g.segments) {
+    if (s.kind !== 'cut' || s.points.length < 2) { prevCut = false; continue; }
+    // consecutive cuts (feed / spindle changes only) form one continuous curve
+    if (prevCut && curves.length) curves[curves.length - 1].points.push(...s.points.slice(1));
+    else curves.push({ name: `cut ${++n}${s.feed ? ` F${s.feed}` : ''}`, points: s.points.slice() });
+    prevCut = true;
+  }
   return curves;
+}
+
+/** All segments (rapids and cuts) as curves with machining metadata, for `generateMachining`. */
+export function gcodeToMachiningCurves(g: GcodeResult): Array<{ name: string; points: number[][]; kind: 'cut' | 'rapid'; feed?: number; spindle?: boolean; extrude?: boolean; tool?: number }> {
+  const out: Array<{ name: string; points: number[][]; kind: 'cut' | 'rapid'; feed?: number; spindle?: boolean; extrude?: boolean; tool?: number }> = [];
+  let nc = 0, nr = 0;
+  for (const s of g.segments) {
+    if (s.points.length < 2) continue;
+    const name = s.kind === 'cut' ? `cut ${++nc}${s.feed ? ` F${s.feed}` : ''}${s.extrude ? ' E' : ''}` : `rapid ${++nr}`;
+    out.push({ name, points: s.points, kind: s.kind, feed: s.feed, spindle: s.spindle, extrude: s.extrude, tool: s.tool });
+  }
+  return out;
+}
+
+/** Summary statistics of a parsed NC program. */
+export function gcodeStats(g: GcodeResult): { cutLength: number; rapidLength: number; cuts: number; rapids: number; extruding: number; tools: number[]; feeds: number[] } {
+  const len = (pts: number[][]) => { let l = 0; for (let i = 1; i < pts.length; i++) l += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]); return l; };
+  const st = { cutLength: 0, rapidLength: 0, cuts: 0, rapids: 0, extruding: 0, tools: [] as number[], feeds: [] as number[] };
+  for (const s of g.segments) {
+    const l = len(s.points);
+    if (s.kind === 'cut') { st.cuts++; st.cutLength += l; if (s.extrude) st.extruding += l; } else { st.rapids++; st.rapidLength += l; }
+    if (s.tool !== undefined && !st.tools.includes(s.tool)) st.tools.push(s.tool);
+    if (s.feed !== undefined && !st.feeds.includes(s.feed)) st.feeds.push(s.feed);
+  }
+  return st;
 }

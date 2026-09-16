@@ -348,6 +348,35 @@ function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, b
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
+/** Robot machining from an NC program object (milling, cutting, dispensing, 3D printing). */
+export async function machiningDialog(app: App, robot: Robot): Promise<void> {
+  const parts = app.station.itemsOfType<SceneObject>(ItemType.OBJECT).filter((o) => o.curves.length);
+  if (!parts.length) return toast('Import an NC / G-code file first (drop .nc/.gcode/.tap onto the 3D view) or an object with curves', 'warn', 5000);
+  const ncParts = parts.filter((o) => o.curves.some((c) => (c as any).kind));
+  const r = await dialog<{ part: string; approach: number; rapid: number; cut: number; spindle: string; extruder: string; z: string; free: boolean; step: number; rounding: number }>('Robot machining project (NC / G-code)', [
+    { key: 'part', label: 'Part / NC program object', type: 'select', options: [...ncParts, ...parts.filter((p) => !ncParts.includes(p))].map((o) => ({ value: o.id, label: `${o.name} (${o.curves.length} ${ncParts.includes(o) ? 'NC segments' : 'curves'})` })) },
+    { key: 'approach', label: 'Approach / retract distance (mm)', type: 'number', value: 50 },
+    { key: 'rapid', label: 'Rapid speed (mm/s)', type: 'number', value: 250 },
+    { key: 'cut', label: 'Cutting speed override (mm/s, 0 = use NC feed)', type: 'number', value: 0 },
+    { key: 'spindle', label: 'Spindle / laser digital output (blank = none)', type: 'text', value: 'Spindle' },
+    { key: 'extruder', label: 'Extruder digital output (3D printing, blank = none)', type: 'text', value: '' },
+    { key: 'z', label: 'Tool Z direction', type: 'select', value: 'down', options: [{ value: 'down', label: '-Z of the part (milling, printing)' }, { value: 'normal', label: 'Along curve normals (surface following)' }] },
+    { key: 'free', label: 'Free rotation about tool axis (symmetric tool)', type: 'checkbox', value: true },
+    { key: 'step', label: 'Resample cuts every (mm, 0 = keep NC points)', type: 'number', value: 0 },
+    { key: 'rounding', label: 'Rounding radius (mm)', type: 'number', value: 1 },
+  ], { width: 560, okLabel: 'Generate program', body: h('p', { class: 'hint' }, 'Same as RoboDK\'s robot machining / 3D printing project: rapids at rapid speed, cuts at the NC feed rate, spindle/extruder outputs switched per segment, approach and retract added. The program stays attached to the part frame.') });
+  if (!r) return;
+  const part = app.station.findById(r.part) as SceneObject | null;
+  if (!part) return;
+  const { generateMachining } = await import('../core/motion/machining');
+  const res = app.cmd(() => generateMachining(app.station, robot, part, { approach: r.approach, rapidSpeed: r.rapid, cutSpeed: r.cut > 0 ? r.cut : undefined, spindleIO: r.spindle || undefined, extruderIO: r.extruder || undefined, zMode: r.z as 'down' | 'normal', freeToolZ: !!r.free, step: r.step > 0 ? r.step : undefined, rounding: r.rounding }));
+  app.setActiveProgram(res.program);
+  app.previewProgram();
+  const msg = `${res.program.name}: ${res.points} points, ${res.segments} segments, cut ${(res.cutLength / 1000).toFixed(2)} m, rapid ${(res.rapidLength / 1000).toFixed(2)} m, est. ${res.estimatedTime.toFixed(0)} s${res.unreachable ? `, ${res.unreachable} unreachable` : ''}`;
+  app.log(msg, res.unreachable ? 'warn' : 'info');
+  toast(msg, res.unreachable ? 'warn' : 'ok', 6000);
+}
+
 export async function curveFollowDialog(app: App, robot: Robot): Promise<void> {
   const objs = app.station.itemsOfType<SceneObject>(ItemType.OBJECT).filter((o) => o.curves.length || o.points.length);
   if (!objs.length) return toast('No object with curves/points. Import an object with curves or use the API (RDK.AddCurve / AddPoints).', 'warn');

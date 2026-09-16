@@ -61,6 +61,8 @@ export interface MobileMoveInstruction { kind: 'mobile_move'; x: number; y: numb
 export interface MobileFollowInstruction { kind: 'mobile_follow'; pathId: string | null; speed?: number; reverse?: boolean }
 export interface MissionTaskInstruction { kind: 'mission_task'; task: string; params: Record<string, any> }
 export interface SignalInstruction { kind: 'signal'; signal: string; value: number | boolean | string; wait: boolean }
+/** Replay a recorded joint path (e.g. RoboDK InstructionListJoints, ROS bag, CSV log). Rows are joint values (deg/mm). */
+export interface JointPathInstruction { kind: 'jointPath'; joints: number[][]; /** seconds per row when known */ dt?: number; /** source label */ source?: string }
 export interface LoopInstruction { kind: 'loop'; count: number; bodyProgramId: string | null }
 export interface IfInstruction { kind: 'if'; condition: string; thenProgramId: string | null; elseProgramId?: string | null }
 /** Start another program in parallel (RoboDK INSTRUCTION_START_THREAD). */
@@ -71,7 +73,7 @@ export interface WaitInstruction { kind: 'wait'; what: 'time' | 'signal' | 'move
 export type InstructionData =
   | MoveInstruction | SpeedInstruction | FrameInstruction | ToolInstruction | PauseInstruction | EventInstruction | CodeInstruction
   | PrintInstruction | RoundingInstruction | IOInstruction | CallInstruction | MobileMoveInstruction | MobileFollowInstruction
-  | MissionTaskInstruction | SignalInstruction | LoopInstruction | IfInstruction | ThreadInstruction | WaitInstruction;
+  | MissionTaskInstruction | SignalInstruction | LoopInstruction | IfInstruction | ThreadInstruction | WaitInstruction | JointPathInstruction;
 
 export class Instruction extends Item {
   data: InstructionData;
@@ -85,6 +87,7 @@ export class Instruction extends Item {
   get insType(): InstructionType {
     switch (this.data.kind) {
       case 'move': return this.data.moveType === 'MoveC' ? InstructionType.MOVEC : InstructionType.MOVE;
+      case 'jointPath': return InstructionType.MOVE;
       case 'speed': return InstructionType.CHANGESPEED;
       case 'frame': return InstructionType.CHANGEFRAME;
       case 'tool': return InstructionType.CHANGETOOL;
@@ -118,6 +121,7 @@ export class Instruction extends Item {
 export function describeInstruction(d: InstructionData): string {
   switch (d.kind) {
     case 'move': return `${d.moveType}`;
+    case 'jointPath': return `Joint path (${d.joints.length} points${d.source ? `, ${d.source}` : ''})`;
     case 'speed': return `Set Speed (${d.speedLinear ?? '-'} mm/s, ${d.speedJoints ?? '-'} deg/s)`;
     case 'frame': return 'Set Reference Frame';
     case 'tool': return 'Set Tool Frame';

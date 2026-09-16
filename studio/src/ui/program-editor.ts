@@ -140,6 +140,7 @@ export class ProgramEditor {
 function kindLabel(d: InstructionData): string {
   switch (d.kind) {
     case 'move': return d.moveType;
+    case 'jointPath': return 'Path';
     case 'speed': return 'Speed';
     case 'frame': return 'Frame';
     case 'tool': return 'Tool';

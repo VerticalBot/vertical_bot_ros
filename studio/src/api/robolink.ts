@@ -22,6 +22,7 @@ import { SpraySimulator } from '../core/motion/spray';
 import { clipboard, cloneItem } from '../core/items/clone';
 import { EventQueue } from '../core/events-queue';
 import { generateCurveFollow, FollowOptions } from '../core/motion/pathfollow';
+import { generateMachining } from '../core/motion/machining';
 import { planMoveJ, planMoveL } from '../core/motion/trajectory';
 import { getPos as _getPos, poseFromZ, transformDir } from '../core/math/pose';
 
@@ -587,9 +588,17 @@ export class Robolink {
     const part = this.station.findById(String(it.getParam('partId') ?? '')) as SceneObject | null;
     if (!(robot instanceof Robot) || !(part instanceof SceneObject) || !part.curves.length) return null;
     const params = String(it.getParam('machiningParams') ?? '');
-    const opts: FollowOptions = { name: it.name, step: num(params, 'Step', 0), approach: num(params, 'Approach', 50), speed: num(params, 'Speed', 50), freeToolZ: /RotZ|FreeZ/i.test(params), zMode: /Normal/i.test(params) ? 'normal' : 'down' };
     const old = this.station.findById(String(it.getParam('programId') ?? ''));
     old?.delete();
+    const str = (k: string): string | undefined => params.match(new RegExp(`${k}\\s*[=:]\\s*([^\\s,;]+)`, 'i'))?.[1];
+    if (part.curves.some((c) => (c as any).kind)) {
+      // NC program (milling / cutting / 3D printing): feeds, spindle and extruder come from the G-code
+      const res = generateMachining(this.station, robot, part, { name: it.name, approach: num(params, 'Approach', 50), step: num(params, 'Step', 0), rapidSpeed: num(params, 'RapidSpeed', 250), cutSpeed: params.match(/Speed\s*[=:]/i) ? num(params, 'Speed', 20) : undefined, spindleIO: str('SpindleIO') ?? str('Spindle'), extruderIO: str('ExtruderIO') ?? str('Extruder'), freeToolZ: !/RotZ\s*[=:]\s*0|FreeZ\s*[=:]\s*0/i.test(params), zMode: /Normal/i.test(params) ? 'normal' : 'down', rounding: num(params, 'Rounding', 1) });
+      it.setParam('programId', res.program.id);
+      it.setParam('machiningStats', { cutLength: res.cutLength, rapidLength: res.rapidLength, estimatedTime: res.estimatedTime });
+      return { points: res.points, unreachable: res.unreachable };
+    }
+    const opts: FollowOptions = { name: it.name, step: num(params, 'Step', 0), approach: num(params, 'Approach', 50), speed: num(params, 'Speed', 50), freeToolZ: /RotZ|FreeZ/i.test(params), zMode: /Normal/i.test(params) ? 'normal' : 'down' };
     const res = generateCurveFollow(this.station, robot, part, { points: part.curves.flatMap((c) => c.points) }, opts);
     it.setParam('programId', res.program.id);
     return { points: res.points, unreachable: res.unreachable };

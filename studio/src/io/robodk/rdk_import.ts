@@ -120,6 +120,14 @@ export function postProcessRdkExport(station: Station): RdkImportReport {
     if (tn && !p.instructions().some((i) => i.data.kind === 'tool')) { const t = station.find(tn, ItemType.TOOL); if (t) p.addInstruction({ kind: 'tool', toolId: t.id }, 0); }
     delete p.params.instructions;
     const jl = p.params.jointsList as number[][] | undefined;
+    // Robots whose kinematics could not be reconstructed still replay RoboDK's simulated joint path exactly
+    const robotItem = p.robot();
+    const noKin = robotItem instanceof Robot && report.robots.find((r) => r.name === robotItem.name)?.source === 'none';
+    if (jl && jl.length > 1 && noKin) {
+      for (const i of p.instructions()) if (i.data.kind === 'move') i.delete();
+      const step = Number(p.params.jointsListStepMm ?? 10);
+      p.addInstruction({ kind: 'jointPath', joints: jl, source: `RoboDK ${step} mm` });
+    }
     report.programs.push({ name: p.name, instructions: p.instructions().length, jointPath: jl?.length });
   }
   // Machining projects (curve follow / point follow / 3D printing / milling): link robot, part and generated program

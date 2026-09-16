@@ -139,6 +139,19 @@ export function compileForPost(station: Station, program: Program): PostProgram 
         }
         break;
       }
+      case 'jointPath': {
+        // recorded joint path: emit joint moves (subsampled to keep controller programs manageable)
+        const maxRows = 2000;
+        const stride = Math.max(1, Math.ceil(d.joints.length / maxRows));
+        d.joints.forEach((row, i) => {
+          if (i % stride && i !== d.joints.length - 1) return;
+          const joints = robot ? row.slice(0, robot.dof) : row;
+          q = joints;
+          const pose = robot ? multiply(invert(framePoseInBase()), robot.solveFK(joints, robot.poseTool())) : identity();
+          events.push({ kind: 'moveJ', joints, pose, name: `${ins.name} ${i + 1}` });
+        });
+        break;
+      }
       case 'frame':
         frameItem = d.frameId ? station.findById(d.frameId) : null;
         events.push({ kind: 'setFrame', pose: framePoseInBase(), name: frameItem?.name ?? 'World' });
