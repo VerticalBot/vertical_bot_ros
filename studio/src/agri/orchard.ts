@@ -174,3 +174,29 @@ export function makeHeadlandZones(field: FieldItem): ZoneItem[] {
   mk('Headland B', first.end, last.end, 1);
   return zones;
 }
+
+/**
+ * GNSS-denied zone covering the tree rows (canopy blocks the sky view). Used by the navigation-stack simulation:
+ * RTK/GNSS localization falls back to onboard odometry inside it, so orchard fleets are debugged with realistic
+ * outages. Headlands stay GNSS-visible.
+ */
+export function makeCanopyZones(field: FieldItem): ZoneItem[] {
+  const rows = field.rows();
+  if (!rows.length) return [];
+  const c = field.crop;
+  const first = rows[0], last = rows[rows.length - 1];
+  const [dx, dy] = first.direction();
+  const nrm = [-dy, dx];
+  const half = c.rowSpacing * 0.5;
+  const z = new ZoneItem('Canopy (GNSS denied)');
+  z.kind = 'gnss_denied';
+  z.polygon = [
+    [first.start[0] - nrm[0] * half, first.start[1] - nrm[1] * half],
+    [first.end[0] - nrm[0] * half, first.end[1] - nrm[1] * half],
+    [last.end[0] + nrm[0] * half, last.end[1] + nrm[1] * half],
+    [last.start[0] + nrm[0] * half, last.start[1] + nrm[1] * half],
+  ];
+  z.setParam('note', `canopy over ${rows.length} rows; sky view only on headlands (${dx.toFixed(2)}, ${dy.toFixed(2)} row direction)`);
+  field.addChild(z);
+  return [z];
+}

@@ -35,6 +35,9 @@ areas. Fields generate their maps automatically ({doc}`agriculture`).
 
 ## Navigation
 
+The localization and navigation software of each robot is selected and simulated per {doc}`navigation-slam`.
+
+
 - **Planning** — A* on the inflated map, coverage planning, orchard row traversal with headland turns.
 - **Control** — pure pursuit with speed limits per zone; velocity commands integrated per drive model.
 - **Program instructions** — `Navigate to`, `Follow path`, `Mission task` in robot programs; the API offers

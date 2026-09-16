@@ -9,6 +9,7 @@ import { Component } from '../vc/component';
 import { h, clear, formField, fmt, icon } from './dom';
 import { poseToXyzrpw, xyzrpwToPose, poseToKuka, kukaToPose, poseToQuat, poseToUr, getPos, multiply, invert, Mat4 } from '../core/math/pose';
 import { robotParametersDialog, runMissionPlan, exportDialog } from './dialogs';
+import { navStackSection } from './navstack_ui';
 import { t } from './i18n';
 
 type EulerMode = 'xyzrpw' | 'kuka' | 'ur' | 'abb';
@@ -230,7 +231,8 @@ export class PropertiesPanel {
         num('Footprint length (mm)', () => k.footprint[0], (v) => (k.footprint[0] = v)), num('Footprint width (mm)', () => k.footprint[1], (v) => (k.footprint[1] = v))),
       this.section('Battery & capabilities', num('Capacity (Wh)', () => m.battery.capacityWh, (v) => (m.battery.capacityWh = v)), num('Low threshold (0-1)', () => m.battery.lowThreshold, (v) => (m.battery.lowThreshold = v), 0.05),
         formField({ key: 'cap', label: 'Capabilities (comma separated)', type: 'text', value: m.capabilities.join(', ') }, (v) => this.app.cmd(() => { m.capabilities = v.split(',').map((s: string) => s.trim()).filter(Boolean); })).el,
-        formField({ key: 'ns', label: 'ROS 2 namespace', type: 'text', value: m.rosNamespace }, (v) => this.app.cmd(() => { m.rosNamespace = v; })).el));
+        formField({ key: 'ns', label: 'ROS 2 namespace', type: 'text', value: m.rosNamespace }, (v) => this.app.cmd(() => { m.rosNamespace = v; })).el),
+      navStackSection(this.app, m, this.liveFields));
   }
 
   private fieldEditor(f: FieldItem): HTMLElement {

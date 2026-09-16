@@ -5,7 +5,7 @@ import { Program, Instruction } from '../core/items/program';
 import { MobileRobot, MapItem, ZoneItem } from '../mobile/items';
 import { FleetItem } from '../fleet/fleet';
 import { FieldItem, MissionItem, CropRow, cropParams, CropType, CROP_PRESETS, MissionType } from '../agri/items';
-import { generateOrchard, buildFieldMap, rectPolygon, makeHeadlandZones } from '../agri/orchard';
+import { generateOrchard, buildFieldMap, rectPolygon, makeHeadlandZones, makeCanopyZones } from '../agri/orchard';
 import { planMission, generateHarvestProgram } from '../agri/missions';
 import { Component, makeConveyor, makeFeeder, makeProcess, makeSink, makeBuffer } from '../vc/component';
 import { dialog, MenuEntry, toast, downloadText, h, pickFiles } from './dom';
@@ -67,7 +67,7 @@ export function itemContextMenu(app: App, item: Item): MenuEntry[] {
   }
   if (item instanceof FieldItem) {
     add({ label: 'Regenerate rows…', action: () => orchardDialog(app, item) });
-    add({ label: 'Build navigation map', action: () => app.cmd(() => { app.station.addChild(buildFieldMap(item)); makeHeadlandZones(item); }) });
+    add({ label: 'Build navigation map', action: () => app.cmd(() => { app.station.addChild(buildFieldMap(item)); makeHeadlandZones(item); makeCanopyZones(item); }) });
   }
   if (item instanceof MissionItem) add({ label: 'Plan mission (create fleet tasks)', action: () => runMissionPlan(app, item) });
   if (item instanceof MobileRobot) {
@@ -183,7 +183,7 @@ export async function orchardDialog(app: App, field?: FieldItem): Promise<void> 
     f.indoor = !!r.indoor;
     f.crop = cropParams(r.crop, { rowSpacing: r.rowSpacing * 1000, plantSpacing: r.plantSpacing * 1000, rowHeading: r.rowHeading, headland: r.headland * 1000, ripeFraction: r.ripe });
     const rows = generateOrchard(f, Math.floor(Math.random() * 1000));
-    if (r.map) { app.station.addChild(buildFieldMap(f)); makeHeadlandZones(f); }
+    if (r.map) { app.station.addChild(buildFieldMap(f)); makeHeadlandZones(f); makeCanopyZones(f); }
     toast(`${rows.length} rows, ${rows.reduce((s, x) => s + x.plants.length, 0)} plants`, 'ok');
     app.select(f);
   });
@@ -302,7 +302,7 @@ export async function mapDialog(app: App): Promise<void> {
 export async function zoneDialog(app: App): Promise<void> {
   const r = await dialog<any>('Create zone', [
     { key: 'name', label: 'Name', type: 'text', value: 'Zone' },
-    { key: 'kind', label: 'Kind', type: 'select', value: 'charging', options: ['work', 'nogo', 'charging', 'loading', 'unloading', 'parking', 'speed_limit', 'headland'].map((k) => ({ value: k, label: k })) },
+    { key: 'kind', label: 'Kind', type: 'select', value: 'charging', options: ['work', 'nogo', 'charging', 'loading', 'unloading', 'parking', 'speed_limit', 'headland', 'gnss_denied'].map((k) => ({ value: k, label: k === 'gnss_denied' ? 'gnss_denied (canopy / indoor: no satellite fix)' : k })) },
     { key: 'w', label: 'Width (m)', type: 'number', value: 4 },
     { key: 'h', label: 'Length (m)', type: 'number', value: 4 },
   ]);

@@ -98,6 +98,7 @@ robots replace their DH tables instead).
 | ROS / ROS 2 | ✅ | URDF/xacro import (+ online package meshes), URDF package export, ROS 2 post, rosbridge client, ROS 2 driver |
 | Visual Components / KUKA.Sim Pro | 🟡 | best-effort `.vcmx`/`.vcm` import (standard meshes + metadata: names, transforms, joints); VC-style process components, signals, fleets natively; glTF/URDF as exchange formats; binary `.rsc` behaviours are proprietary |
 | KUKA (OfficeLite / WorkVisual / Fleet) | ✅ | KRC4/KRC5 KRL posts, KUKA KVP driver, kuka_experimental robots with meshes; KUKA Fleet / KMP via **VDA 5050** (master and AGV-twin bridge, `docs/fleet-vda5050.md`) |
+| Navigation & SLAM stack selection and simulation (Nav2, slam_toolbox, Cartographer, LIO-SAM, FAST-LIO, ORB-SLAM3, OpenVINS, VINS-Fusion, RTAB-Map, RTK/INS, UWB, tape/QR/reflectors) | ✅ | recommender per platform/environment/sensors, localization error models in the world simulation, ROS 2 package export |
 | AGV / AMR fleets (MiR, SEW, Jungheinrich, Omron, Open-RMF) | ✅ | VDA 5050 v2 over MQTT: orders, instant actions, state/connection/visualization/factsheet; digital-twin bridge for testing masters |
 
 See `docs/interop.md`.

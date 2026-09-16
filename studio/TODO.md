@@ -37,6 +37,8 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 - [x] Drive models (diff, ackermann, omni, tracked), A* / coverage / row traversal, pure pursuit, occupancy maps, zones
 - [x] Fleet manager: auction allocation, alley reservations, deadlock-free braking, charging, KPIs incl. yield
 - [x] VDA 5050 v2 (master + AGV-twin bridge over MQTT), tested against an embedded broker
+- [x] Navigation & SLAM stack selection (2D/3D LiDAR SLAM, LIO, VSLAM, VIO, RTK/INS, UWB, tape/QR/reflectors/rail, hybrids), localization error simulation driving the controller, LiDAR/SLAM map view, Nav2 + SLAM + EKF ROS 2 package export
+- [ ] Navigation stack: 3D LiDAR ray-casting against scene meshes, multi-robot map sharing, Nav2 behaviour trees export, real sensor-noise calibration from logs
 - [ ] Field validation of VDA 5050 with a real broker / KUKA Fleet / MiR — needs access to a fleet
 - [ ] Open-RMF adapter (fleet adapter API) and ROS 2 Nav2 action bridge for real AMRs
 - [ ] Multi-map / elevator / door handling in VDA orders (zones, `zoneSetId`)

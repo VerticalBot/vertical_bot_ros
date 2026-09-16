@@ -395,7 +395,7 @@ export class SceneRenderer {
       /* rendered by the field */
     } else if (item instanceof MapItem) this.buildMap(item, e);
     else if (item instanceof ZoneItem) {
-      const color = item.kind === 'nogo' ? 0xe03131 : item.kind === 'charging' ? 0x1c7ed6 : item.kind === 'headland' ? 0xf59f00 : 0x2f9e44;
+      const color = item.kind === 'nogo' ? 0xe03131 : item.kind === 'charging' ? 0x1c7ed6 : item.kind === 'headland' ? 0xf59f00 : item.kind === 'gnss_denied' ? 0x9c36b5 : 0x2f9e44;
       root.add(polygonMesh(item.polygon, color, 0.25, 2));
       root.add(polylineObject(item.polygon, color, true, 3));
     } else if (item instanceof PathItem) {

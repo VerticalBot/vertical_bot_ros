@@ -231,7 +231,7 @@ function unrle(r: number[], size: number): Uint8Array {
   return out;
 }
 
-export type ZoneKind = 'work' | 'nogo' | 'charging' | 'loading' | 'unloading' | 'parking' | 'speed_limit' | 'headland';
+export type ZoneKind = 'work' | 'nogo' | 'charging' | 'loading' | 'unloading' | 'parking' | 'speed_limit' | 'headland' | 'gnss_denied';
 
 /** Polygonal zone on the ground plane (points relative to this item, mm). */
 export class ZoneItem extends Item {

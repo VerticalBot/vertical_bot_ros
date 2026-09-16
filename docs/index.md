@@ -61,6 +61,7 @@ programming/cameras-spray
 
 mobile/mobile-robots
 mobile/fleet
+mobile/navigation-slam
 mobile/vda5050
 mobile/agriculture
 process/components

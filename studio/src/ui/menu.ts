@@ -1,4 +1,5 @@
 import { App } from '../app';
+import { MobileRobot } from '../mobile/items';
 import { h, contextMenu, MenuEntry, downloadText, toast, dialog } from './dom';
 import { robotLibraryDialog, onlineLibraryDialog, mobileRobotDialog, orchardDialog, fleetDialog, missionDialog, mapDialog, zoneDialog, componentDialog, exportDialog, importDialog, harvestArmDialog, curveFollowDialog, machiningDialog, railIKDialog, vdaDialog } from './dialogs';
 import { ItemType, Folder } from '../core/items/item';
@@ -82,6 +83,9 @@ export class MenuBar {
         { label: 'Create fleet…', action: () => fleetDialog(app) },
         { label: 'Occupancy map…', action: () => mapDialog(app) },
         { label: 'Zone (charging / no-go)…', action: () => zoneDialog(app) },
+        { separator: true },
+        { label: 'Navigation & SLAM stack…', action: async () => { const m = app.station.selection.find((i) => i instanceof MobileRobot) as MobileRobot | undefined ?? app.station.itemsOfType<MobileRobot>(ItemType.MOBILE_ROBOT)[0]; if (!m) return toast('Add a mobile robot first', 'warn'); const { navStackDialog } = await import('./navstack_ui'); navStackDialog(app, m); } },
+        { label: 'Export ROS 2 navigation package (Nav2 + SLAM)…', action: async () => { const m = app.station.selection.find((i) => i instanceof MobileRobot) as MobileRobot | undefined ?? app.station.itemsOfType<MobileRobot>(ItemType.MOBILE_ROBOT)[0]; if (!m) return toast('Add a mobile robot first', 'warn'); const { exportNavPackage } = await import('./navstack_ui'); exportNavPackage(app, m); } },
         { separator: true },
         { label: 'Start world simulation', action: () => app.startWorld() },
         { label: 'Pause world', action: () => app.pauseWorld() },

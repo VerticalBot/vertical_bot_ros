@@ -173,3 +173,12 @@ progress { accent-color: var(--accent-2); }
 .cmap td { text-align: center; }
 .cmap td.na { color: var(--muted); }
 .scroll-x { overflow: auto; max-height: 50vh; }
+
+/* navigation & SLAM stack */
+.nav-recs { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow: auto; }
+.nav-rec { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; cursor: pointer; background: var(--panel-2); }
+.nav-rec.active { border-color: #4dabf7; box-shadow: 0 0 0 1px #4dabf7 inset; }
+.nav-rec-head { display: flex; justify-content: space-between; align-items: center; }
+.nav-rec .hint.warn { color: #ffa94d; }
+.nav-canvas { width: 100%; max-width: 900px; height: auto; border: 1px solid var(--border); border-radius: 6px; background: #1b1f26; }
+.nav-panel .btn-row { align-items: center; gap: 8px; }

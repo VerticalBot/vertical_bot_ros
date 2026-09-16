@@ -37,6 +37,8 @@ export function integrate(robot: MobileRobot, cmd: VelocityCommand, dt: number):
 }
 
 export interface PurePursuitOptions {
+  /** Pose believed by the robot (localization estimate); the controller steers from it instead of the true state. */
+  pose?: { x: number; y: number; theta: number };
   lookahead?: number; // mm
   speed?: number; // mm/s
   goalTolerance?: number; // mm
@@ -46,7 +48,7 @@ export interface PurePursuitOptions {
 
 /** Compute a pure-pursuit velocity command for the robot's current path. Returns null when the path is done. */
 export function purePursuit(robot: MobileRobot, opts: PurePursuitOptions = {}): VelocityCommand | null {
-  const st = robot.state;
+  const st = opts.pose ? { ...robot.state, x: opts.pose.x, y: opts.pose.y, theta: opts.pose.theta } : robot.state;
   const path = st.path;
   if (!path || path.length === 0) return null;
   const L = opts.lookahead ?? Math.max(600, robot.kin.wheelBase * 1.2);
@@ -63,6 +65,7 @@ export function purePursuit(robot: MobileRobot, opts: PurePursuitOptions = {}): 
     if (d > bd + 2 * L) break;
   }
   st.pathIndex = best;
+  robot.state.pathIndex = best;
   // lookahead point
   let target = goal;
   for (let i = best; i < path.length - 1; i++) {

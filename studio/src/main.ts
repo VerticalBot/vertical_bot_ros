@@ -14,6 +14,7 @@ import { StationTabs, measureDialog } from './ui/tools';
 const app = new App();
 const viewport = h('div', { class: 'viewport' });
 const bottom = new BottomPanel(app);
+(app as any).bottom = bottom;
 const menu = new MenuBar(app, () => { bottom.el.classList.toggle('collapsed'); setTimeout(() => app.renderer.resize(), 50); });
 const tree = new TreePanel(app);
 const tabs = new StationTabs(app);

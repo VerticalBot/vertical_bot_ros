@@ -10,11 +10,13 @@ import { detectFruit } from '../agri/vision';
 import { Robolink, robomath, RobolinkItem, Mat } from '../api/robolink';
 import * as RobolinkConsts from '../api/robolink';
 import { t } from './i18n';
+import { buildNavPanel } from './navstack_ui';
 
 /** Bottom dock: Program | Simulation | Fleet | Process | Console | Log. */
 export class BottomPanel {
   el: HTMLElement;
   private tabs: Record<string, HTMLElement> = {};
+  private navPanel!: { el: HTMLElement; render: () => void };
   private active = 'program';
   private programEditor: ProgramEditor;
   private timelineRange!: HTMLInputElement;
@@ -36,6 +38,7 @@ export class BottomPanel {
       ['sim', 'Simulation', this.buildSim()],
       ['fleet', 'Fleet', (this.fleetBody = h('div', { class: 'pad' }))],
       ['process', 'Process', (this.processBody = h('div', { class: 'pad' }))],
+      ['nav', 'Navigation', (this.navPanel = buildNavPanel(app)).el],
       ['camera', 'Camera', this.buildCamera()],
       ['console', 'Console (RoboDK API)', this.buildConsole()],
       ['log', 'Log', (this.logOut = h('div', { class: 'log-out' }))],
@@ -52,7 +55,7 @@ export class BottomPanel {
     this.el.append(tabBar, content);
     app.events.on('simulation', ({ time, duration }) => { this.timelineRange.max = String(duration); this.timelineRange.value = String(time); this.timeLabel.textContent = `${fmt(time, 2)} / ${fmt(duration, 2)} s`; });
     app.events.on('log', ({ text, level }) => { this.logOut.appendChild(h('div', { class: `log-${level}` }, `${new Date().toLocaleTimeString()}  ${text}`)); this.logOut.scrollTop = this.logOut.scrollHeight; });
-    setInterval(() => { if (this.active === 'fleet') this.renderFleet(); if (this.active === 'process') this.renderProcess(); }, 500);
+    setInterval(() => { if (this.active === 'fleet') this.renderFleet(); if (this.active === 'process') this.renderProcess(); if (this.active === 'nav') this.navPanel.render(); }, 500);
   }
 
   show(id: string): void {
@@ -61,6 +64,7 @@ export class BottomPanel {
     this.el.querySelectorAll<HTMLElement>('.tab-page').forEach((p) => { p.style.display = p.dataset.tab === id ? '' : 'none'; });
     if (id === 'fleet') this.renderFleet();
     if (id === 'process') this.renderProcess();
+    if (id === 'nav') this.navPanel.render();
   }
 
   private buildSim(): HTMLElement {

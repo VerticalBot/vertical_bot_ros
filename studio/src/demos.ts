@@ -6,7 +6,7 @@ import { transl, mul, rotx, rotz, DEG, rotationAngle } from './core/math/pose';
 import { MobileRobot, ZoneItem } from './mobile/items';
 import { FleetItem, FleetManager } from './fleet/fleet';
 import { FieldItem, MissionItem, cropParams } from './agri/items';
-import { generateOrchard, buildFieldMap, rectPolygon, makeHeadlandZones } from './agri/orchard';
+import { generateOrchard, buildFieldMap, rectPolygon, makeHeadlandZones, makeCanopyZones } from './agri/orchard';
 import { planMission } from './agri/missions';
 import { makeConveyor, makeFeeder, makeProcess, makeSink, makeBuffer } from './vc/component';
 
@@ -109,6 +109,7 @@ function orchard(): Station {
   generateOrchard(field, 11);
   st.addChild(buildFieldMap(field, 250));
   makeHeadlandZones(field);
+  makeCanopyZones(field);
   const fleet = st.addChild(new FleetItem('Harvest fleet'));
   const fm = new FleetManager(st, fleet);
   const charger = st.addChild(new ZoneItem('Charging & unloading'));

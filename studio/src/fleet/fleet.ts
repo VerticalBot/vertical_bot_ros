@@ -7,6 +7,7 @@ import { Item, ItemType, SerializedItem, registerItemType, Station } from '../co
 import { MobileRobot, MapItem, ZoneItem } from '../mobile/items';
 import { planPath, pathLength } from '../mobile/planner';
 import { followPath, stepMobile, estimateTravelTime, integrate } from '../mobile/controller';
+import { stepNavRuntime, getNavStack, NavRuntime } from '../mobile/navstack';
 
 function integrateStop(r: MobileRobot, dt: number) { integrate(r, { v: 0, omega: 0 }, dt); }
 import { EventBus } from '../core/events';
@@ -122,6 +123,9 @@ export class FleetManager {
     this.energy0.set(r.id, r.battery.levelWh);
   }
 
+  zones(): ZoneItem[] {
+    return this.station.itemsOfType<ZoneItem>(ItemType.ZONE);
+  }
   map(): MapItem | null {
     const m = this.fleet.mapId ? this.station.findById(this.fleet.mapId) : this.station.itemsOfType<MapItem>(ItemType.MAP)[0];
     return m instanceof MapItem ? m : null;
@@ -312,7 +316,13 @@ export class FleetManager {
       if (speedCap !== undefined && speedCap < 1) speedCap = r.kin.maxSpeed * 0.2; // creep
       if (speedCap === undefined) (r.state as any)._blocked = 0;
       if (r.state.status === 'waiting' && r.state.path && (!task || !task.segments || this.reserveSegments(r.id, task.segments))) r.state.status = task?.status === 'working' ? 'working' : 'moving';
-      const moving = stepMobile(r, dt, { speed: speedCap !== undefined ? Math.min(speedCap, desired ?? r.kin.maxSpeed) : desired });
+      // navigation-stack simulation: the controller steers from the localization estimate, not the ground truth
+      const nav = getNavStack(r);
+      const rt = nav?.simulate ? ((r as any)._nav as NavRuntime | undefined) : undefined;
+      const pose = rt && !rt.estimator.state.lost ? { x: rt.estimator.state.x, y: rt.estimator.state.y, theta: rt.estimator.state.theta } : rt?.estimator.state.lost ? { x: r.state.x + 1e6, y: r.state.y, theta: r.state.theta } : undefined;
+      if (rt?.estimator.state.lost) { integrateStop(r, dt); if (r.state.status !== 'waiting') r.state.status = 'waiting'; stepNavRuntime(r, dt, this.map(), this.zones()); continue; }
+      const moving = stepMobile(r, dt, { speed: speedCap !== undefined ? Math.min(speedCap, desired ?? r.kin.maxSpeed) : desired, pose });
+      if (nav?.simulate) stepNavRuntime(r, dt, this.map(), this.zones());
       if (task && task.status === 'working' && task.workPath && !moving && r.state.path === null) this.finishTask(r, task);
       if (r.state.status === 'moving' || r.state.status === 'working') this.busy.set(r.id, (this.busy.get(r.id) ?? 0) + dt);
       if (r.state.status === 'waiting' && task && task.segments && this.reserveSegments(r.id, task.segments)) {
