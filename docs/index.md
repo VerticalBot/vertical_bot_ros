@@ -10,8 +10,8 @@ topic you need. Every page is generated from the repository (`docs/` folder) and
 
 ```{admonition} Quick links
 :class: tip
-- New here? Read {doc}`getting-started/quick-start` (10 minutes).
-- Coming from RoboDK? See {doc}`interop/robodk` and the {doc}`reference/coverage`.
+- New here? Read {doc}`getting-started/quick-start` (10 minutes) and build {doc}`getting-started/tutorial`.
+- Coming from RoboDK? See {doc}`reference/robodk-guide-map`, {doc}`interop/robodk` and the {doc}`reference/coverage`.
 - Driving real machines? {doc}`api/server`, {doc}`api/drivers`, {doc}`mobile/vda5050`.
 ```
 
@@ -21,6 +21,7 @@ topic you need. Every page is generated from the repository (`docs/` folder) and
 
 getting-started/installation
 getting-started/quick-start
+getting-started/tutorial
 getting-started/interface
 basic-guide/station
 basic-guide/robots
@@ -90,6 +91,7 @@ api/plugins
 :caption: Reference
 
 reference/coverage
+reference/robodk-guide-map
 reference/shortcuts
 reference/faq
 developer/architecture

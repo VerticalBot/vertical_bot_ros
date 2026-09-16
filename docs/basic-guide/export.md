@@ -1,5 +1,11 @@
 # Generating robot programs
 
+```{image} ../_static/screens/13-export-post-dialog.png
+:alt: Export with post processor
+:class: screenshot
+:width: 760px
+```
+
 The studio turns the simulated program into controller code with a **post processor** — exactly the concept
 used by RoboDK. Each robot has a default post (properties › *Kinematics › Post*), and *Program › Export with post
 processor…* lets you pick another one, preview the code and download the files.

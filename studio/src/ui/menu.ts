@@ -177,7 +177,7 @@ export class MenuBar {
 
   help(): void {
     const body = h('div', { class: 'help' },
-      h('p', null, h('b', null, 'Quick start')),
+      h('p', null, h('b', null, 'Quick start'), ' — full manual: ', h('a', { href: 'https://vertical-bot-ros.readthedocs.io', target: '_blank' }, 'vertical-bot-ros.readthedocs.io'), '. Load File › Demo stations › Tutorial for the guided example.'),
       h('ol', null,
         h('li', null, 'Add > Robot from library, or Add > Robot from online library (Fanuc/ABB/KUKA/Motoman/Stäubli/UR/… with meshes), or drag a URDF + STL files onto the 3D view.'),
         h('li', null, 'Move the robot with the joint sliders or the cartesian jog in Properties; press J / L to teach MoveJ / MoveL into the active program.'),

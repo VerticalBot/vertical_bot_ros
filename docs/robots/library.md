@@ -1,5 +1,11 @@
 # Built-in robot library
 
+```{image} ../_static/screens/03-robot-library-dialog.png
+:alt: Robot library dialog
+:class: screenshot
+:width: 620px
+```
+
 *Add › Robot from library…* opens the local library — robots defined by DH/URDF-style chains that load
 instantly and need no network:
 

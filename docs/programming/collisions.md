@@ -15,6 +15,11 @@ report zero collisions; the baseline is recomputed when items are attached/detac
 
 ## Checks
 
+```{image} ../_static/screens/14-collision-check-log.png
+:alt: Collision check in the log
+:class: screenshot
+```
+
 - **Static** — *Robot › Check collisions now (static)*; API `Collisions()`, `CollisionItems()`, `CollisionPairs()`.
 - **During validation** — *Robot › Check collisions during program validation*: every trajectory is sampled
   (step configurable) and the first colliding pair is reported per instruction; items turn red.
@@ -22,6 +27,12 @@ report zero collisions; the baseline is recomputed when items are attached/detac
   casts a segment through the scene (sensors, laser lines).
 
 ## Collision map
+
+```{image} ../_static/screens/15-collision-map.png
+:alt: Collision map dialog
+:class: screenshot
+:width: 640px
+```
 
 *Tools › Collision map…* (API `Collision_SetPair`, `setCollisionActivePair`) enables or disables pairs and whole
 groups, e.g. tool vs part while gripping, or two robots that never share space.

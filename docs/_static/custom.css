@@ -3,3 +3,5 @@
 .rst-content table.docutils td, .rst-content table.docutils th { white-space: normal; }
 .rst-content code.literal { color: #1f5fbf; }
 .menu-path { font-weight: 600; }
+
+.screenshot { border: 1px solid #d0d7de; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.12); margin: 8px 0 16px; max-width: 100%; }

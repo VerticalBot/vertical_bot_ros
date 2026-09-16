@@ -2,6 +2,11 @@
 
 ## Running programs
 
+```{image} ../_static/screens/12-simulation-timeline.png
+:alt: Simulation tab
+:class: screenshot
+```
+
 *Program › Run* (`F5`), *Pause*, *Stop*. The **Simulation** tab has the timeline (drag to scrub), the current
 time and total cycle time, the speed factor and step buttons. Motion uses trapezoidal velocity profiles with
 the robot's speed and acceleration limits; linear moves are interpolated in Cartesian space with IK at every

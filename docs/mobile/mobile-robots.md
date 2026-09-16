@@ -1,5 +1,11 @@
 # Mobile robots
 
+```{image} ../_static/screens/27-mobile-robot-dialog.png
+:alt: Add mobile robot dialog
+:class: screenshot
+:width: 620px
+```
+
 *Mobile & Fleet › Add mobile robot…* creates an AMR / AGV / tractor / tracked platform with:
 
 - **Drive model** — differential, Ackermann (steering angle, min turning radius), omnidirectional, tracked,
@@ -11,6 +17,17 @@
 Arms, cameras and tools can be children of a mobile robot (a harvesting arm on a tracked platform).
 
 ## Maps and zones
+
+```{image} ../_static/screens/28c-map-dialog.png
+:alt: Occupancy map dialog
+:class: screenshot
+:width: 560px
+```
+```{image} ../_static/screens/28b-zone-dialog.png
+:alt: Zone dialog
+:class: screenshot
+:width: 560px
+```
 
 *Mobile & Fleet › Occupancy map…* creates a grid map (resolution, inflation) built from the station geometry;
 *Zone (charging / no-go)…* defines work, no-go, charging, loading/unloading, parking, speed-limit and headland

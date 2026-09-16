@@ -1,5 +1,10 @@
 # External axes: rails, gantries, positioners
 
+```{image} ../_static/screens/22-welding-cell.png
+:alt: Multi-robot welding cell with a positioner
+:class: screenshot
+```
+
 Any robot can be mounted on another robot: drag the arm onto the rail/gantry/turntable in the station tree.
 The arm's base then hangs on the carrier's flange and follows its joints.
 

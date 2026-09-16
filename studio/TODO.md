@@ -63,6 +63,7 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 
 - [x] Vite + TypeScript + three.js app, vitest (83 tests), Playwright smoke, GitHub Actions
 - [x] Read the Docs documentation (`docs/`, Sphinx + MyST) — this roadmap is published there
+- [x] Screenshots generated from the running app (`studio/scripts/docs-screenshots.mjs`), tutorial station + guide, RoboDK documentation map
 - [ ] Russian translation of the documentation (sphinx-intl) — UI is already RU/EN
 - [ ] Undo/redo coverage audit for every dialog; keyboard-only workflow
 - [ ] Performance: instanced rendering for orchards > 10k trees, worker-thread simulation

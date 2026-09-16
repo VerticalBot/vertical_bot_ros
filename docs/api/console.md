@@ -1,5 +1,10 @@
 # The JavaScript console
 
+```{image} ../_static/screens/19-console.png
+:alt: Console tab
+:class: screenshot
+```
+
 The **Console (RoboDK API)** tab runs JavaScript against the open station with the same API as the Python
 package: `RDK` is the `Robolink` instance, `ITEM_TYPE_*` constants and `Mat` helpers are in scope.
 

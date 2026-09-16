@@ -21,6 +21,12 @@ Drivers run on the studio server and translate generic commands (`moveJ`, `moveL
 
 ## ROS 2 digital twin
 
+```{image} ../_static/screens/31-ros2-dialog.png
+:alt: ROS 2 rosbridge dialog
+:class: screenshot
+:width: 560px
+```
+
 *Connect › ROS 2 via rosbridge…* connects the browser to `rosbridge_server`: publish the simulated state to
 `/joint_states` (drive real robots through `ros2_control`), follow the real `/joint_states` (digital twin), or
 both. Mobile robots follow `/odom` / TF.

@@ -4,6 +4,12 @@ The studio covers RoboDK's *Robot machining project*, *Curve follow*, *Point fol
 
 ## From NC / G-code
 
+```{image} ../_static/screens/16-machining-dialog.png
+:alt: Robot machining project dialog
+:class: screenshot
+:width: 620px
+```
+
 1. Drop a `.nc`, `.gcode`, `.ngc`, `.tap`, `.cnc` or `.gco` file onto the 3D view. The parser understands
    G0/G1/G2/G3 (arcs tessellated in the active plane), G17/18/19, G20/21 (inch/mm), G90/91, feed rates (F),
    spindle M3/M4/M5, coolant, tool changes (T / M6) and extrusion (E axis with absolute/relative modes and
@@ -20,6 +26,11 @@ The studio covers RoboDK's *Robot machining project*, *Curve follow*, *Point fol
    lengths, estimated cycle time and unreachable points.
 
 ## From curves and points
+
+```{image} ../_static/screens/17-machining-program.png
+:alt: Generated machining program on the tutorial table
+:class: screenshot
+```
 
 *Robot › Follow curve / points of an object…* generates programs along object curves (welding seams, glue
 beads, pruning cuts, spraying along canopies) or through points (drilling, planting, pollinating) with

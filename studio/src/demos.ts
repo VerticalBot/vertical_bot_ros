@@ -218,7 +218,8 @@ function weldingCell(): Station {
     p.setDO('Arc', true);
     for (let i = 0; i < 6; i++) {
       const t = fix.addChild(new Target(`Seam ${r.name} ${i + 1}`));
-      t.setPose(mul(transl(sign * (50 + i * 100), 10, 25), rotx(180 * DEG), rotz(sign > 0 ? 180 * DEG : 0)));
+      // torch travel angle (-15° about the tool X) keeps the wrist away from its singularity along the seam
+      t.setPose(mul(transl(sign * (50 + i * 100), 10, 25), rotx(180 * DEG), rotz(sign > 0 ? 180 * DEG : 0), rotx(-15 * DEG)));
       if (i === 0) p.addMoveJ(t); else p.addMoveL(t);
     }
     p.setDO('Arc', false);
@@ -266,7 +267,64 @@ function verticalBot(): Station {
   return st;
 }
 
+
+/** Tutorial station: the result of the "Your first station" guide in the documentation (docs/getting-started/tutorial). */
+function tutorialCell(): Station {
+  const st = new Station('Tutorial — first station');
+  const robot = st.addChild(createRobotFromLibrary('UR5e', 'UR5e'));
+  robot.setPose(transl(0, 0, 500));
+  const pedestal = st.addChild(new SceneObject('Pedestal'));
+  pedestal.geometry = [{ primitive: { kind: 'cylinder', radius: 150, length: 500 }, origin: Array.from(transl(0, 0, 250)), color: '#495057' }];
+  const gripper = robot.addChild(new Tool('Gripper'));
+  gripper.toolKind = 'gripper';
+  gripper.setPoseTool(transl(0, 0, 150));
+  robot.setTool(gripper);
+  const table = st.addChild(new Frame('Table'));
+  table.setPose(transl(450, -250, 0));
+  const top = table.addChild(new SceneObject('Table top'));
+  top.geometry = [{ primitive: { kind: 'box', size: [500, 700, 30] }, origin: Array.from(transl(200, 300, 385)), color: '#868e96' }];
+  const part = table.addChild(new SceneObject('Part'));
+  part.geometry = [{ primitive: { kind: 'box', size: [100, 100, 80] }, origin: Array.from(transl(0, 0, 40)), color: '#e8590c' }];
+  part.setPose(transl(150, 200, 400));
+  part.bbox = { min: [-50, -50, 0], max: [50, 50, 80] };
+  const bin = table.addChild(new SceneObject('Bin'));
+  bin.geometry = [{ primitive: { kind: 'box', size: [200, 200, 20] }, origin: Array.from(transl(0, 0, 10)), color: '#1971c2' }];
+  bin.setPose(transl(100, 500, 400));
+  robot.setFrame(table);
+  const prog = st.addChild(new Program('PickPart'));
+  prog.setRobot(robot);
+  prog.setSpeed(400, 90);
+  prog.setRounding(3);
+  const home = table.addChild(new Target('Home'));
+  home.setJoints([0, -90, 90, -90, -90, 0]);
+  home.setAsJointTarget();
+  const approach = table.addChild(new Target('Approach'));
+  approach.setPose(mul(transl(150, 200, 620), rotx(180 * DEG)));
+  const pick = table.addChild(new Target('Pick'));
+  pick.setPose(mul(transl(150, 200, 482), rotx(180 * DEG)));
+  const placeAbove = table.addChild(new Target('Place above'));
+  placeAbove.setPose(mul(transl(100, 500, 650), rotx(180 * DEG)));
+  const place = table.addChild(new Target('Place'));
+  place.setPose(mul(transl(100, 500, 502), rotx(180 * DEG)));
+  prog.addMoveJ(home);
+  prog.addMoveJ(approach);
+  prog.addMoveL(pick);
+  prog.event('gripper_close');
+  prog.event('attach', part.id);
+  prog.pause(300);
+  prog.addMoveL(approach);
+  prog.addMoveJ(placeAbove);
+  prog.addMoveL(place);
+  prog.event('gripper_open');
+  prog.event('detach', part.id);
+  prog.pause(300);
+  prog.addMoveL(placeAbove);
+  prog.addMoveJ(home);
+  return st;
+}
+
 export const demos: Demo[] = [
+  { id: 'tutorial', name: 'Tutorial — first station (UR5e)', description: 'The station built in the documentation tutorial: UR5e on a pedestal, table frame, part and bin, gripper, pick-and-place program. Follow docs › Getting started › Your first station.', build: tutorialCell },
   { id: 'pickplace', name: 'Pick & place cell (UR10e)', description: 'Robot arm, tool, targets, program with attach/detach. Run it and export with any post processor.', build: pickPlaceCell },
   { id: 'welding', name: 'Multi-robot welding cell', description: 'Two robots with torches following a seam on a fixture; positioner as external axis.', build: weldingCell },
   { id: 'packing', name: 'Packing line (process flow)', description: 'Visual-Components-style feeder → conveyor → grader (with failures) → conveyor → pallet buffer → truck. Start the world clock.', build: packingLine },

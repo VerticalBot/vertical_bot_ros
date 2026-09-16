@@ -1,5 +1,10 @@
 # Fleet management
 
+```{image} ../_static/screens/24-orchard-fleet.png
+:alt: Orchard harvesting fleet, Fleet tab
+:class: screenshot
+```
+
 *Mobile & Fleet › Create fleet…* groups mobile robots under a fleet item with a manager that runs on the world
 clock:
 

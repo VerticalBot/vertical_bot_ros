@@ -5,6 +5,11 @@ editor; the **Simulation** tab runs it.
 
 ## Instructions
 
+```{image} ../_static/screens/10-program-editor.png
+:alt: Program editor
+:class: screenshot
+```
+
 | Instruction | Notes |
 |---|---|
 | MoveJ / MoveL / MoveC | Joint, linear and circular moves to targets (MoveC needs a via target); per-move speed and rounding overrides |
@@ -31,6 +36,11 @@ active program. *Program › New program* starts another program for the active 
 selected in the tab's drop-down.
 
 ## Validation
+
+```{image} ../_static/screens/11-validate.png
+:alt: Validation
+:class: screenshot
+```
 
 *Program › Validate (compile)* simulates the whole program without rendering and reports:
 

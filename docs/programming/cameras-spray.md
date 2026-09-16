@@ -2,6 +2,11 @@
 
 ## Cameras
 
+```{image} ../_static/screens/30-pickplace-camera.png
+:alt: Camera tab
+:class: screenshot
+```
+
 Add a camera item to any item (robot flange, frame, mobile robot) with the API `Cam2D_Add(item, params)` or
 *Tools › Camera parameters…*; parameters follow RoboDK (`FOV`, `SIZE=WxH`, `NEAR_LENGTH`, `FAR_LENGTH`, `DEPTH`).
 The **Camera** tab shows the live render; `Cam2D_Snapshot` returns a PNG (data URL in the browser).

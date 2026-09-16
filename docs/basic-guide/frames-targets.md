@@ -2,6 +2,11 @@
 
 ## Reference frames
 
+```{image} ../_static/screens/06-frame-properties.png
+:alt: Frame pose in the properties panel
+:class: screenshot
+```
+
 Frames are coordinate systems for parts, fixtures, tables, conveyors and cameras. Create them with
 *Add › Reference frame*, position them numerically or with the gizmo, nest them (a frame under a frame) and
 attach objects under them so a fixture and its part move together.
@@ -14,6 +19,11 @@ Frames can be calibrated from measured points (3 points, 6 points, turntable) th
 (`Calibrate_Reference`), see {doc}`../programming/calibration`.
 
 ## Targets
+
+```{image} ../_static/screens/09-targets-taught.png
+:alt: Targets and the robot at the Pick target
+:class: screenshot
+```
 
 A target stores a pose relative to its parent frame **and** the joint values used when it was taught.
 

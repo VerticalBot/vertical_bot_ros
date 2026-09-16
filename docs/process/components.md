@@ -1,5 +1,10 @@
 # Process simulation components (Visual Components style)
 
+```{image} ../_static/screens/23-packing-line.png
+:alt: Packing line demo, Process tab
+:class: screenshot
+```
+
 *Add › Process component (VC-style)…* creates components that run on the world clock and exchange parts:
 
 | Component | Behaviour |

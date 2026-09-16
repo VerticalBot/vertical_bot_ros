@@ -5,6 +5,12 @@ builds them in the browser — the open counterpart of RoboDK's online library.
 
 ## What you get
 
+```{image} ../_static/screens/05-online-library-dialog.png
+:alt: Online library dialog
+:class: screenshot
+:width: 620px
+```
+
 - **91 robots**: Fanuc (LR Mate 200i…200iD, M-6iB, M-10iA, M-16iB, M-20iA/iB, M-430iA, CR-7iA, CR-35iA,
   M-710iC, M-900iA/iB, R-1000iA, R-2000iC), ABB (IRB 120, 2400, 4400L, 5400, 6600, 6640), KUKA (KR 3, KR 5 arc,
   KR 6/10 Agilus, KR 16, KR 120/150/210, LBR iiwa 14), Yaskawa Motoman (GP4…GP200R, HC10/HC20, MH5…MH110,

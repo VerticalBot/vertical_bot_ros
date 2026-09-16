@@ -11,6 +11,12 @@ pruning and drilling programs.
 
 ## Options
 
+```{image} ../_static/screens/18-curve-follow-dialog.png
+:alt: Curve follow dialog
+:class: screenshot
+:width: 620px
+```
+
 | Option | Effect |
 |---|---|
 | Approach / retract | Distance along −Z of the tool before the first and after the last point |

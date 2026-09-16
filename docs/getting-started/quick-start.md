@@ -5,6 +5,11 @@ same first steps as in any offline-programming package.
 
 ## 1. Open the studio
 
+```{image} ../_static/screens/04-robot-added.png
+:alt: Studio with a robot
+:class: screenshot
+```
+
 Open the studio in your browser. The **Help › Quick start** entry shows a short in-app version of this page.
 The window is divided into the station tree (left), the 3D view (centre), the properties panel (right) and the
 bottom tabs (Program, Simulation, Fleet, Process, Camera, Console, Log). See {doc}`interface`.

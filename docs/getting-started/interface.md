@@ -4,6 +4,11 @@
 
 ## Layout
 
+```{image} ../_static/screens/10-program-editor.png
+:alt: Main window with the tutorial station
+:class: screenshot
+```
+
 - **Menu bar** — File, Edit, Add, Program, Robot, Mobile & Fleet, Agriculture, Tools, Connect, View, Help.
 - **Station tree** (left) — items of the open station: robots (with tools as children), frames, targets,
   programs, objects, folders, mobile robots, fleets, maps, zones, fields, missions, process components,
@@ -40,6 +45,11 @@
 | Help | Quick start, RoboDK API compatibility notes, about |
 
 ## Units and conventions
+
+```{image} ../_static/screens/33-russian-ui.png
+:alt: Russian user interface
+:class: screenshot
+```
 
 Lengths are millimetres, angles degrees, poses are 4×4 matrices; the world is Z-up. Item poses are relative
 to the parent item; children of a robot (tools, and frames/targets/objects attached to it) hang on the flange.

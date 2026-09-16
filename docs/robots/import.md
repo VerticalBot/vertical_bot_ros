@@ -22,6 +22,12 @@ embedded meshes. See {doc}`../interop/robodk`.
 
 ## Geometry
 
+```{image} ../_static/screens/21-export-urdf-dialog.png
+:alt: URDF package export dialog
+:class: screenshot
+:width: 560px
+```
+
 | Format | Notes |
 |---|---|
 | STL (binary/ASCII), OBJ | Assumed millimetres |
