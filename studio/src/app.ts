@@ -12,6 +12,7 @@ import { Mat4, multiply, invert, transl, identity, getPos } from './core/math/po
 import { saveStation, loadStation, StationFile } from './io/station-file';
 import { robotFromURDF, parseURDF } from './io/urdf/urdf';
 import { fetchOnlineRobot, fetchPackageMeshes, resolvePackageUri, OnlineRobotResult } from './io/library/online_library';
+import { restoreUserPosts } from './posts/user_posts';
 import { importProgram, detectLanguage } from './io/programs/import';
 import { importTargets } from './io/robodk/targets';
 import { importRdkBestEffort } from './io/robodk/rdk_container';
@@ -62,6 +63,7 @@ export class App {
   onStationEvent: ((type: string, itemId?: string, data?: any) => void) | null = null;
 
   constructor() {
+    try { const n = restoreUserPosts(); if (n) console.info(`Restored ${n} user post processors`); } catch { /* no storage */ }
     this.station = new Station('New station');
     this.sim = new ProgramSimulator(this.station);
     this.processSim = new ProcessSimulator(this.station);
@@ -422,6 +424,15 @@ export class App {
       if (ext === 'stl') this.assets.registerRaw(f.name, 'stl', buf, f.name);
       else if (ext === 'obj') this.assets.registerMesh(f.name, parseOBJ(new TextDecoder().decode(buf)), f.name);
       else if (ext === 'dae') this.assets.registerRaw(f.name, 'dae', buf, f.name);
+      else if (ext === 'glb' || ext === 'gltf') {
+        try {
+          const { parseGLTF } = await import('./io/mesh/gltf');
+          const mesh = await parseGLTF(ext === 'glb' ? buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer : new TextDecoder().decode(buf));
+          const a = this.assets.registerMesh(f.name, mesh, f.name);
+          a.type = 'glb';
+          a.source = buf;
+        } catch (e) { this.log(`glTF ${f.name}: ${(e as Error).message}`, 'error'); }
+      }
     }
     for (const f of files) {
       const name = f.name;
@@ -462,10 +473,10 @@ export class App {
         } else if (ext === 'dh' || (ext === 'json' && false)) {
           const robot = this.cmd(() => { const r = robotFromDH(parseDHText(await_text), name.replace(/\.dh$/i, '')); this.station.addChild(r); this.select(r); this.setActiveRobot(r); return r; });
           this.log(`Imported DH robot ${robot.name} (${robot.dof} DOF)`);
-        } else if (ext === 'stl' || ext === 'obj' || ext === 'dae') {
+        } else if (ext === 'stl' || ext === 'obj' || ext === 'dae' || ((ext === 'glb' || ext === 'gltf') && this.assets.has(name))) {
           const a = this.assets.get(name)!;
           this.cmd(() => {
-            const o = new SceneObject(name.replace(/\.(stl|obj|dae)$/i, ''));
+            const o = new SceneObject(name.replace(/\.(stl|obj|dae|glb|gltf)$/i, ''));
             o.geometry = [{ mesh: name, origin: Array.from(identity()), color: '#a5b1c2' }];
             if (a.mesh) o.bbox = { min: a.mesh.min, max: a.mesh.max };
             this.station.addChild(o);
@@ -524,8 +535,15 @@ export class App {
             this.select(o);
           });
           this.log(`Imported NC program ${name}: ${curves.length} cutting paths, ${(g.length / 1000).toFixed(2)} m (${g.units}). Use Robot > Follow curve to program it.`);
-        } else if (['glb', 'gltf', 'png', 'jpg'].includes(ext)) {
-          this.log(`${ext.toUpperCase()} import: convert to STL for now`, 'warn');
+        } else if (['zip', 'vcmx', 'vcm', 'vcax', 'rdkp'].includes(ext)) {
+          // Visual Components / KUKA.Sim components and layouts, RoboDK packages, generic zips: best-effort container import
+          const { importZipContainer } = await import('./io/containers/zip_import');
+          const { folder, report } = await importZipContainer(await f.arrayBuffer(), name, this.assets);
+          this.cmd(() => { this.station.addChild(folder); this.select(folder); });
+          this.log(`${report.format === 'zip' ? 'Archive' : report.format === 'kuka-sim' ? 'KUKA.Sim' : 'Visual Components'} ${name}: ${report.meshes.length} meshes, ${report.metadata.length} metadata files, ${report.joints.length} joints${report.names.length ? `; names: ${report.names.slice(0, 6).join(', ')}` : ''}`, report.meshes.length ? 'info' : 'warn');
+          for (const n of report.notes) this.log(n, 'warn');
+        } else if (['png', 'jpg'].includes(ext)) {
+          this.log(`${ext.toUpperCase()} files are not importable as geometry`, 'warn');
         } else this.log(`Unsupported file ${name}`, 'warn');
       } catch (e: any) {
         this.log(`Failed to open ${name}: ${e.message ?? e}`, 'error');

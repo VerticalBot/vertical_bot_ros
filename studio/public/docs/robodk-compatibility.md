@@ -84,3 +84,21 @@ three import paths, tried in this order when a file is dropped:
 For the *robot library* itself no RoboDK is needed: the online library (`Add › Robot from online library`) provides the
 same industrial robots from the open ROS-Industrial / vendor URDF packages, with exact kinematics and meshes — see
 `docs/file-formats.md`.
+
+### What the RoboDK conversion carries
+
+`rdk_export.py` (run inside RoboDK, or automatically through `rdk2vbs.py`) writes: frames; robots (pose, joints,
+limits, DH when exposed, active frame/tool); tools (TCP, mesh); targets (pose, joints, joint/cartesian flag) under
+their frames; objects (STL, plus curves and points via `GetPoints`); programs (instruction list incl. speed, frame
+and tool changes, pauses, IO, code, comments, program frame/tool, **and** the simulated joint path from
+`InstructionListJoints`, stored as `params.jointsList`); machining projects (robot / part / generated program
+links, update ratio); Python programs (source when available). The importer (`src/io/robodk/rdk_import.ts`)
+rebuilds instructions, links machining items and regenerates curve/point-follow programs when RoboDK's generated
+program was not exported.
+
+### RoboDK post processors
+
+The studio runs RoboDK's own post processors: `Program › Import RoboDK post processors (.py)` (select the files
+from `C:/RoboDK/Posts`). They execute in Pyodide with the official `robodk.robomath`/`robofileio` and a headless
+`robodialogs`; the compiled program drives `ProgStart/MoveJ/MoveL/MoveC/setFrame/setTool/Pause/setDO/waitDI/RunCode/RunMessage/ProgFinish`.
+On the server the same happens with the system Python (`python/post_shim.py`).

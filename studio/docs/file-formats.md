@@ -6,9 +6,13 @@
 | `.urdf`, `.xacro` | import | Robots via built-in URDF/xacro processor (properties, macros, includes, if/unless, math, quoted literals). Meshes referenced by `package://` are resolved by file name from dropped STL/DAE files, or downloaded automatically when the package belongs to a known GitHub repository (see *Online robot library*) |
 | `.stl` | import | Binary/ASCII meshes (mm). Also used as robot link meshes |
 | `.obj` | import | Wavefront meshes (triangulated on load) |
+| `.glb`, `.gltf` | import/export | glTF 2.0: import flattens all meshes into one object (m → mm, Y-up → Z-up); export static scene (`Tools › Export scene as glTF`) or **animated** program simulation with keyframes on every link/tool/object for Blender (`Tools › Export animation as glTF`) |
+| `.zip`, `.vcmx`, `.vcm` | import (best effort) | Zip containers incl. Visual Components / KUKA.Sim components and layouts: standard meshes inside are loaded, XML/JSON metadata scanned for names, transforms and joint definitions (see `docs/interop.md`) |
+| URDF package (`.zip`) | export | `File › Export URDF package`: robot or whole station as `urdf/*.urdf` + `meshes/*.stl` (metres) + `package.xml` for ROS 2, Gazebo, MoveIt, Blender (Phobos) |
+| `.py` (RoboDK post) | import | `Program › Import RoboDK post processors`: original RoboDK posts run unmodified in the browser (Pyodide, official robomath/robofileio, headless robodialogs); persisted per browser |
 | `.dae` | import | COLLADA meshes (triangles/polylist/polygons/tristrips, node transforms, `<unit>` scale, Y-up → Z-up). Standalone imports are converted to mm; URDF link meshes are kept in metres and scaled by the visual |
 | `.dh` / `.json` with `dh` | import/export | Robot from a standard DH table: `theta, d, a, alpha, lower, upper[, prismatic, home]` per joint (mm/deg) |
-| `.rdk`, `.robot`, `.tool` | import | RoboDK containers. If the studio server runs next to a RoboDK installation (`STUDIO_ROBODK_PYTHON` + `robodk` package), the file is converted losslessly by `python/rdk2vbs.py` through `POST /convert/rdk`; otherwise a best-effort binary scan recovers names, poses and embedded meshes |
+| `.rdk`, `.robot`, `.tool` | import | RoboDK containers. If the studio server runs next to a RoboDK installation (`STUDIO_ROBODK_PYTHON` + `robodk` package), the file is converted losslessly by `python/rdk2vbs.py` through `POST /convert/rdk` — frames, robots, tools, targets, programs (+ simulated joint path), objects with curves/points, machining projects (curve/point follow, 3D printing, milling), Python programs; otherwise a best-effort binary scan recovers names, poses and embedded meshes |
 | `.src` / `.dat` | import/export | KUKA KRL |
 | `.mod` / `.prg` | import/export | ABB RAPID |
 | `.ls` | import/export | Fanuc TP (ASCII) |

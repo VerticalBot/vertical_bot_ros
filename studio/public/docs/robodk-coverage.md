@@ -10,7 +10,7 @@ Legend: ✅ implemented · 🟡 partial / simplified · ❌ not implemented
 | Robot library (online library with hundreds of robots, .robot files) | ✅ | 22 built-in models (UR exact DH) + **online library of 91 robots** (Fanuc, ABB, KUKA, Yaskawa/Motoman, Stäubli, UR, Franka, Kinova, Doosan) fetched as open URDF packages from GitHub with exact kinematics and meshes (`src/io/library/online_library.ts`); URDF/DH import; RoboDK `.robot` files are proprietary — convert with `rdk2vbs.py` / `POST /convert/rdk` |
 | Import geometry: STL, OBJ, COLLADA (.dae) | ✅ | COLLADA reader handles unit scale, Y-up conversion, node transforms |
 | Import geometry: STEP/IGES/BREP | ✅ | OpenCascade WebAssembly (occt-import-js), loaded on demand; SLDPRT/3DS/WRL ❌ |
-| .rdk station load/save | 🟡 | lossless import through a headless RoboDK behind the studio server (`python/rdk2vbs.py`, `POST /convert/rdk`, tried automatically when a `.rdk`/`.robot`/`.tool` is dropped); otherwise best-effort binary reader; export via `rdk_export.py` + API script |
+| .rdk station load/save | 🟡 | lossless import through a headless RoboDK behind the studio server (`python/rdk2vbs.py`, `POST /convert/rdk`, tried automatically when a `.rdk`/`.robot`/`.tool` is dropped): targets, programs + RoboDK's simulated joint path, object curves/points, machining projects (curve/point follow, 3D print, milling), Python programs; otherwise best-effort binary reader; export via `rdk_export.py` + API script |
 | .robot / .tool file build ("Robot builder") | ✅ | `BuildMechanism` (1R/1T/2R/2T/3R/3T/4R/4T/6DOF/7DOF/SCARA), `setRobotParams` (modified DH), DH import/export |
 | Targets: cartesian / joint, teach, configuration flags | ✅ | flags derived (elbow/wrist/front), no explicit conf editing |
 | Programs: MoveJ/MoveL/MoveC, speed, rounding, frame/tool, pause, IO, code, comment, message, call | ✅ | |
@@ -18,7 +18,7 @@ Legend: ✅ implemented · 🟡 partial / simplified · ❌ not implemented
 | Program simulation, timeline, cycle time, run modes | ✅ | RUN_ON_ROBOT only via ROS bridge |
 | Collision checking (mesh-accurate, collision map, `Collision_SetPair`, `Collision_Line`) | ✅ | BVH triangle checks for meshes, collision map with pair rules + dialog, ray casting |
 | Singularity / joint limit / reach checks in linear moves | ✅ | |
-| Post processors (~100 vendor posts in RoboDK) | 🟡 | 27 built-in posts + any RoboDK Python post via Pyodide: KUKA KRC2/KRC4, ABB IRC5/S4C, Fanuc R30/RJ3, UR, Motoman, Stäubli, Doosan, Mecademic, Denso, Kawasaki, Nachi, Comau, Epson, Techman/Omron TM, Hanwha, Kinova, Mitsubishi, AUBO, JAKA, Elite, Dobot, CSV, JSON, RoboDK, ROS 2 |
+| Post processors (~100 vendor posts in RoboDK) | 🟡 | 27 built-in posts + any RoboDK Python post via Pyodide: KUKA KRC2/KRC4, ABB IRC5/S4C, Fanuc R30/RJ3, UR, Motoman, Stäubli, Doosan, Mecademic, Denso, Kawasaki, Nachi, Comau, Epson, Techman/Omron TM, Hanwha, Kinova, Mitsubishi, AUBO, JAKA, Elite, Dobot, CSV, JSON, RoboDK, ROS 2; **original RoboDK posts import unmodified** (`Program › Import RoboDK post processors`, Pyodide + official robomath/robofileio + headless robodialogs) |
 | Post-processor customisation (Python post files) | ✅ | genuine RoboDK `RobotPost` Python posts run in the browser (Pyodide) or with CPython through `python/post_shim.py`; TypeScript posts also pluggable |
 | Program import from controllers (KRL, RAPID, LS, URScript) | ✅ | others ❌ |
 | Robot machining projects (curve/point follow, NC/G-code/APT) | 🟡 | curve/point follow, G-code, tool-Z orientation optimisation, preferred configuration, external-axis (rail) optimisation, `AddMachiningProject/setMachiningParameters`; APT/CAM plugins ❌ |
@@ -88,3 +88,14 @@ robots replace their DH tables instead).
 - Native (non-ROS) drivers exist for UR, ABB (RWS) and KUKA (KVP); other brands connect through their ROS 2 drivers.
 - Depth/segmentation camera buffers, 3D PDF export, Simulink blocks and C++ add-ins are not implemented.
 - `EmbedWindow` and file-path based `AddFile` do not apply to a browser application.
+
+## Interoperability beyond RoboDK
+
+| Target | Status | Notes |
+|---|---|---|
+| Blender | ✅ | animated glTF export of program simulations (keyframes per link/tool/object), static glTF, URDF package for Phobos; glTF/GLB, COLLADA, OBJ, STL import |
+| ROS / ROS 2 | ✅ | URDF/xacro import (+ online package meshes), URDF package export, ROS 2 post, rosbridge client, ROS 2 driver |
+| Visual Components / KUKA.Sim Pro | 🟡 | best-effort `.vcmx`/`.vcm` import (standard meshes + metadata: names, transforms, joints); VC-style process components, signals, fleets natively; glTF/URDF as exchange formats; binary `.rsc` behaviours are proprietary |
+| KUKA (OfficeLite / WorkVisual / Fleet) | 🟡 | KRC4/KRC5 KRL posts, KUKA KVP driver, kuka_experimental robots with meshes; fleet via the studio's own manager + ROS 2 |
+
+See `docs/interop.md`.

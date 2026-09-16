@@ -5,7 +5,8 @@
  *  - programs arrive with params.instructions (RoboDK Instruction() tuples) → real Instruction children;
  *  - active frame/tool names are resolved to ids.
  */
-import { Station, Item, ItemType, Target, Tool, Frame } from '../../core/items/item';
+import { Station, Item, ItemType, Target, Tool, Frame, SceneObject } from '../../core/items/item';
+import { generateCurveFollow, generatePointFollow } from '../../core/motion/pathfollow';
 import { Robot } from '../../core/items/robot';
 import { Program } from '../../core/items/program';
 import { ROBOT_LIBRARY } from '../../core/items/library';
@@ -14,7 +15,9 @@ import { fromArray, identity } from '../../core/math/pose';
 
 export interface RdkImportReport {
   robots: Array<{ name: string; matched: string | null; source: 'dh' | 'library' | 'none' }>;
-  programs: Array<{ name: string; instructions: number }>;
+  programs: Array<{ name: string; instructions: number; jointPath?: number }>;
+  machining: Array<{ name: string; part: string | null; program: string | null; generated: boolean; points?: number }>;
+  pythonPrograms: Array<{ name: string; hasSource: boolean }>;
 }
 
 /** Score how well a library entry matches a RoboDK robot name (e.g. "UR10e", "KUKA KR 6 R900 sixx"). */
@@ -34,7 +37,7 @@ export function isRdkExport(station: Station): boolean {
 }
 
 export function postProcessRdkExport(station: Station): RdkImportReport {
-  const report: RdkImportReport = { robots: [], programs: [] };
+  const report: RdkImportReport = { robots: [], programs: [], machining: [], pythonPrograms: [] };
   // Robots
   for (const r of station.itemsOfType<Robot>(ItemType.ROBOT)) {
     if (r.chain.joints.length && r.chain.name !== 'empty') continue;
@@ -93,16 +96,66 @@ export function postProcessRdkExport(station: Station): RdkImportReport {
         if (type === 2 || mt === 3) p.addMoveL(t); // circular imported as linear (via point follows)
         else if (mt === 2) p.addMoveL(t);
         else p.addMoveJ(t);
-      } else if (type === 7) p.pause(Number(e.pauseMs ?? 0));
+      } else if (type === 7) p.pause(Number(e.pauseMs ?? parseFirstNumber(e.name, 0) * 1000));
       else if (type === 10) p.comment(String(e.name ?? ''));
       else if (type === 9) p.runInstruction(String(e.name ?? ''), true);
-      else if (type === 3) p.setSpeed(Number(e.speedLinear) || undefined, Number(e.speedJoints) || undefined);
+      else if (type === 3) {
+        // RoboDK names speed instructions e.g. "Set Speed (250.0 mm/s)" / "Set Joint Speed (50 deg/s)"
+        const v = parseFirstNumber(e.name, NaN);
+        if (/joint|deg/i.test(String(e.name)) && !isNaN(v)) p.setSpeed(undefined, v);
+        else if (/accel/i.test(String(e.name)) && !isNaN(v)) p.setSpeed(undefined, undefined, v);
+        else p.setSpeed(!isNaN(v) ? v : Number(e.speedLinear) || undefined, Number(e.speedJoints) || undefined);
+      } else if (type === 4) {
+        const f = station.find(frameNameOf(e.name), ItemType.FRAME);
+        if (f) p.setFrame(f); else p.comment(`Set reference ${e.name}`);
+      } else if (type === 5) {
+        const t = station.find(frameNameOf(e.name), ItemType.TOOL);
+        if (t) p.setTool(t); else p.comment(`Set tool ${e.name}`);
+      } else if (type === 8) p.comment(`Event: ${e.name ?? ''}`);
       else p.comment(`${e.name ?? ''} (RoboDK instruction type ${type})`);
     }
+    // program-level frame / tool (used when the instruction list has no explicit change)
+    const fn = p.params.frameName as string | undefined, tn = p.params.toolName as string | undefined;
+    if (fn && !p.instructions().some((i) => i.data.kind === 'frame')) { const f = station.find(fn, ItemType.FRAME); if (f) p.addInstruction({ kind: 'frame', frameId: f.id }, 0); }
+    if (tn && !p.instructions().some((i) => i.data.kind === 'tool')) { const t = station.find(tn, ItemType.TOOL); if (t) p.addInstruction({ kind: 'tool', toolId: t.id }, 0); }
     delete p.params.instructions;
-    report.programs.push({ name: p.name, instructions: p.instructions().length });
+    const jl = p.params.jointsList as number[][] | undefined;
+    report.programs.push({ name: p.name, instructions: p.instructions().length, jointPath: jl?.length });
   }
+  // Machining projects (curve follow / point follow / 3D printing / milling): link robot, part and generated program
+  for (const m of station.itemsOfType(ItemType.MACHINING)) {
+    const robot = m.params.robotName ? station.find(String(m.params.robotName), ItemType.ROBOT) : station.itemsOfType(ItemType.ROBOT)[0];
+    const part = m.params.partName ? station.find(String(m.params.partName), ItemType.OBJECT) : null;
+    const prog = m.params.programName ? station.find(String(m.params.programName), ItemType.PROGRAM) : null;
+    if (robot) m.setParam('robotId', robot.id);
+    if (part) m.setParam('partId', part.id);
+    if (prog) m.setParam('programId', prog.id);
+    let generated = false, points: number | undefined;
+    if (!prog && robot instanceof Robot && part instanceof SceneObject && (part.curves.length || part.points.length)) {
+      try {
+        const res = part.curves.length
+          ? generateCurveFollow(station, robot, part, { points: part.curves.flatMap((c) => c.points) }, { name: m.name })
+          : generatePointFollow(station, robot, part, part.points.map((p) => ({ point: p.point, normal: (p as any).normal })), { name: m.name });
+        m.setParam('programId', res.program.id);
+        generated = true;
+        points = res.points;
+      } catch { /* leave unlinked */ }
+    }
+    report.machining.push({ name: m.name, part: part?.name ?? null, program: prog?.name ?? null, generated, points });
+  }
+  for (const py of station.itemsOfType(ItemType.PROGRAM_PYTHON)) report.pythonPrograms.push({ name: py.name, hasSource: !!py.params.source });
   return report;
+}
+
+function parseFirstNumber(text: unknown, def: number): number {
+  const m = String(text ?? '').match(/-?\d+(?:\.\d+)?/);
+  return m ? parseFloat(m[0]) : def;
+}
+/** "Set Ref.: Frame 2" / "Set Tool: Gripper" -> "Frame 2" / "Gripper" */
+function frameNameOf(text: unknown): string {
+  const s = String(text ?? '');
+  const m = s.match(/:\s*(.+)$/) ?? s.match(/\((.+)\)\s*$/);
+  return (m ? m[1] : s).trim();
 }
 
 export { Item, Frame, identity };

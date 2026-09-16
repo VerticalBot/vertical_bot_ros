@@ -19,6 +19,9 @@ or the rosbridge connection.
 - Robot library: UR3e/5e/10e/16e/20 (official DH), KUKA Agilus/Cybertech/Quantec, ABB IRB 120/1200/2600/6700,
   Fanuc LR Mate/M-20iA/M-410iC, Yaskawa GP12, Stäubli TX2-60, Doosan M1013, Mecademic Meca500, generic palletizer,
   SCARA, XYZ gantry, 7-DOF telescopic harvesting arm — plus any URDF/xacro import with STL/DAE meshes.
+- Interop: animated glTF export of simulations for Blender/Unity/Unreal, URDF package export (ROS 2, Gazebo,
+  MoveIt, Phobos), glTF/GLB/COLLADA/OBJ/STL import, best-effort Visual Components / KUKA.Sim `.vcmx` import,
+  original RoboDK Python post processors running unmodified in the browser — see `docs/interop.md`.
 - Online robot library: 91 robots (Fanuc, ABB, KUKA, Yaskawa/Motoman, Stäubli, UR incl. e-Series, Franka, Kinova,
   Doosan) downloaded on demand from the open ROS-Industrial / vendor URDF packages on GitHub — exact kinematics,
   vendor meshes, `tool0` flange — the open counterpart of RoboDK's online library.

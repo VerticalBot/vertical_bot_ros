@@ -95,3 +95,35 @@ export function writeBinarySTL(positions: Float32Array | number[], header = 'Ver
   }
   return buf;
 }
+
+/** Serialize a mesh as binary STL. `transform(x,y,z)` may rescale/convert units per vertex. */
+export function writeSTL(mesh: MeshData, transform?: (p: [number, number, number]) => [number, number, number], header = 'VerticalBot Studio'): Uint8Array {
+  const n = mesh.triangles;
+  const out = new Uint8Array(84 + n * 50);
+  const dv = new DataView(out.buffer);
+  const h = new TextEncoder().encode(header.slice(0, 80));
+  out.set(h, 0);
+  dv.setUint32(80, n, true);
+  const P = mesh.positions;
+  let o = 84;
+  const v: [number, number, number][] = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let t = 0; t < n; t++) {
+    for (let k = 0; k < 3; k++) {
+      const i = (t * 3 + k) * 3;
+      let p: [number, number, number] = [P[i], P[i + 1], P[i + 2]];
+      if (transform) p = transform(p);
+      v[k] = p;
+    }
+    const ux = v[1][0] - v[0][0], uy = v[1][1] - v[0][1], uz = v[1][2] - v[0][2];
+    const wx = v[2][0] - v[0][0], wy = v[2][1] - v[0][1], wz = v[2][2] - v[0][2];
+    let nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+    const l = Math.hypot(nx, ny, nz) || 1;
+    nx /= l; ny /= l; nz /= l;
+    dv.setFloat32(o, nx, true); dv.setFloat32(o + 4, ny, true); dv.setFloat32(o + 8, nz, true);
+    o += 12;
+    for (let k = 0; k < 3; k++) { dv.setFloat32(o, v[k][0], true); dv.setFloat32(o + 4, v[k][1], true); dv.setFloat32(o + 8, v[k][2], true); o += 12; }
+    dv.setUint16(o, 0, true);
+    o += 2;
+  }
+  return out;
+}

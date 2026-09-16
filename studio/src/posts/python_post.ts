@@ -5,7 +5,30 @@
  */
 import { PostProgram, PostFile, PostProcessor, registerPost } from './base';
 import robomathSrc from '../../python/robodk/robomath.py?raw';
+import robodialogsSrc from '../../python/robodk/robodialogs.py?raw';
+import robofileioSrc from '../../python/robodk/robofileio.py?raw';
 import shimSrc from '../../python/post_shim.py?raw';
+
+/** Minimal robodk.robolink for posts running inside the browser: constants + helpers posts commonly touch. */
+const ROBOLINK_STUB = `
+ITEM_TYPE_STATION=1; ITEM_TYPE_ROBOT=2; ITEM_TYPE_FRAME=3; ITEM_TYPE_TOOL=4; ITEM_TYPE_OBJECT=5; ITEM_TYPE_TARGET=6
+ITEM_TYPE_PROGRAM=8; ITEM_TYPE_INSTRUCTION=9; ITEM_TYPE_PROGRAM_PYTHON=10; ITEM_TYPE_MACHINING=11; ITEM_TYPE_FOLDER=17
+INS_TYPE_MOVE=1; INS_TYPE_MOVEC=2; INS_TYPE_CHANGESPEED=3; INS_TYPE_CHANGEFRAME=4; INS_TYPE_CHANGETOOL=5; INS_TYPE_PAUSE=7; INS_TYPE_CODE=9; INS_TYPE_PRINT=10
+MOVE_TYPE_JOINT=1; MOVE_TYPE_LINEAR=2; MOVE_TYPE_CIRCULAR=3
+RUNMODE_SIMULATE=1; RUNMODE_MAKE_ROBOTPROG=3
+def import_install(module_name, pip_name=None, rdk=None, upgrade_pip=False):
+    import importlib
+    return importlib.import_module(module_name)
+def getPathRoboDK():
+    return '/studio'
+def getPathIcon():
+    return '/studio/icon.png'
+class Robolink(object):
+    def __init__(self, *a, **k):
+        raise RuntimeError('robodk.robolink.Robolink is not available inside a post processor running in the browser')
+class Item(object):
+    pass
+`;
 
 const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
 let pyodidePromise: Promise<any> | null = null;
@@ -18,9 +41,14 @@ async function loadPyodide(): Promise<any> {
     }
     const py = await (window as any).loadPyodide({ indexURL: PYODIDE_URL.replace(/pyodide\.js$/, '') });
     py.FS.mkdirTree('/studio/robodk');
-    py.FS.writeFile('/studio/robodk/__init__.py', '');
+    // The official Apache-2.0 robodk.robomath / robofileio plus headless robodialogs, so unmodified RoboDK posts import cleanly
+    py.FS.writeFile('/studio/robodk/__init__.py', 'from . import robomath, robodialogs, robofileio\nfrom .robomath import *\nfrom .robodialogs import *\nfrom .robofileio import *\n');
     py.FS.writeFile('/studio/robodk/robomath.py', robomathSrc);
-    py.FS.writeFile('/studio/robodk/robolink.py', 'ITEM_TYPE_ROBOT = 2\nclass Robolink:\n    pass\n');
+    py.FS.writeFile('/studio/robodk/robodialogs.py', robodialogsSrc);
+    py.FS.writeFile('/studio/robodk/robofileio.py', robofileioSrc);
+    py.FS.writeFile('/studio/robodk/robolink.py', ROBOLINK_STUB);
+    // legacy top-level modules used by older posts: `from robolink import *`, `from robodk import *`
+    py.FS.writeFile('/studio/robolink.py', 'from robodk.robolink import *\n');
     py.FS.writeFile('/studio/post_shim.py', shimSrc);
     await py.runPythonAsync('import sys\nsys.path.insert(0, "/studio")\nimport post_shim');
     return py;

@@ -4,7 +4,7 @@ import { robotLibraryDialog, onlineLibraryDialog, mobileRobotDialog, orchardDial
 import { ItemType, Folder } from '../core/items/item';
 import { demos } from '../demos';
 import { t, getLang, setLang } from './i18n';
-import { collisionMapDialog, measureDialog, cameraDialog, VideoRecorder, exportHtml3D, exportGlb } from './tools';
+import { collisionMapDialog, measureDialog, cameraDialog, VideoRecorder, exportHtml3D, exportGlb, exportAnimationGltf, exportUrdfPackage, importRoboDKPosts } from './tools';
 import { Camera as CameraItem } from '../core/items/item';
 import { Robot } from '../core/items/robot';
 
@@ -24,6 +24,7 @@ export class MenuBar {
         { separator: true },
         { label: 'Export program (post processor)…', action: () => exportDialog(app) },
         { label: 'Export station as RoboDK API script (.py)', action: () => downloadText(`${app.station.name.replace(/\W+/g, '_')}_robodk.py`, app.exportRoboDKScript()) },
+        { label: 'Export URDF package (robot / station, zip)…', action: () => exportUrdfPackage(app) },
         { label: 'Export station JSON (for rdk_export.py / server)', action: () => downloadText(`${app.station.name.replace(/\W+/g, '_')}.vbstation`, app.saveToJSON(), 'application/json') },
         { label: 'Export screenshot (PNG)', action: () => { const a = document.createElement('a'); a.href = app.renderer.screenshot(); a.download = 'station.png'; a.click(); } },
       ]],
@@ -60,6 +61,7 @@ export class MenuBar {
         { label: 'Validate (compile)', action: () => { app.previewProgram(); const r = app.activeProgram?.lastResult; if (r) toast(r.ok ? `OK · ${r.duration.toFixed(2)} s` : r.problems.map((p) => p.message).join('; '), r.ok ? 'ok' : 'error', 6000); } },
         { separator: true },
         { label: 'Export with post processor…', action: () => exportDialog(app) },
+        { label: 'Import RoboDK post processors (.py)…', action: () => importRoboDKPosts(app) },
       ]],
       ['Robot', () => [
         { label: 'Home active robot', action: () => { const r = app.activeRobot; if (r) app.cmd(() => r.setJoints(r.jointsHome())); } },
@@ -99,6 +101,7 @@ export class MenuBar {
         { label: this.video.recording ? 'Stop video recording' : 'Record video of the 3D view (WebM)…', action: () => (this.video.recording ? this.video.stop() : this.video.start()) },
         { label: 'Export 3D HTML (self-contained viewer)', action: () => exportHtml3D(app) },
         { label: 'Export scene as glTF (.glb)', action: () => exportGlb(app) },
+        { label: 'Export animation as glTF (Blender)…', action: () => exportAnimationGltf(app) },
         { separator: true },
         { label: 'New station tab', action: () => app.addStation(`Station ${app.stations.length + 1}`) },
         { label: 'Close station tab', action: () => app.closeStation() },

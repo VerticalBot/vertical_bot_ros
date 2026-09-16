@@ -123,6 +123,8 @@ export class SceneRenderer {
     this.scene.add(this.grid);
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(400000, 400000), new THREE.ShadowMaterial({ opacity: 0.25 }));
     ground.receiveShadow = true;
+    ground.name = 'ground';
+    ground.userData.isGround = true;
     ground.position.z = -1;
     this.scene.add(ground);
     this.scene.add(makeTriad(500, 2));
@@ -655,6 +657,16 @@ export class SceneRenderer {
     }
     this.syncTransforms();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** Force transforms to match the station state now (used by exporters that sample the simulation). */
+  syncNow(): void {
+    this.syncTransforms();
+  }
+
+  /** Scene nodes that move during a simulation: item roots plus robot link groups (for animation export). */
+  animationTargets(): Array<{ item: Item; root: THREE.Group; links?: THREE.Group[]; flangeGroup?: THREE.Group }> {
+    return [...this.entries.values()].map((e) => ({ item: e.item, root: e.root, links: e.links, flangeGroup: e.flangeGroup }));
   }
 
   private syncTransforms() {

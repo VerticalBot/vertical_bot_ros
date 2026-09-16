@@ -2,7 +2,7 @@
 import { App } from '../app';
 import { Item, ItemType, Camera as CameraItem } from '../core/items/item';
 import { Robot } from '../core/items/robot';
-import { h, clear, dialog, toast, downloadText, downloadBlob, fmt, formField } from './dom';
+import { h, clear, dialog, toast, downloadText, downloadBlob, fmt, formField, pickFiles } from './dom';
 import { getCollisionMap, setCollisionPair, checkCollisionsMapped } from '../core/collision/collision';
 import { getPos, distance, rotationAngle, RAD } from '../core/math/pose';
 
@@ -140,4 +140,52 @@ export async function exportGlb(app: App): Promise<void> {
   const exporter = new GLTFExporter();
   const glb = await new Promise<ArrayBuffer>((resolve, reject) => exporter.parse(app.renderer.scene, (r) => resolve(r as ArrayBuffer), (e) => reject(e), { binary: true, onlyVisible: true }));
   downloadBlob(`${app.station.name.replace(/\W+/g, '_')}.glb`, new Blob([glb], { type: 'model/gltf-binary' }));
+}
+
+
+/** Export the current program simulation as an animated glTF (Blender › File › Import › glTF 2.0). */
+export async function exportAnimationGltf(app: App): Promise<void> {
+  const prog = app.activeProgram;
+  if (!prog) return toast('Select or create a program first', 'warn');
+  const r = await dialog<{ fps: number; helpers: boolean }>('Export animation (glTF for Blender)', [
+    { key: 'fps', label: 'Keyframes per second', type: 'number', value: 30, min: 1, max: 120 },
+    { key: 'helpers', label: 'Include frame / target helpers', type: 'checkbox', value: false },
+  ], { okLabel: 'Export', body: h('p', { class: 'hint' }, 'The program is simulated from start to end; every robot link, tool and moved object gets position/rotation keyframes. Units are converted to metres (root node scaled 0.001). Blender: File › Import › glTF 2.0, then play the timeline.') });
+  if (!r) return;
+  app.previewProgram();
+  if (!app.sim.duration) return toast('Program has no duration (compile problems?)', 'warn');
+  toast('Sampling simulation…', 'info', 2500);
+  const { exportAnimatedGLB } = await import('../io/export/gltf_anim');
+  const res = await exportAnimatedGLB(app.renderer, app.sim, { fps: r.fps || 30, name: prog.name, hideHelpers: !r.helpers });
+  downloadBlob(`${app.station.name.replace(/\W+/g, '_')}_${prog.name.replace(/\W+/g, '_')}_anim.glb`, new Blob([res.glb], { type: 'model/gltf-binary' }));
+  app.log(`Animated glTF: ${res.frames} frames, ${res.duration.toFixed(2)} s, ${res.tracks} tracks`);
+  toast(`Animation exported (${res.frames} frames, ${res.tracks} tracks)`, 'ok');
+}
+
+/** Export the active robot or the whole station as a URDF package (zip with meshes). */
+export async function exportUrdfPackage(app: App): Promise<void> {
+  const robots = app.station.itemsOfType<Robot>(ItemType.ROBOT);
+  const r = await dialog<{ what: string; pkg: string }>('Export URDF package', [
+    { key: 'what', label: 'Content', type: 'select', value: app.activeRobot ? app.activeRobot.id : 'station', options: [{ value: 'station', label: `Whole station (${robots.length} robots + objects)` }, ...robots.map((x) => ({ value: x.id, label: `Robot: ${x.name}` }))] },
+    { key: 'pkg', label: 'ROS package name (optional)', type: 'text', value: '' },
+  ], { okLabel: 'Export', body: h('p', { class: 'hint' }, 'Writes urdf/*.urdf + meshes/*.stl (metres) + package.xml in a zip. Use it in ROS 2 (robot_state_publisher, RViz, MoveIt), Gazebo, or Blender via the Phobos add-on.') });
+  if (!r) return;
+  const { exportRobotURDF, exportStationURDF, packageZip } = await import('../io/urdf/urdf_export');
+  const target = r.what === 'station' ? null : (app.station.findById(r.what) as Robot | null);
+  const res = target ? exportRobotURDF(target, app.assets, { packageName: r.pkg || undefined }) : exportStationURDF(app.station, app.assets, { packageName: r.pkg || undefined });
+  for (const w of res.warnings.slice(0, 8)) app.log(w, 'warn');
+  const zip = packageZip(res);
+  downloadBlob(`${res.packageName}.zip`, new Blob([zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength) as ArrayBuffer], { type: 'application/zip' }));
+  app.log(`URDF package ${res.packageName}: ${Object.keys(res.files).length} files`);
+  toast(`URDF package exported (${Object.keys(res.files).length} files)`, 'ok');
+}
+
+/** Import RoboDK post processors (one or many .py files, e.g. the whole RoboDK/Posts folder). */
+export async function importRoboDKPosts(app: App): Promise<void> {
+  const files = await pickFiles('.py', true);
+  if (!files.length) return;
+  const { importPostFiles, listUserPosts } = await import('../posts/user_posts');
+  const r = await importPostFiles(files);
+  app.log(`RoboDK posts: ${r.added.length} imported${r.skipped.length ? `, ${r.skipped.length} skipped (no RobotPost class): ${r.skipped.slice(0, 5).join(', ')}` : ''}; ${listUserPosts().length} user posts available in the export dialog`);
+  toast(`${r.added.length} post processors imported`, r.added.length ? 'ok' : 'warn');
 }
