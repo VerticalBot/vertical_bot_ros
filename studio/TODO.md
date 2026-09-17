@@ -17,7 +17,7 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 
 ### Next up (приоритеты)
 
-0. Control design follow-ups: symbolic (BDD) model checking and synthesis for larger plants, a graphical automaton / Petri-net editor on top of the DSL, supervisor deployment as a ROS 2 node from the exported Python class, timed automata (UPPAAL-style) and probabilistic model checking (PRISM-style), schedule Gantt view in the Process tab.
+0. Control design follow-ups: symbolic (BDD) model checking and synthesis for larger plants, a graphical behavior-tree editor, supervisor deployment as a ROS 2 node from the exported Python class, timed automata (UPPAAL-style) and probabilistic model checking (PRISM-style), schedule Gantt view in the Process tab.
 1. Hardware validation loop: real camera + arm through the exported perception package (ROS 2 detections → targets), real AMR through the exported Nav2 package; record the first field logs and calibrate the simulated noise models from them.
 2. Photorealistic camera simulation so real detectors can run on simulated images (textures, lighting, leaves, motion blur) and depth from the WebGL depth buffer.
 3. Open-RMF / Nav2 action bridge for real AMRs; VDA 5050 with a real fleet manager.
@@ -111,7 +111,8 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 - [x] MRTA (Hungarian, bottleneck, auction, CBBA), MAPF (priority, CBS, TPG, critical sections), job shop (rules, bounds, B&B, tabu, FJSP, right shift, OEE), real-time (RM / RTA, EDF, PCP, latency chains, QoS), reliability (Weibull, Markov availability, FMEA AP, FTA MOCUS, FDIR, ISO 13849 PL, ISO/TS 15066 SSM), V&V (STL robustness, falsification, pairwise, rule of three, Clopper–Pearson, Welch, acceptance, traceability)
 - [x] Control tab (models in the tree, DSL editor, reports with tables and SVG graph views, exports), Control menu, properties section, tree badges; mission runtime on a station robot with supervisor gating, monitors and mode machine; course examples A / B; 13 demo scenarios; 66 tests; docs section with demo guides
 - [ ] Symbolic (BDD / SAT) engines for plants beyond ~10⁶ product states; timed automata; probabilistic model checking
-- [ ] Graphical editors (automata, Petri nets, behavior trees) synchronised with the DSL text
+- [x] Graphical editors for automata and Petri nets synchronised with the DSL text (Diagram / Text views, `layout` lines), inspector with robot-action bindings (programs, targets, zones, signals) and executors that run an automaton / a net on the station
+- [ ] Graphical behavior-tree editor; undo integration for diagram edits
 - [ ] Deploy the exported supervisor / behavior tree as a ROS 2 node (BehaviorTree.CPP XML export) and drive a real robot through the studio server
 
 ## 7. Platform & quality (платформа и качество)

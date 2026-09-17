@@ -11,12 +11,20 @@ import { ItemType, Item } from '../core/items/item';
 import { MobileRobot } from '../mobile/items';
 import { FleetItem } from '../fleet/fleet';
 import { ControlModelItem, controlModels, addControlModel, CONTROL_KINDS, ControlKind } from '../ctl/model';
-import { TEMPLATES, parseBt, parseDes, parseHybrid, detectKind } from '../ctl/dsl';
+import { TEMPLATES, parseBt, parseDes, parsePetri, parseHybrid, detectKind } from '../ctl/dsl';
 import { analyse, Report, GraphView } from '../ctl/analysis';
 import { COURSE_EXAMPLES } from '../ctl/examples_dsl';
-import { ControlRuntime, stationBindings } from '../ctl/runtime';
+import { ControlRuntime, stationBindings, hostBindings, WorldBindings } from '../ctl/runtime';
+import { AutomatonExecutor, PetriExecutor, ExecutorWorld } from '../ctl/exec';
+import { Robot } from '../core/items/robot';
+import { Program } from '../core/items/program';
+import { Target } from '../core/items/item';
+import { ZoneItem } from '../mobile/items';
+import { planMoveJ, planMoveL } from '../core/motion/trajectory';
 import { DES, parallel, supcon, supervisorTable, supervisorPython, SupervisorTable } from '../ctl/des';
 import { t } from './i18n';
+import { layoutGraph, TREE_BOX } from './graph_layout';
+import { buildGraphEditor, EditorKind, ActionCatalog } from './graph_editor';
 
 const LEVEL_ICON = { ok: '✅', warn: '⚠️', error: '❌', info: 'ℹ️' } as const;
 const kindLabel = (k: ControlKind) => CONTROL_KINDS.find((x) => x.kind === k)?.label ?? k;
@@ -100,53 +108,7 @@ export function controlSection(app: App, m: ControlModelItem): HTMLElement {
 export function renderGraph(g: GraphView, width = 320): SVGSVGElement {
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag: string, attrs: Record<string, string | number>, text?: string) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v)); if (text !== undefined) e.textContent = text; return e; };
-  const ids = g.nodes.map((n) => n.id); const idx = new Map(ids.map((id, i) => [id, i]));
-  const out = new Map<string, string[]>(); const indeg = new Map<string, number>();
-  for (const n of g.nodes) { out.set(n.id, []); indeg.set(n.id, 0); }
-  for (const e of g.edges) { if (!idx.has(e.from) || !idx.has(e.to)) continue; out.get(e.from)!.push(e.to); if (e.from !== e.to) indeg.set(e.to, (indeg.get(e.to) ?? 0) + 1); }
-  // roots: initial nodes, else nodes without incoming edges, else the first node
-  let roots = g.nodes.filter((n) => n.initial).map((n) => n.id);
-  if (!roots.length) roots = g.nodes.filter((n) => (indeg.get(n.id) ?? 0) === 0).map((n) => n.id);
-  if (!roots.length && g.nodes.length) roots = [g.nodes[0].id];
-  const level = new Map<string, number>(); const queue = [...roots]; for (const r of roots) level.set(r, 0);
-  while (queue.length) { const u = queue.shift()!; for (const v of out.get(u) ?? []) if (!level.has(v)) { level.set(v, level.get(u)! + 1); queue.push(v); } }
-  for (const n of g.nodes) if (!level.has(n.id)) level.set(n.id, 0);
-  const layers: string[][] = []; for (const n of g.nodes) { const l = level.get(n.id)!; (layers[l] ??= []).push(n.id); }
-  const tree = g.kind === 'tree';
-  const pos = new Map<string, [number, number]>();
-  const rowH = tree ? 64 : 90; const maxPerRow = Math.max(1, ...layers.map((l) => l.length));
-  const W = Math.max(width, maxPerRow * 110);
-  const BOX_W = 132, BOX_H = 20, COL_W = 156, ROW = 25;
-  let Wf: number, H: number;
-  if (tree) {
-    // left-to-right: one column per depth, one row per leaf (leaves in DFS order, parents centred on their children)
-    let slot = 0; const y = new Map<string, number>();
-    const place = (u: string): number => { const ch = out.get(u) ?? []; if (!ch.length) { y.set(u, slot++ * ROW + 16); return y.get(u)!; } const ys = ch.map(place); const v = (ys[0] + ys[ys.length - 1]) / 2; y.set(u, v); return v; };
-    for (const r of roots) place(r);
-    for (const n of g.nodes) if (!y.has(n.id)) y.set(n.id, slot++ * ROW + 16);
-    for (const n of g.nodes) pos.set(n.id, [BOX_W / 2 + 10 + level.get(n.id)! * COL_W, y.get(n.id)!]);
-    Wf = BOX_W + 20 + (layers.length - 1) * COL_W; H = slot * ROW + 12;
-  } else {
-    layers.forEach((l, li) => l.forEach((id, i) => pos.set(id, [(W / (l.length + 1)) * (i + 1) + ((i * 7 + li * 3) % 11) - 5, 40 + li * rowH])));
-    // Fruchterman–Reingold refinement seeded by the layering: compact loops instead of long chains
-    const n = g.nodes.length;
-    if (n > 2) {
-      const ids = g.nodes.map((nd) => nd.id); const P = ids.map((id) => [...pos.get(id)!] as [number, number]); const io = new Map(ids.map((id, i) => [id, i]));
-      const E = g.edges.filter((e) => e.from !== e.to && io.has(e.from) && io.has(e.to)).map((e) => [io.get(e.from)!, io.get(e.to)!] as [number, number]);
-      const k = n <= 8 ? 165 : 105; let temp = 60;
-      for (let it = 0; it < 250; it++) {
-        const F: Array<[number, number]> = P.map(() => [0, 0]);
-        for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { let dx = P[j][0] - P[i][0], dy = P[j][1] - P[i][1]; let d = Math.hypot(dx, dy); if (d < 1) { dx = 1; dy = ((i + j) % 3) - 1; d = 1; } const f = (k * k) / d; F[i][0] -= (dx / d) * f; F[i][1] -= (dy / d) * f; F[j][0] += (dx / d) * f; F[j][1] += (dy / d) * f; }
-        for (const [a, b] of E) { const dx = P[b][0] - P[a][0], dy = P[b][1] - P[a][1]; const d = Math.hypot(dx, dy) || 1; const f = (d * d) / k; F[a][0] += (dx / d) * f; F[a][1] += (dy / d) * f; F[b][0] -= (dx / d) * f; F[b][1] -= (dy / d) * f; }
-        for (let i = 0; i < n; i++) { const m = Math.hypot(F[i][0], F[i][1]) || 1; const step = Math.min(m, temp); P[i][0] += (F[i][0] / m) * step; P[i][1] += (F[i][1] / m) * step; }
-        temp = Math.max(1, temp * 0.97);
-      }
-      const xs = P.map((q) => q[0]), ys = P.map((q) => q[1]); const x0 = Math.min(...xs), y0 = Math.min(...ys);
-      ids.forEach((id, i) => pos.set(id, [P[i][0] - x0 + 60, P[i][1] - y0 + 40]));
-    }
-    const xs = [...pos.values()].map((q) => q[0]), ys = [...pos.values()].map((q) => q[1]);
-    Wf = Math.max(width, Math.max(...xs) + 60); H = Math.max(...ys) + 60;
-  }
+  const lay = layoutGraph(g, width); const { pos, tree } = lay; const Wf = lay.width, H = lay.height; const BOX_W = TREE_BOX.w, BOX_H = TREE_BOX.h;
   const svg = el('svg', { class: 'ctl-graph', viewBox: `0 0 ${Wf} ${H}`, width: Wf, height: H }) as SVGSVGElement;
   const defs = el('defs', {}); const marker = el('marker', { id: 'ctl-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
   marker.appendChild(el('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: 'currentColor' })); defs.appendChild(marker); svg.appendChild(defs);
@@ -282,18 +244,110 @@ export function traceCsv(rt: ControlRuntime): string {
   return rows.join('\n');
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// Automata / Petri nets executed on the station (actions = programs, targets, zones, signals)
+// ---------------------------------------------------------------------------------------------
+
+/** Station artefacts the diagram inspector offers as actions. */
+export function actionCatalog(app: App): ActionCatalog {
+  const st = app.station;
+  return {
+    robots: [...st.itemsOfType<Robot>(ItemType.ROBOT).map((r) => ({ name: r.name, mobile: false })), ...st.itemsOfType<MobileRobot>(ItemType.MOBILE_ROBOT).map((r) => ({ name: r.name, mobile: true }))],
+    programs: st.itemsOfType<Program>(ItemType.PROGRAM).map((p) => ({ name: p.name, robot: p.robot()?.name })),
+    targets: st.itemsOfType<Target>(ItemType.TARGET).map((x) => x.name),
+    zones: st.itemsOfType<ZoneItem>(ItemType.ZONE).map((z) => z.name),
+    signals: [...app.processSim.signals.keys()],
+  };
+}
+
+/** The station as an executor world: host actions over the app, per-mobile-robot bindings, world stepping. */
+export function stationWorld(app: App): ExecutorWorld & { stop(): void } {
+  const host = hostBindings({
+    station: app.station,
+    runProgram: (p) => app.runProgram(p), programPlaying: () => app.sim.playing, stopProgram: () => app.stopProgram(),
+    moveDuration: (robot, target, linear) => { const q1 = robot.jointsForTarget(target); if (!q1) return null; const tr = linear ? planMoveL(robot, robot.joints(), robot.solveFK(q1), robot.motion.speedLinear, robot.motion.accelLinear) : planMoveJ(robot, robot.joints(), q1, robot.motion.speedJoints, robot.motion.accelJoints); return tr.duration; },
+    setSignal: (n, v) => app.processSim.setSignal(n, v),
+  });
+  const mobiles = new Map<string, WorldBindings & { stepRobot(dt: number): void }>();
+  const inFleet = (r: MobileRobot) => app.station.itemsOfType<FleetItem>(ItemType.FLEET).some((f) => f.robotIds.includes(r.id));
+  const forRobot = (name?: string) => {
+    const r = app.station.itemsOfType<MobileRobot>(ItemType.MOBILE_ROBOT).find((m) => m.name === name || (!name && mobiles.size === 0)); if (!r) return null;
+    let b = mobiles.get(r.id); if (!b) { b = stationBindings({ robot: r, station: app.station }); mobiles.set(r.id, b); } return b;
+  };
+  return {
+    host, forRobot,
+    step: (dt) => { for (const [id, b] of mobiles) { const r = app.station.findById(id) as MobileRobot | null; if (r && !inFleet(r)) b.stepRobot(dt); } },
+    events: () => [...(host.events?.() ?? []), ...[...mobiles.values()].flatMap((b) => b.events?.() ?? [])],
+    stop: () => { host.halt?.program?.({ time: 0, dt: 0, bb: {} }, {}); for (const [id] of mobiles) { const r = app.station.findById(id) as MobileRobot | null; if (r) { r.state.path = null; r.state.v = 0; r.state.status = 'idle'; } } },
+  };
+}
+
+export interface ActiveRun { model: ControlModelItem; hook: (dt: number) => void; done: boolean; rt?: ControlRuntime; exec?: AutomatonExecutor | PetriExecutor; stop(): void; status(): string; logLines(): string[] }
+
+/** Run an automaton or Petri-net model on the station until it is quiescent (or stopped). */
+export function startModelRun(app: App, model: ControlModelItem, opts: { maxSeconds?: number } = {}): ActiveRun {
+  const world = stationWorld(app);
+  const log = (m: string) => app.log(`[${model.name}] ${m}`, /mismatch|failed|denied|deadlock/.test(m) ? 'warn' : 'info');
+  let exec: AutomatonExecutor | PetriExecutor;
+  if (model.kind === 'des') {
+    const doc = parseDes(model.source);
+    let supervisor; if (doc.specs.length) { supervisor = supervisorFromDes(model.source) ?? undefined; if (!supervisor) toast('Specifications are unrealisable — running the plant without a supervisor', 'warn'); }
+    exec = new AutomatonExecutor({ doc, world, supervisor, log });
+  } else if (model.kind === 'petri') {
+    const p = parsePetri(model.source);
+    exec = new PetriExecutor({ doc: { spec: p.spec, checks: p.checks, horizon: p.horizon, layout: p.layout, actions: p.actions }, world, log });
+  } else throw new Error('only automata (des) and Petri nets (petri) can be executed here');
+  const maxSeconds = opts.maxSeconds ?? 3600;
+  const run: ActiveRun = {
+    model, exec, done: false,
+    hook: (dt) => {
+      if (run.done) return;
+      const st = exec.tick(dt);
+      if (st !== 'running' || exec.time >= maxSeconds) {
+        run.done = true; const i = app.worldHooks.indexOf(run.hook); if (i >= 0) app.worldHooks.splice(i, 1); world.stop();
+        const s = exec.summary(); const msg = `${model.name}: ${s.status} after ${s.time.toFixed(1)} s — ${s.fired} firings, ${s.mismatches} mismatches, ${s.failed} failed actions · ${s.where}`;
+        app.log(`[control] ${msg}`, s.mismatches || s.failed ? 'warn' : 'info'); toast(msg, s.mismatches || s.failed ? 'warn' : 'ok', 6000);
+      }
+    },
+    stop: () => { const i = app.worldHooks.indexOf(run.hook); if (i >= 0) app.worldHooks.splice(i, 1); run.done = true; exec.stop(); world.stop(); },
+    status: () => { const s = exec.summary(); return `${run.done ? '⏹' : '▶'} ${model.name}: ${s.status} · t=${fmt(s.time, 1)} s · ${s.fired} ${t('firings')} · ${t('mismatches')} ${s.mismatches}${s.denied ? ` · ${t('denied')} ${s.denied}` : ''} · ${s.where}${s.running.length ? ` · ${t('running')}: ${s.running.join('; ')}` : ''}`; },
+    logLines: () => exec.log,
+  };
+  app.worldHooks.push(run.hook);
+  app.startWorld();
+  app.log(`[control] ${model.kind === 'des' ? 'automaton' : 'Petri net'} "${model.name}" started on the station (${model.kind === 'des' ? (exec as AutomatonExecutor).comps.length + ' components' : (exec as PetriExecutor).net.places.length + ' places'})`);
+  return run;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Panel
 // ---------------------------------------------------------------------------------------------
 
 export function buildControlPanel(app: App): { el: HTMLElement; render: () => void; open: (m: ControlModelItem) => void } {
   let selected: ControlModelItem | null = null;
-  let run: MissionRun | null = null;
+  let run: ActiveRun | null = null;
   let lastReport: Report | null = null;
   const list = h('div', { class: 'ctl-list' });
   const nameIn = h('input', { type: 'text', class: 'ctl-name', placeholder: 'Model name' }) as HTMLInputElement;
   const kindSel = h('select', { class: 'ctl-kind' }, ...CONTROL_KINDS.map((k) => h('option', { value: k.kind }, `${k.label} (ch. ${k.chapter})`))) as HTMLSelectElement;
   const editor = h('textarea', { class: 'ctl-editor', spellcheck: false, wrap: 'off', placeholder: t('Select a model on the left, or create one with New ▾ / Course examples ▾') }) as HTMLTextAreaElement;
+  let view: 'text' | 'diagram' = 'text';
+  const graph = buildGraphEditor({ onChange: (src) => { editor.value = src; if (selected) { selected.source = src; selected.notify('source'); } }, catalog: () => actionCatalog(app) });
+  graph.el.style.display = 'none';
+  const editorWrap = h('div', { class: 'ctl-editor-wrap' }, editor, graph.el);
+  const canDiagram = (k: string) => k === 'des' || k === 'petri';
+  const viewBtns = { text: h('button', { class: 'btn small on', onClick: () => setView('text') }, t('Text')), diagram: h('button', { class: 'btn small', onClick: () => setView('diagram') }, t('Diagram')), expand: h('button', { class: 'btn small', title: t('Expand the editor over the model list and the report'), onClick: () => { el.classList.toggle('ge-expanded'); viewBtns.expand.classList.toggle('on', el.classList.contains('ge-expanded')); graph.render(); } }, '⛶') };
+  const setView = (v: 'text' | 'diagram') => {
+    if (v === 'diagram') {
+      if (!selected) return toast('Select a model first', 'warn');
+      if (!canDiagram(selected.kind)) return toast('The diagram editor is available for automata (des) and Petri nets (petri)', 'warn');
+      try { graph.load(selected.kind as EditorKind, editor.value); } catch (e) { toast(`Cannot draw the document: ${(e as Error).message}`, 'error', 6000); return; }
+    }
+    view = v; editor.style.display = v === 'text' ? '' : 'none'; graph.el.style.display = v === 'diagram' ? '' : 'none'; editorWrap.classList.toggle('diagram', v === 'diagram'); if (v === 'text' && el.classList.contains('ge-expanded')) { el.classList.remove('ge-expanded'); viewBtns.expand.classList.remove('on'); }
+    viewBtns.text.classList.toggle('on', v === 'text'); viewBtns.diagram.classList.toggle('on', v === 'diagram');
+    if (v === 'diagram') graph.render();
+  };
   const report = h('div', { class: 'ctl-report-wrap' });
   const robotSel = h('select', { class: 'ctl-robot' }) as HTMLSelectElement;
   const targetsIn = h('input', { type: 'number', min: 0, step: 1, value: 1, class: 'ctl-targets', title: 'Objects to deliver (blackboard "targets")' }) as HTMLInputElement;
@@ -313,7 +367,8 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   const allBtn = h('button', { class: 'btn', onClick: () => analyseAll(app) }, t('Analyse all'));
   const detectBtn = h('button', { class: 'btn small', title: 'Detect the kind from the first line of the document', onClick: () => { const k = detectKind(editor.value); if (k && selected) { app.cmd(() => { selected!.kind = k; selected!.notify('kind'); }); kindSel.value = k; toast(`Kind: ${kindLabel(k)}`, 'info'); } else toast('Unknown document kind', 'warn'); } }, t('Detect kind'));
   const runBtn = h('button', { class: 'btn primary', onClick: () => doRun() }, '▶ ' + t('Run mission'));
-  const stopBtn = h('button', { class: 'btn', onClick: () => { if (run) { stopMission(app, run); app.log('[control] mission stopped'); } refreshStatus(); } }, '⏹ ' + t('Stop'));
+  const runLabel = () => { runBtn.textContent = '▶ ' + t(selected && (selected.kind === 'des' || selected.kind === 'petri') ? 'Run on station' : 'Run mission'); };
+  const stopBtn = h('button', { class: 'btn', onClick: () => { if (run) { run.stop(); app.log('[control] run stopped'); } refreshStatus(); } }, '⏹ ' + t('Stop'));
   const exportBtn = drop(h('button', { class: 'btn' }, t('Export') + ' ▾'), () => {
     const m = selected; if (!m) return [{ label: t('No model selected'), disabled: true }];
     const e: MenuEntry[] = [
@@ -324,20 +379,20 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
     if (m.kind === 'des') e.push({ separator: true },
       { label: t('Supervisor table (JSON)'), action: () => { const s = supervisorFromDes(m.source); if (!s) return toast('Specification is unrealisable — no supervisor', 'warn'); downloadText(`${m.name}.supervisor.json`, JSON.stringify(s, null, 1), 'application/json'); } },
       { label: t('Supervisor runtime (Python)'), action: () => { const s = supervisorFromDes(m.source); if (!s) return toast('Specification is unrealisable — no supervisor', 'warn'); downloadText(`${m.name.replace(/\W+/g, '_').toLowerCase()}_supervisor.py`, supervisorPython(s, m.name.replace(/\W+/g, '_').toLowerCase())); } });
-    if (run && run.model === m) e.push({ separator: true }, { label: t('Mission trace (CSV)'), action: () => downloadText(`${m.name}.trace.csv`, traceCsv(run!.rt), 'text/csv') }, { label: t('Mission log'), action: () => downloadText(`${m.name}.log.txt`, run!.rt.log.join('\n')) });
+    if (run && run.model === m) { e.push({ separator: true }); if (run.rt) e.push({ label: t('Mission trace (CSV)'), action: () => downloadText(`${m.name}.trace.csv`, traceCsv(run!.rt!), 'text/csv') }); e.push({ label: t('Mission log'), action: () => downloadText(`${m.name}.log.txt`, run!.logLines().join('\n')) }); }
     return e;
   });
 
   const left = h('div', { class: 'ctl-left' }, h('div', { class: 'btn-row' }, newBtn, exBtn, delBtn), list);
   const right = h('div', { class: 'ctl-right' },
-    h('div', { class: 'btn-row ctl-head' }, nameIn, kindSel, detectBtn, analyseBtn, allBtn, exportBtn),
-    h('div', { class: 'ctl-split' }, editor, report),
+    h('div', { class: 'btn-row ctl-head' }, nameIn, kindSel, detectBtn, h('span', { class: 'ctl-view' }, viewBtns.text, viewBtns.diagram, viewBtns.expand), analyseBtn, allBtn, exportBtn),
+    h('div', { class: 'ctl-split' }, editorWrap, report),
     h('div', { class: 'btn-row ctl-run' }, h('b', null, t('Mission runtime:')), h('span', null, t('Robot')), robotSel, h('span', null, t('targets')), targetsIn, runBtn, stopBtn, status),
     runLog);
   const el = h('div', { class: 'ctl-panel' }, left, right);
 
   nameIn.addEventListener('change', () => { if (selected && nameIn.value.trim()) { const m = selected; app.cmd(() => m.setName(nameIn.value.trim())); renderList(); } });
-  kindSel.addEventListener('change', () => { if (selected) { const m = selected; app.cmd(() => { m.kind = kindSel.value as ControlKind; m.notify('kind'); }); renderList(); } });
+  kindSel.addEventListener('change', () => { if (selected) { const m = selected; app.cmd(() => { m.kind = kindSel.value as ControlKind; m.notify('kind'); }); renderList(); viewBtns.diagram.disabled = !canDiagram(m.kind); if (view === 'diagram') setView(canDiagram(m.kind) ? 'diagram' : 'text'); } });
   editor.addEventListener('input', () => { if (selected) { selected.source = editor.value; } });
   editor.addEventListener('change', () => { if (selected) { const m = selected; const v = editor.value; app.cmd(() => { m.source = v; m.notify('source'); }); } });
   editor.addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); const s = editor.selectionStart; editor.setRangeText('  ', s, editor.selectionEnd, 'end'); editor.dispatchEvent(new Event('input')); } if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doAnalyse(); } });
@@ -360,9 +415,11 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   };
   const open = (m: ControlModelItem) => {
     selected = m; nameIn.value = m.name; kindSel.value = m.kind; editor.value = m.source;
+    viewBtns.diagram.disabled = !canDiagram(m.kind);
+    if (view === 'diagram') { if (canDiagram(m.kind)) { try { graph.load(m.kind as EditorKind, m.source); } catch (e) { toast(`Cannot draw the document: ${(e as Error).message}`, 'warn'); setView('text'); } } else setView('text'); }
     clear(report); lastReport = null;
     if (m.lastReport) report.appendChild(h('div', { class: 'hint' }, t('Last verdict:') + ` ${m.lastOk ? '✅ OK' : '❌ issues found'} — ${t('press Analyse (Ctrl+Enter) for the full report')}`));
-    renderList();
+    renderList(); refreshStatus();
     if (m.kind === 'bt') doAnalyse();
   };
   const doAnalyse = () => {
@@ -373,32 +430,37 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
     renderList();
   };
   const doRun = () => {
-    if (!selected) return toast('Select a behavior-tree model first', 'warn');
-    if (selected.kind !== 'bt') return toast('Run mission needs a behavior tree (bt) model; the supervisor (des) and modes (hybrid) are picked from the station', 'warn');
+    if (!selected) return toast('Select a model first', 'warn');
+    if (run && !run.done) run.stop();
+    if (view === 'text') selected.source = editor.value;
+    if (selected.kind === 'des' || selected.kind === 'petri') {
+      try { run = startModelRun(app, selected); shownDone = false; } catch (e) { toast(`Cannot start: ${(e as Error).message}`, 'error', 6000); return; }
+      refreshStatus(); return;
+    }
+    if (selected.kind !== 'bt') return toast('Run needs a behavior tree (bt), an automaton (des) or a Petri net (petri) model', 'warn');
     const robot = app.station.findById(robotSel.value) as MobileRobot | null;
     if (!robot) return toast('Add a mobile robot first (Mobile & Fleet › Add mobile robot…)', 'warn');
-    if (run && !run.done) stopMission(app, run);
-    selected.source = editor.value;
-    try { run = startMission(app, selected, robot, { targets: Number(targetsIn.value) || 0 }); shownDone = false; } catch (e) { toast(`Cannot start: ${(e as Error).message}`, 'error', 6000); return; }
+    try { const m = startMission(app, selected, robot, { targets: Number(targetsIn.value) || 0 }); run = { model: m.model, hook: m.hook, get done() { return m.done; }, set done(v: boolean) { m.done = v; }, rt: m.rt, stop: () => stopMission(app, m), status: () => missionStatus(m), logLines: () => m.rt.log }; shownDone = false; } catch (e) { toast(`Cannot start: ${(e as Error).message}`, 'error', 6000); return; }
     refreshStatus();
   };
+  const missionStatus = (m: MissionRun) => { const s = m.rt.summary(); return `${m.done ? '⏹' : '▶'} ${m.model.name} on ${m.robot.name}: ${s.status} · t=${fmt(s.time, 1)} s · ${s.ticks} ticks · ${t('plant')} ${s.plantState ?? '—'}${s.mode ? ` · ${t('mode')} ${s.mode}` : ''} · ${t('denied')} ${s.denied} · ${t('violations')} ${s.violations} · ${s.verdicts.map((v) => `${v.verdict} ${v.formula}`).join(' | ')}`; };
   const refreshStatus = () => {
-    if (!run) { status.textContent = t('Zones named as in the tree (home, table, bin, dock) are used as goto targets; an item named "Human" is the human position.'); return; }
-    const s = run.rt.summary();
-    status.textContent = `${run.done ? '⏹' : '▶'} ${run.model.name} on ${run.robot.name}: ${s.status} · t=${fmt(s.time, 1)} s · ${s.ticks} ticks · ${t('plant')} ${s.plantState ?? '—'}${s.mode ? ` · ${t('mode')} ${s.mode}` : ''} · ${t('denied')} ${s.denied} · ${t('violations')} ${s.violations} · ${s.verdicts.map((v) => `${v.verdict} ${v.formula}`).join(' | ')}`;
+    runLabel();
+    if (!run) { status.textContent = t(selected && (selected.kind === 'des' || selected.kind === 'petri') ? 'Run on station executes the automaton / net: entry actions and transition operations bound in the diagram inspector drive the robots, programs, targets and signals of the station.' : 'Zones named as in the tree (home, table, bin, dock) are used as goto targets; an item named "Human" is the human position.'); return; }
+    status.textContent = run.status();
     clear(runLog);
-    for (const l of run.rt.log.slice(-6)) runLog.appendChild(h('div', { class: /denied|VIOLATED|mismatch/.test(l) ? 'log-warn' : 'log-info' }, l));
+    for (const l of run.logLines().slice(-6)) runLog.appendChild(h('div', { class: /denied|VIOLATED|mismatch|failed|deadlock/.test(l) ? 'log-warn' : 'log-info' }, l));
   };
   const render = () => {
     const ms = controlModels(app.station);
     if (selected && !ms.includes(selected)) selected = null;
     if (!selected && ms.length) { const sel = app.station.selection.find((i) => i instanceof ControlModelItem) as ControlModelItem | undefined; open(sel ?? ms[0]); }
     else if (selected) renderList();
-    else { renderList(); nameIn.value = ''; editor.value = ''; clear(report); }
+    else { renderList(); nameIn.value = ''; editor.value = ''; clear(report); if (view === 'diagram') setView('text'); }
     renderRobots(); refreshStatus();
   };
   let shownDone = false;
   setInterval(() => { if (run && (!run.done || !shownDone) && el.offsetParent !== null) { refreshStatus(); shownDone = run.done; } }, 300);
-  (app as any).controlPanel = { render, open: (m: ControlModelItem) => { open(m); }, current: () => selected, run: () => run, start: doRun, stop: () => { if (run) stopMission(app, run); refreshStatus(); }, analyse: doAnalyse, graphSvgs: () => [...report.querySelectorAll<SVGSVGElement>('svg.ctl-graph')].map(standaloneSvg) };
+  (app as any).controlPanel = { render, open: (m: ControlModelItem) => { open(m); }, current: () => selected, run: () => run, start: doRun, stop: () => { if (run) run.stop(); refreshStatus(); }, analyse: doAnalyse, setView, graph, graphSvgs: () => [...report.querySelectorAll<SVGSVGElement>('svg.ctl-graph')].map(standaloneSvg) };
   return { el, render, open: (m) => { open(m); } };
 }

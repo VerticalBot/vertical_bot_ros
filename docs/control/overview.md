@@ -23,6 +23,7 @@ for a real controller.
   the station (example **A** — a mobile manipulator collecting parts, example **B** — a production cell with two
   machines, a shared robot and an AMR). The step-by-step guides are {doc}`example-a-mobile-manipulator` and
   {doc}`example-b-production-cell`.
+- Prefer drawing? {doc}`editors` — automata and Petri nets edited as diagrams, with robot programs, targets, zones and signals bound to states and transitions and executed on the station.
 - {doc}`dsl` is the reference of the model languages; {doc}`checks` lists every check the analysis performs and
   what to do when it fails; {doc}`runtime` explains how a behavior tree is executed on the station and how the
   supervisor reaches a real robot.
@@ -54,11 +55,12 @@ of the selected model, the analysis report and the mission runtime.
 | **Course examples ▾** | adds a course example (or all of them) — A · … are example A, B · … example B, with the chapter of the course |
 | **Delete** | removes the selected model from the station |
 | name, kind | the model name (tree item) and its kind; **Detect kind** reads the first keyword of the document |
+| **Text** / **Diagram** | the text editor, or the graphical editor for automata and Petri nets ({doc}`editors`): states / places / transitions / arcs drawn and inspected, robot actions bound to states and transitions |
 | editor | the model text; `Tab` indents, `Ctrl+Enter` analyses; comments start with `#` |
 | **Analyse** / **Analyse all** | runs the analysis of the selected / of every model; the verdict is stored on the item (tree badge ✓ / ✗, properties panel) |
 | report | sections with a level (✅ ok, ⚠️ warning, ❌ error, ℹ️ info), tables, graph views (automata, Petri nets, behavior trees, mode automata, synthesised controllers) and the metrics table |
 | **Export ▾** | report (Markdown), the document, the graph view (SVG); for automata models the synthesised **supervisor table (JSON)** and a **supervisor runtime (Python)**; after a mission run the trace (CSV) and the log |
-| **Mission runtime** | robot selector, number of objects (`targets`), **▶ Run mission** / **⏹ Stop**; status line with the plant state, the mode, denials, monitor verdicts |
+| **Mission runtime** | robot selector, number of objects (`targets`), **▶ Run mission** (behavior trees) or **▶ Run on station** (automata and Petri nets with bound actions) / **⏹ Stop**; status line with the plant state / marking, running actions, the mode, denials, monitor verdicts |
 
 The properties panel of a control model shows its kind, the course chapter, the last verdict and buttons to open
 it in the tab or analyse it.

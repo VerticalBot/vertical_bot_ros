@@ -8,6 +8,7 @@
  * (Algorithm 4.2), resource ordering check, deterministic T-timed simulation (three-phase firing), GSPN → CTMC with
  * vanishing-state elimination and steady-state indices.
  */
+import { stronglyConnected } from './graph_util';
 import { steadyState } from './perf';
 
 export type PlaceKind = 'idle' | 'activity' | 'resource' | 'monitor' | 'buffer' | 'other';
@@ -287,16 +288,7 @@ export class ReachabilityGraph {
   }
 }
 
-function tarjan(n: number, succ: number[][]): number[][] {
-  let index = 0; const idx = new Array(n).fill(-1), low = new Array(n).fill(0), on = new Array(n).fill(false); const st: number[] = []; const out: number[][] = [];
-  const strong = (v: number) => {
-    idx[v] = low[v] = index++; st.push(v); on[v] = true;
-    for (const w of succ[v]) { if (idx[w] < 0) { strong(w); low[v] = Math.min(low[v], low[w]); } else if (on[w]) low[v] = Math.min(low[v], idx[w]); }
-    if (low[v] === idx[v]) { const c: number[] = []; let w: number; do { w = st.pop()!; on[w] = false; c.push(w); } while (w !== v); out.push(c); }
-  };
-  for (let v = 0; v < n; v++) if (idx[v] < 0) strong(v);
-  return out;
-}
+function tarjan(n: number, succ: number[][]): number[][] { return stronglyConnected(Array.from({ length: n }, (_, i) => i), (v) => succ[v]); }
 
 // ---------------------------------------------------------------------------------------------
 // Structural analysis report and deadlock prevention
@@ -403,6 +395,8 @@ export interface TimedSimResult {
   busy: Record<string, number>;
   log: Array<{ t: number; transition: string; start: number; end: number }>;
   deadlockAt: number | null;
+  /** Zero-time firings without progress (a transition without inputs and delay): the simulation stopped early. */
+  zeno?: boolean;
 }
 
 /** Deterministic T-timed net: tokens are removed at start and produced after `delay`; conflicts resolved by priority then a seeded random choice. */
@@ -412,12 +406,13 @@ export function simulateTimed(net: PetriNet, horizon: number, opts: { seed?: num
   const pending: Array<{ end: number; t: number; start: number }> = [];
   const firings: Record<string, number> = {}; const log: TimedSimResult['log'] = [];
   const tokenTime = new Array(net.placeCount).fill(0), busyTime = new Array(net.placeCount).fill(0);
-  let deadlockAt: number | null = null;
+  let deadlockAt: number | null = null; let zeno = false; let zeroIters = 0;
   const account = (dt: number) => { for (let i = 0; i < m.length; i++) { tokenTime[i] += m[i] * dt; if (m[i] > 0) busyTime[i] += dt; } };
   for (let guard = 0; guard < 1e6 && time < horizon; guard++) {
     // start all enabled transitions (with conflicts)
     let en = net.enabled(m);
-    while (en.length) {
+    let fired = 0; // a transition without input places (source) with zero delay would fire forever
+    while (en.length && fired++ < 50) {
       let t: number;
       if (opts.policy === 'first') t = en[0];
       else { const top = Math.max(...en.map((j) => net.transitions[j].priority ?? 0)); const cand = en.filter((j) => (net.transitions[j].priority ?? 0) === top); t = opts.policy === 'priority' ? cand[0] : cand[Math.floor(rnd() * cand.length)]; }
@@ -430,6 +425,7 @@ export function simulateTimed(net: PetriNet, horizon: number, opts: { seed?: num
     pending.sort((a, b) => a.end - b.end);
     const nxt = pending.shift()!;
     const dt = Math.min(nxt.end, horizon) - time; account(dt); time = Math.min(nxt.end, horizon);
+    if (dt <= 0) { if (++zeroIters > 500) { zeno = true; break; } } else zeroIters = 0; // zero-time firing forever (a source transition without delay)
     if (nxt.end > horizon) break;
     m = m.map((v, i) => v + net.post[nxt.t][i]);
     const id = net.transitionId(nxt.t); firings[id] = (firings[id] ?? 0) + 1;
@@ -440,7 +436,7 @@ export function simulateTimed(net: PetriNet, horizon: number, opts: { seed?: num
   const H = Math.max(time, 1e-9);
   return {
     horizon: H, firings, throughput: Object.fromEntries(Object.entries(firings).map(([k, v]) => [k, v / H])),
-    meanTokens: Object.fromEntries(net.places.map((p, i) => [p.id, tokenTime[i] / H])), busy: Object.fromEntries(net.places.map((p, i) => [p.id, busyTime[i] / H])), log, deadlockAt,
+    meanTokens: Object.fromEntries(net.places.map((p, i) => [p.id, tokenTime[i] / H])), busy: Object.fromEntries(net.places.map((p, i) => [p.id, busyTime[i] / H])), log, deadlockAt, zeno,
   };
 }
 
@@ -459,6 +455,7 @@ export interface GspnResult {
 export function analyseGspn(net: PetriNet, opts: { limit?: number } = {}): GspnResult {
   const rg = net.reachability({ limit: opts.limit, gspn: true });
   const n = rg.size;
+  if (rg.truncated || n > 4000) throw new Error(`too many markings for the CTMC (${n}${rg.truncated ? '+, truncated' : ''}); bound the net or reduce the tokens`);
   const vanishing = rg.markings.map((m) => net.enabled(m, true).some((t) => net.transitions[t].immediate));
   // rates from marking i via transition t
   const rateOf = (i: number, t: number) => { const tr = net.transitions[t]; if (vanishing[i]) return tr.immediate ? (tr.weight ?? 1) : 0; return tr.rate ?? (tr.delay ? 1 / tr.delay : 1); };

@@ -1,3 +1,4 @@
+import { stronglyConnected } from './graph_util';
 /**
  * Discrete-event systems (DES) and supervisory control — Ramadge–Wonham framework.
  *
@@ -149,19 +150,9 @@ export class DES {
 
   /** Strongly connected components (Tarjan) restricted to `states`. */
   sccs(states: Set<string> = this.X): string[][] {
-    let index = 0; const idx = new Map<string, number>(), low = new Map<string, number>(); const stack: string[] = []; const on = new Set<string>(); const out: string[][] = [];
-    const strong = (v: string) => {
-      idx.set(v, index); low.set(v, index); index++; stack.push(v); on.add(v);
-      for (const w of this.f.get(v)?.values() ?? []) {
-        if (!states.has(w)) continue;
-        if (!idx.has(w)) { strong(w); low.set(v, Math.min(low.get(v)!, low.get(w)!)); }
-        else if (on.has(w)) low.set(v, Math.min(low.get(v)!, idx.get(w)!));
-      }
-      if (low.get(v) === idx.get(v)) { const comp: string[] = []; let w: string; do { w = stack.pop()!; on.delete(w); comp.push(w); } while (w !== v); out.push(comp); }
-    };
-    for (const v of states) if (!idx.has(v)) strong(v);
-    return out;
+    return stronglyConnected(states, (v) => [...(this.f.get(v)?.values() ?? [])].filter((w) => states.has(w)));
   }
+
 }
 
 // ---------------------------------------------------------------------------------------------

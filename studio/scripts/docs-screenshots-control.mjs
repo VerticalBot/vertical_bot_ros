@@ -79,6 +79,20 @@ await menu('Control', 'New control model'); await dialogShot('52-new-model-dialo
 await ev(() => { const m = window.app.station.itemsOfType(111)[0]; window.app.select(m); }); await page.waitForTimeout(400);
 await shot('53-control-model-properties', { clip: await clipOf('.props-panel') });
 
+// 57-59 graphical editors
+await tallDock(620);
+await pickModel('A · DES plant'); await page.click('.ctl-view button:has-text("Diagram")'); await page.waitForTimeout(300); await page.click('.ctl-view button:has-text("⛶")'); await page.waitForTimeout(600);
+await ev(() => window.app.controlPanel.graph.select({ type: 'node', id: 'mT' })); await page.waitForTimeout(300);
+await shot('57-editor-automaton');
+await page.click('.ctl-view button:has-text("⛶")'); await page.waitForTimeout(200);
+await pickModel('B · Cell Petri net'); await page.waitForTimeout(300); await page.click('.ctl-view button:has-text("⛶")'); await page.waitForTimeout(600);
+await ev(() => window.app.controlPanel.graph.select({ type: 'node', id: 't1a' })); await page.waitForTimeout(300);
+await shot('58-editor-petri', { clip: await clipOf('.ctl-right') });
+await ev(() => { const g = window.app.controlPanel.graph; const st = g.state(); st.petri.actions.push({ target: 't1a', kind: 'program', value: 'Load M1', robot: 'UR10e', args: {} }); g.select({ type: 'node', id: 't1a' }); }); await page.waitForTimeout(300);
+await shot('58b-editor-petri-action', { clip: await clipOf('.ctl-right') });
+await ev(() => document.querySelector('.ge-action')?.scrollIntoView()); await page.waitForTimeout(200); await shot('59-action-panel', { clip: await clipOf('.ge-action', 10) });
+await page.click('.ctl-view button:has-text("Text")'); await page.waitForTimeout(300);
+await tallDock(600);
 // 54-55 mission runtime scenario
 await menu('Help', 'Demo scenarios');
 await page.selectOption('.dialog select', 'control'); await page.waitForTimeout(300);

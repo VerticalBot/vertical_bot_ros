@@ -76,6 +76,14 @@ violation is logged, counted and stored in `bb.violation`; the tree can react to
 `modes <name>` or the first one in the station) runs as the mode machine: its `vmax` becomes the speed limit of
 the robot (`SLOW` near a human, `STOP` on e-stop), with the hysteresis and dwell times of the model.
 
+## Automata and Petri nets on the station
+
+Behavior trees are not the only executable model: a `des` document runs as parallel state machines with entry
+actions and a `petri` document as a cell controller whose transitions are robot operations — the actions are the
+station's programs, targets, zones and signals, bound in the diagram inspector or with `action` lines. See
+{doc}`editors` for the semantics and the buttons; the same world bindings (and the same `program`, `move`,
+`signal`, `wait`, `set`, `event` host actions) are available to behavior trees through `stationBindings`.
+
 ## Exporting the supervisor to a real controller
 
 *Export ▾* on a `des` model:

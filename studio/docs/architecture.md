@@ -104,4 +104,8 @@ its pedestal) are reported once as warnings and ignored along the trajectory.
 against `WorldBindings`. `ControlModelItem` (type 111) stores the document in the station tree; the Control tab
 (`src/ui/control_ui.ts`) renders reports and SVG graph views and drives `ControlRuntime` from the world loop
 (`app.worldHooks`, stepped inside `App.tick` with the fleet and process simulators). The supervisor table format
-(`SupervisorTable`) is shared by the runtime, the JSON export and the generated Python class.
+(`SupervisorTable`) is shared by the runtime, the JSON export and the generated Python class. `graphdoc.ts` is the
+document model of the graphical editors (`ui/graph_editor.ts`): automata and Petri nets edited as diagrams and
+written back to the DSL with `layout` and `action` lines; `exec.ts` executes them on the station (entry actions,
+transition operations) through the host actions of `runtime.ts` (programs, targets, signals) — the bridge between
+the control models and the ordinary robot programming of the studio.

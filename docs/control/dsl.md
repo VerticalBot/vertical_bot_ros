@@ -44,6 +44,8 @@ check ctl AG EF (M1='I' & M2='I')
 - The plant is the parallel composition of all `automaton` blocks; specifications are composed with the plant
   (`H = G ‖ E₁ ‖ … ‖ Eₙ`) and the supremal controllable non-blocking sublanguage is computed.
 - Atoms in `check` formulas: `Component = 'state'` (or `Component='state'`), `marked`, `deadlock`.
+- `action Automaton.state program="Pick part" robot=UR10e done=loaded` binds a robot action to a state (entry action; `done=` is the event fired when it finishes) — also `target=`, `goto=`, `signal=`, `wait=`, `event=`, `set=` ({doc}`editors`).
+- `layout Automaton state=x,y …` stores the diagram positions written by the graphical editor.
 
 ## `petri` — Petri nets (chapters 4–5)
 
@@ -58,6 +60,7 @@ check ctl AG !deadlock
 ```
 
 Atoms for `check`: `p` (place marked), `p >= 2`, arithmetic over markings (`a1 + b1 <= 1`), `deadlock`.
+`action t1a program="Load M1" robot=KUKA` binds a robot action to a transition (it runs while the transition fires); `layout p1=x,y …` stores diagram positions.
 
 ## `s3pr` — resource-allocation system (chapter 4)
 

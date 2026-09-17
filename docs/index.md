@@ -85,6 +85,7 @@ process/components
 control/overview
 control/example-a-mobile-manipulator
 control/example-b-production-cell
+control/editors
 control/runtime
 control/dsl
 control/checks

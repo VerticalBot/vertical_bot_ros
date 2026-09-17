@@ -15,9 +15,12 @@ import { LTL3Monitor, Verdict } from './temporal';
 import { ModeMachine, HybridSpec } from './hybrid';
 import { Signal } from './vv';
 import { Env, Value } from './expr';
-import type { Station } from '../core/items/item';
+import type { Station, Item } from '../core/items/item';
 import { ItemType } from '../core/items/item';
 import { MobileRobot, ZoneItem } from '../mobile/items';
+import type { Robot } from '../core/items/robot';
+import type { Program } from '../core/items/program';
+import type { Target } from '../core/items/item';
 import { followPath, stepMobile } from '../mobile/controller';
 
 export interface WorldBindings {
@@ -150,6 +153,99 @@ export function stationBindings(o: StationWorldOptions): WorldBindings & { stepR
     stepRobot: (dt) => { const vmax = robot.params.vmaxOverride as number | undefined; stepMobile(robot, dt, vmax ? { speed: vmax * 1000 } : {}); },
   };
   return bindings;
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// Host actions: the studio's own programming artefacts as actions (robot programs, targets, component signals)
+// ---------------------------------------------------------------------------------------------
+
+/** What the app exposes to the control runtimes (implemented in ui/control_ui.ts over App). */
+export interface StationHost {
+  station: Station;
+  /** Start an arm program in the program simulator (one at a time). */
+  runProgram(p: Program): void;
+  programPlaying(): boolean;
+  stopProgram(): void;
+  /** Joint trajectory duration (s) for a MoveJ from the current joints to the target; null when unreachable. */
+  moveDuration(robot: Robot, target: Target, linear?: boolean): number | null;
+  /** Process-component signal (the world clock's signal table). */
+  setSignal(name: string, value: boolean | number): void;
+}
+
+/**
+ * Actions available to every model: `program name= [robot=]` (runs a Program item; waits while the simulator plays
+ * another one), `move target= [robot=] [linear=true]` (moves an arm to a Target over the planned duration),
+ * `signal name= value=` (sets a process signal used by the components), `wait seconds=`, `set key=value`,
+ * `event emit=` (an uncontrollable event for the supervisor / executor).
+ */
+export function hostBindings(host: StationHost): WorldBindings {
+  const st = host.station; const pending: string[] = [];
+  const timers = new Map<string, number>();
+  const owner = { node: null as string | null }; const queue: string[] = []; // first come, first served for the single program simulator
+  const find = <T extends Item>(type: ItemType, name: unknown): T | undefined => (typeof name === 'string' ? (st.itemsOfType<T>(type).find((i) => i.name === name) ?? st.itemsOfType<T>(type).find((i) => i.name.toLowerCase() === name.toLowerCase())) : undefined);
+  const robotOf = (args: Record<string, unknown>, fallback?: Item | null): Robot | null => (find<Robot>(ItemType.ROBOT, args.robot) ?? (fallback as Robot | null) ?? st.itemsOfType<Robot>(ItemType.ROBOT)[0] ?? null);
+  const moves = new Map<string, { robot: Robot; q0: number[]; q1: number[]; t0: number; dur: number }>();
+  return {
+    sense: () => ({ program_playing: host.programPlaying(), time_host: 0 }),
+    events: () => pending.splice(0),
+    actions: {
+      program: (ctx, args, node) => {
+        const p = find<Program>(ItemType.PROGRAM, args.name ?? args.program);
+        if (!p) { ctx.log?.(`program ${String(args.name)} not found`); return 'failure'; }
+        if (node.status !== 'running' || owner.node !== node.id) {
+          if (!queue.includes(node.id)) queue.push(node.id);
+          if (host.programPlaying() || queue[0] !== node.id) return 'running'; // another program is playing or queued earlier: wait for the simulator
+          queue.shift(); host.runProgram(p); owner.node = node.id; timers.set(node.id, ctx.time); return 'running';
+        }
+        if (host.programPlaying() && ctx.time - (timers.get(node.id) ?? ctx.time) < 0.2) return 'running';
+        if (host.programPlaying()) return 'running';
+        owner.node = null; timers.delete(node.id); return 'success';
+      },
+      move: (ctx, args, node) => {
+        const tgt = find<Target>(ItemType.TARGET, args.target); if (!tgt) { ctx.log?.(`target ${String(args.target)} not found`); return 'failure'; }
+        if (node.status !== 'running') {
+          const robot = robotOf(args, (tgt.parent && (tgt.parent as Item).type === ItemType.ROBOT ? (tgt.parent as Item) : null)); if (!robot) { ctx.log?.('no robot for move'); return 'failure'; }
+          const dur = host.moveDuration(robot, tgt, args.linear === true); if (dur === null) { ctx.log?.(`${tgt.name} unreachable for ${robot.name}`); return 'failure'; }
+          const q1 = robot.jointsForTarget(tgt); if (!q1) return 'failure';
+          moves.set(node.id, { robot, q0: robot.joints(), q1, t0: ctx.time, dur: Math.max(dur, 0.05) }); return 'running';
+        }
+        const m = moves.get(node.id); if (!m) return 'success';
+        const s = Math.min(1, (ctx.time - m.t0) / m.dur); const sm = s * s * (3 - 2 * s);
+        m.robot.setJoints(m.q0.map((v, i) => v + (m.q1[i] - v) * sm));
+        if (s >= 1) { moves.delete(node.id); return 'success'; }
+        return 'running';
+      },
+      signal: (_ctx, args) => {
+        const v = args.value; host.setSignal(String(args.name), typeof v === 'number' || typeof v === 'boolean' ? v : v === 'false' ? false : v === 'true' ? true : Number.isFinite(Number(v)) ? Number(v) : true); return 'success';
+      },
+      wait: (ctx, args, node) => { const k = `w#${node.id}`; if (node.status !== 'running') timers.set(k, ctx.time); if (ctx.time - (timers.get(k) ?? ctx.time) >= Number(args.seconds ?? 1)) { timers.delete(k); return 'success'; } return 'running'; },
+      set: (ctx, args) => { for (const [k, v] of Object.entries(args)) if (k !== 'event' && k !== 'done' && k !== 'robot') ctx.bb[k] = v; return 'success'; },
+      event: (_c, args) => { const e = args.emit ?? args.name; if (typeof e === 'string') pending.push(e); return 'success'; },
+    },
+    halt: { program: (_c, _a) => { void _a; if (owner.node) { host.stopProgram(); owner.node = null; } queue.length = 0; }, move: (_c, args) => { void args; } },
+  };
+}
+
+/** Stand-in host for tests and headless scenarios: programs and moves take `durations` seconds, signals are recorded. */
+export function simulatedHost(opts: { programs?: Record<string, number>; moveSeconds?: number } = {}): WorldBindings & { signals: Record<string, unknown>; runs: string[]; playing: string | null } {
+  const timers = new Map<string, number>(); const pending: string[] = []; const queue: string[] = [];
+  const out = { signals: {} as Record<string, unknown>, runs: [] as string[], playing: null as string | null };
+  const timed = (key: string, seconds: number, ctx: TickContext, node: BTNode, onStart?: () => boolean, onDone?: () => void): BTStatus => { const k = `${key}#${node.id}`; if (!timers.has(k)) { if (onStart && !onStart()) return 'running'; timers.set(k, ctx.time); } if (ctx.time - timers.get(k)! >= seconds) { timers.delete(k); onDone?.(); return 'success'; } return 'running'; };
+  return {
+    ...out,
+    sense: () => ({ program_playing: out.playing !== null }),
+    events: () => pending.splice(0),
+    actions: {
+      program: (ctx, args, node) => { const name = String(args.name); const d = opts.programs?.[name]; if (d === undefined) return 'failure'; return timed('prog', d, ctx, node, () => { if (!queue.includes(node.id)) queue.push(node.id); if (out.playing || queue[0] !== node.id) return false; queue.shift(); out.playing = `${name}#${node.id}`; out.runs.push(name); return true; }, () => { out.playing = null; }); },
+      move: (ctx, args, node) => timed('move', opts.moveSeconds ?? 1, ctx, node, undefined, () => { out.runs.push(`move ${String(args.target)}`); }),
+      signal: (_c, args) => { out.signals[String(args.name)] = args.value; return 'success'; },
+      wait: (ctx, args, node) => timed('wait', Number(args.seconds ?? 1), ctx, node),
+      set: (ctx, args) => { for (const [k, v] of Object.entries(args)) ctx.bb[k] = v; return 'success'; },
+      event: (_c, args) => { const e = args.emit ?? args.name; if (typeof e === 'string') pending.push(e); return 'success'; },
+    },
+    halt: { program: () => { out.playing = null; } },
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

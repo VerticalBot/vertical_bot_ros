@@ -76,21 +76,40 @@ export function detectKind(src: string): ControlKind | null {
 // DES
 // ---------------------------------------------------------------------------------------------
 
-export interface DesDoc { name: string; plant: AutomatonSpec[]; specs: AutomatonSpec[]; uncontrollable: string[]; unobservable: string[]; faults: string[]; checks: Array<{ kind: 'ltl' | 'ctl'; formula: string; name?: string }>; supervisorName?: string }
+export interface DesDoc { name: string; plant: AutomatonSpec[]; specs: AutomatonSpec[]; uncontrollable: string[]; unobservable: string[]; faults: string[]; checks: Array<{ kind: 'ltl' | 'ctl'; formula: string; name?: string }>; supervisorName?: string; /** Diagram positions per automaton (graphical editor). */ layout?: Record<string, Record<string, [number, number]>>; /** Robot actions bound to states (`Automaton.state`). */ actions: ActionBinding[] }
 
 const TRANS_RE = /^(\S+)\s*-+\s*(.+?)\s*-+>\s*(\S+)$/;
 
+/** A robot / cell action bound to an automaton state (`Automaton.state`) or a Petri transition (see ctl/exec.ts). */
+export interface ActionBinding { target: string; kind: 'program' | 'target' | 'goto' | 'signal' | 'wait' | 'event' | 'set'; value: string; robot?: string; done?: string; component?: string; args: Record<string, string | number | boolean> }
+export const ACTION_KINDS: ActionBinding['kind'][] = ['program', 'target', 'goto', 'signal', 'wait', 'event', 'set'];
+function parseAction(words: string[], opts: Opts, n: number): ActionBinding {
+  const target = words[1]; if (!target) throw new DslError('action <state|transition> program=|target=|goto=|signal=|wait=|event=|set= …', n);
+  const kind = ACTION_KINDS.find((k) => opts[k] !== undefined); if (!kind) throw new DslError(`action ${target}: one of ${ACTION_KINDS.map((k) => `${k}=`).join(' ')} is required`, n);
+  const args: ActionBinding['args'] = {}; for (const [k, v] of Object.entries(opts)) if (!['robot', 'done', 'component', kind].includes(k)) args[k] = v;
+  return { target, kind, value: String(opts[kind]), robot: opts.robot !== undefined ? String(opts.robot) : undefined, done: opts.done !== undefined ? String(opts.done) : undefined, component: opts.component !== undefined ? String(opts.component) : undefined, args };
+}
+
+/** `key=x,y` options → positions. */
+function layoutOf(opts: Opts): Record<string, [number, number]> {
+  const L: Record<string, [number, number]> = {};
+  for (const [k, v] of Object.entries(opts)) { const m = /^(-?[\d.]+),(-?[\d.]+)$/.exec(String(v)); if (m) L[k] = [Number(m[1]), Number(m[2])]; }
+  return L;
+}
+
 export function parseDes(src: string): DesDoc {
-  const doc: DesDoc = { name: 'DES', plant: [], specs: [], uncontrollable: [], unobservable: [], faults: [], checks: [] };
+  const doc: DesDoc = { name: 'DES', plant: [], specs: [], uncontrollable: [], unobservable: [], faults: [], checks: [], actions: [] };
   let cur: AutomatonSpec | null = null; let list: AutomatonSpec[] = doc.plant;
   for (const l of lines(src)) {
-    const t = l.text.trim(); const { words, quoted } = tokenize(t); const kw = words[0]?.toLowerCase();
+    const t = l.text.trim(); const { words, quoted, opts } = tokenize(t); const kw = words[0]?.toLowerCase();
     if (kw === 'des' || kw === 'plant') { doc.name = words.slice(1).join(' ') || doc.name; continue; }
     if (kw === 'automaton' || kw === 'spec' || kw === 'supervisor') { cur = { name: words[1] ?? `${kw}${list.length + 1}`, events: [], initial: '', marked: [], transitions: [], states: [] }; list = kw === 'automaton' ? doc.plant : doc.specs; list.push(cur); continue; }
     if (kw === 'uncontrollable') { doc.uncontrollable.push(...words.slice(1)); continue; }
     if (kw === 'unobservable') { doc.unobservable.push(...words.slice(1)); continue; }
     if (kw === 'faults' || kw === 'fault') { doc.faults.push(...words.slice(1)); continue; }
     if (kw === 'check') { const kind = words[1]?.toLowerCase() as 'ltl' | 'ctl'; const name = quoted[0]; const rest = t.replace(/^check\s+\w+\s*/i, '').replace(name ? `"${name}"` : '', '').trim(); if (kind !== 'ltl' && kind !== 'ctl') throw new DslError('check ltl|ctl <formula>', l.n); doc.checks.push({ kind, formula: rest, name }); continue; }
+    if (kw === 'layout') { const auto = words[1]; if (!auto) throw new DslError('layout <automaton> state=x,y …', l.n); (doc.layout ??= {})[auto] = { ...(doc.layout?.[auto] ?? {}), ...layoutOf(opts) }; continue; }
+    if (kw === 'action') { doc.actions.push(parseAction(words, opts, l.n)); continue; }
     if (!cur) throw new DslError(`expected 'automaton <name>' before '${t}'`, l.n);
     if (kw === 'events') { cur.events.push(...words.slice(1)); continue; }
     if (kw === 'initial') { cur.initial = words[1]; continue; }
@@ -104,23 +123,17 @@ export function parseDes(src: string): DesDoc {
   return doc;
 }
 
-export function automatonToDsl(a: AutomatonSpec, keyword: 'automaton' | 'spec' = 'automaton'): string {
-  const out = [`${keyword} ${a.name}`, `  events ${a.events.join(' ')}`, `  initial ${a.initial}`, `  marked ${a.marked.join(' ')}`];
-  const byPair = new Map<string, string[]>();
-  for (const t of a.transitions) { const k = `${t.from}${t.to}`; let l = byPair.get(k); if (!l) { l = []; byPair.set(k, l); } l.push(t.event); }
-  for (const [k, evs] of byPair) { const [from, to] = k.split(''); out.push(`  ${from} -${evs.join(',')}-> ${to}`); }
-  return out.join('\n');
-}
+export { automatonToDsl } from './graphdoc';
 
 // ---------------------------------------------------------------------------------------------
 // Petri nets and S³PR
 // ---------------------------------------------------------------------------------------------
 
-export function parsePetri(src: string): { spec: PetriNetSpec; checks: Array<{ kind: 'ltl' | 'ctl'; formula: string; name?: string }>; horizon: number } {
-  const spec: PetriNetSpec = { name: 'Petri net', places: [], transitions: [], arcs: [] }; const checks: DesDoc['checks'] = []; let horizon = 300;
+export function parsePetri(src: string): { spec: PetriNetSpec; checks: Array<{ kind: 'ltl' | 'ctl'; formula: string; name?: string }>; horizon: number; layout: Record<string, [number, number]>; actions: ActionBinding[] } {
+  const spec: PetriNetSpec = { name: 'Petri net', places: [], transitions: [], arcs: [] }; const checks: DesDoc['checks'] = []; let horizon = 300; let layout: Record<string, [number, number]> = {}; const actions: ActionBinding[] = [];
   for (const l of lines(src)) {
     const t = l.text.trim(); const { words, opts, quoted } = tokenize(t); const kw = words[0]?.toLowerCase();
-    if (kw === 'petri') { spec.name = words.slice(1).join(' ') || spec.name; if (typeof opts.horizon === 'number') horizon = opts.horizon; continue; }
+    if (kw === 'petri') { spec.name = words.slice(1).filter((w) => !w.includes('=')).join(' ') || spec.name; if (typeof opts.horizon === 'number') horizon = opts.horizon; continue; }
     if (kw === 'place') { spec.places.push({ id: words[1], tokens: Number(opts.tokens ?? opts.m0 ?? 0), kind: (opts.kind as PlaceKind) ?? undefined, capacity: opts.capacity as number | undefined, label: quoted[0] }); continue; }
     if (kw === 'transition' || kw === 'trans') { spec.transitions.push({ id: words[1], delay: opts.delay as number | undefined, rate: opts.rate as number | undefined, immediate: words.includes('immediate') || opts.immediate === true, weight: opts.weight as number | undefined, priority: opts.priority as number | undefined, label: quoted[0] }); continue; }
     if (kw === 'arc') {
@@ -132,9 +145,11 @@ export function parsePetri(src: string): { spec: PetriNetSpec; checks: Array<{ k
       continue;
     }
     if (kw === 'check') { const kind = words[1]?.toLowerCase() as 'ltl' | 'ctl'; const name = quoted[0]; checks.push({ kind, formula: t.replace(/^check\s+\w+\s*/i, '').replace(name ? `"${name}"` : '', '').trim(), name }); continue; }
+    if (kw === 'layout') { layout = { ...layout, ...layoutOf(opts) }; continue; }
+    if (kw === 'action') { actions.push(parseAction(words, opts, l.n)); continue; }
     throw new DslError(`cannot parse '${t}'`, l.n);
   }
-  return { spec, checks, horizon };
+  return { spec, checks, horizon, layout, actions };
 }
 
 export function parseS3PR(src: string): S3PRSpec {

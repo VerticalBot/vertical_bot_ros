@@ -204,7 +204,10 @@ progress { accent-color: var(--accent-2); }
 .ctl-head { align-items: center; gap: 6px; flex-wrap: wrap; }
 .ctl-name { width: 220px; } .ctl-kind { max-width: 320px; }
 .ctl-split { display: flex; gap: 8px; flex: 1; min-height: 0; }
-.ctl-editor { flex: 0 0 46%; min-width: 280px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.35; background: var(--panel-2); color: inherit; border: 1px solid var(--border); border-radius: 4px; padding: 6px; resize: none; white-space: pre; overflow: auto; tab-size: 2; }
+.ctl-editor-wrap { flex: 0 0 46%; min-width: 280px; display: flex; flex-direction: column; min-height: 0; }
+.ctl-editor-wrap.diagram { flex: 1 1 64%; }
+.ctl-panel.ge-expanded .ctl-left, .ctl-panel.ge-expanded .ctl-report-wrap { display: none; } .ctl-panel.ge-expanded .ctl-editor-wrap { flex: 1 1 100%; }
+.ctl-editor { flex: 1; min-height: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.35; background: var(--panel-2); color: inherit; border: 1px solid var(--border); border-radius: 4px; padding: 6px; resize: none; white-space: pre; overflow: auto; tab-size: 2; }
 .ctl-report-wrap { flex: 1; overflow: auto; min-width: 0; font-size: 12px; }
 .ctl-verdict { font-weight: 600; padding: 4px 6px; border-radius: 4px; margin-bottom: 4px; background: var(--panel-2); }
 .ctl-verdict.bad { color: var(--err); } .ctl-verdict.ok { color: var(--accent-2); }
@@ -228,3 +231,19 @@ progress { accent-color: var(--accent-2); }
 .ctl-run { align-items: center; gap: 6px; flex-wrap: wrap; } .ctl-targets { width: 56px; } .ctl-robot { max-width: 200px; }
 .ctl-status { flex: 1 1 100%; white-space: normal; }
 .ctl-runlog { max-height: 84px; overflow: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }
+
+/* Graphical editors (automata, Petri nets) */
+.ctl-view { display: inline-flex; gap: 2px; margin: 0 4px; }
+.btn.on { background: var(--sel); border-color: var(--accent); }
+.ge-root { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 4px; }
+.ge-bar { align-items: center; gap: 4px; flex-wrap: wrap; } .ge-sep { width: 8px; } .ge-hint { flex: 1 1 100%; }
+.ge-body { flex: 1; display: flex; min-height: 0; gap: 6px; }
+.ge-canvas { flex: 1; overflow: auto; background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; min-height: 160px; }
+.ge-canvas svg { display: block; outline: none; } .ge-canvas .ge-node { cursor: grab; } .ge-canvas.mode-add svg { cursor: crosshair; } .ge-canvas.mode-edge .ge-node { cursor: alias; } .ge-canvas.mode-delete .ge-node, .ge-canvas.mode-delete .ge-edge-hit { cursor: not-allowed; }
+.ge-edge-hit { stroke: transparent; stroke-width: 12; cursor: pointer; } .ge-edge.uc .ge-line { stroke-dasharray: 5 3; }
+.ge-edge.ge-selected .ge-line { stroke: var(--accent); stroke-width: 2.2; } .ge-edge.ge-selected .ctl-elabel { fill: var(--accent); }
+.ge-node.ge-selected circle, .ge-node.ge-selected rect { stroke: var(--accent); stroke-width: 2.5; } .ge-node.ge-arc-src circle, .ge-node.ge-arc-src rect { stroke: var(--warn); stroke-width: 2.5; }
+.ge-inspector { width: 190px; flex: 0 0 190px; overflow: auto; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+.ge-field { display: flex; flex-direction: column; gap: 1px; } .ge-field > span { color: var(--muted); font-size: 11px; }
+.ge-text, .ge-num, .ge-inspector select { background: var(--panel-2); color: inherit; border: 1px solid var(--border); border-radius: 3px; padding: 2px 4px; width: 100%; }
+.ge-check { display: flex; align-items: center; gap: 4px; }
