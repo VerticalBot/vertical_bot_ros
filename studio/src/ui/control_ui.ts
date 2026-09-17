@@ -25,6 +25,7 @@ import { DES, parallel, supcon, supervisorTable, supervisorPython, SupervisorTab
 import { t } from './i18n';
 import { layoutGraph, TREE_BOX } from './graph_layout';
 import { buildGraphEditor, EditorKind, ActionCatalog } from './graph_editor';
+import { buildBtEditor } from './bt_editor';
 
 const LEVEL_ICON = { ok: '✅', warn: '⚠️', error: '❌', info: 'ℹ️' } as const;
 const kindLabel = (k: ControlKind) => CONTROL_KINDS.find((x) => x.kind === k)?.label ?? k;
@@ -203,8 +204,9 @@ export function startMission(app: App, model: ControlModelItem, robot: MobileRob
   const hm = findModel('hybrid', bt.modes); const modes = hm ? parseHybrid(hm.source) : undefined;
   const human = () => { const it = [...app.station.walk()].find((i: Item) => i !== robot && /human|operator|person|worker/i.test(i.name)); if (!it) return null; const p = it.pose(); return [p[12], p[13]] as [number, number]; };
   const w = stationBindings({ robot, station: app.station, humanPosition: human });
+  const host = stationWorld(app).host; // program / move / signal actions of the station for the tree
   const inFleet = app.station.itemsOfType<FleetItem>(ItemType.FLEET).some((f) => f.robotIds.includes(robot.id));
-  const rt = new ControlRuntime({ bt, supervisor, modes, bindings: { ...w, step: inFleet ? undefined : (dt) => w.stepRobot(dt) }, log: (m) => app.log(`[${model.name}] ${m}`, /denied|VIOLATED|mismatch/.test(m) ? 'warn' : 'info') });
+  const rt = new ControlRuntime({ bt, supervisor, modes, bindings: { ...w, actions: { ...host.actions, ...w.actions }, halt: { ...host.halt, ...w.halt }, events: () => [...(w.events?.() ?? []), ...(host.events?.() ?? [])], step: inFleet ? undefined : (dt) => w.stepRobot(dt) }, log: (m) => app.log(`[${model.name}] ${m}`, /denied|VIOLATED|mismatch/.test(m) ? 'warn' : 'info') });
   rt.bb.targets = opts.targets ?? 1;
   const maxSeconds = opts.maxSeconds ?? 600;
   // A tree whose root returns success per cycle (the course mission) keeps being ticked until it reports; a tree
@@ -250,7 +252,7 @@ export function traceCsv(rt: ControlRuntime): string {
 // ---------------------------------------------------------------------------------------------
 
 /** Station artefacts the diagram inspector offers as actions. */
-export function actionCatalog(app: App): ActionCatalog {
+export function actionCatalog(app: App): ActionCatalog & { desModels: string[]; hybridModels: string[] } {
   const st = app.station;
   return {
     robots: [...st.itemsOfType<Robot>(ItemType.ROBOT).map((r) => ({ name: r.name, mobile: false })), ...st.itemsOfType<MobileRobot>(ItemType.MOBILE_ROBOT).map((r) => ({ name: r.name, mobile: true }))],
@@ -258,6 +260,7 @@ export function actionCatalog(app: App): ActionCatalog {
     targets: st.itemsOfType<Target>(ItemType.TARGET).map((x) => x.name),
     zones: st.itemsOfType<ZoneItem>(ItemType.ZONE).map((z) => z.name),
     signals: [...app.processSim.signals.keys()],
+    desModels: controlModels(st).filter((m) => m.kind === 'des').map((m) => m.name), hybridModels: controlModels(st).filter((m) => m.kind === 'hybrid').map((m) => m.name),
   };
 }
 
@@ -335,18 +338,22 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   let view: 'text' | 'diagram' = 'text';
   const graph = buildGraphEditor({ onChange: (src) => { editor.value = src; if (selected) { selected.source = src; selected.notify('source'); } }, catalog: () => actionCatalog(app) });
   graph.el.style.display = 'none';
-  const editorWrap = h('div', { class: 'ctl-editor-wrap' }, editor, graph.el);
-  const canDiagram = (k: string) => k === 'des' || k === 'petri';
-  const viewBtns = { text: h('button', { class: 'btn small on', onClick: () => setView('text') }, t('Text')), diagram: h('button', { class: 'btn small', onClick: () => setView('diagram') }, t('Diagram')), expand: h('button', { class: 'btn small', title: t('Expand the editor over the model list and the report'), onClick: () => { el.classList.toggle('ge-expanded'); viewBtns.expand.classList.toggle('on', el.classList.contains('ge-expanded')); graph.render(); } }, '⛶') };
+  const btGraph = buildBtEditor({ onChange: (src) => { editor.value = src; if (selected) { selected.source = src; selected.notify('source'); } }, catalog: () => actionCatalog(app) });
+  btGraph.el.style.display = 'none';
+  const editorWrap = h('div', { class: 'ctl-editor-wrap' }, editor, graph.el, btGraph.el);
+  const canDiagram = (k: string) => k === 'des' || k === 'petri' || k === 'bt';
+  const loadDiagram = (kind: string, src: string) => { if (kind === 'bt') btGraph.load(src); else graph.load(kind as EditorKind, src); };
+  const activeGraph = () => (selected?.kind === 'bt' ? btGraph : graph);
+  const viewBtns = { text: h('button', { class: 'btn small on', onClick: () => setView('text') }, t('Text')), diagram: h('button', { class: 'btn small', onClick: () => setView('diagram') }, t('Diagram')), expand: h('button', { class: 'btn small', title: t('Expand the editor over the model list and the report'), onClick: () => { el.classList.toggle('ge-expanded'); viewBtns.expand.classList.toggle('on', el.classList.contains('ge-expanded')); activeGraph().render(); } }, '⛶') };
   const setView = (v: 'text' | 'diagram') => {
     if (v === 'diagram') {
       if (!selected) return toast('Select a model first', 'warn');
-      if (!canDiagram(selected.kind)) return toast('The diagram editor is available for automata (des) and Petri nets (petri)', 'warn');
-      try { graph.load(selected.kind as EditorKind, editor.value); } catch (e) { toast(`Cannot draw the document: ${(e as Error).message}`, 'error', 6000); return; }
+      if (!canDiagram(selected.kind)) return toast('The diagram editor is available for automata (des), Petri nets (petri) and behavior trees (bt)', 'warn');
+      try { loadDiagram(selected.kind, editor.value); } catch (e) { toast(`Cannot draw the document: ${(e as Error).message}`, 'error', 6000); return; }
     }
-    view = v; editor.style.display = v === 'text' ? '' : 'none'; graph.el.style.display = v === 'diagram' ? '' : 'none'; editorWrap.classList.toggle('diagram', v === 'diagram'); if (v === 'text' && el.classList.contains('ge-expanded')) { el.classList.remove('ge-expanded'); viewBtns.expand.classList.remove('on'); }
+    view = v; editor.style.display = v === 'text' ? '' : 'none'; graph.el.style.display = v === 'diagram' && selected?.kind !== 'bt' ? '' : 'none'; btGraph.el.style.display = v === 'diagram' && selected?.kind === 'bt' ? '' : 'none'; editorWrap.classList.toggle('diagram', v === 'diagram'); if (v === 'text' && el.classList.contains('ge-expanded')) { el.classList.remove('ge-expanded'); viewBtns.expand.classList.remove('on'); }
     viewBtns.text.classList.toggle('on', v === 'text'); viewBtns.diagram.classList.toggle('on', v === 'diagram');
-    if (v === 'diagram') graph.render();
+    if (v === 'diagram') activeGraph().render();
   };
   const report = h('div', { class: 'ctl-report-wrap' });
   const robotSel = h('select', { class: 'ctl-robot' }) as HTMLSelectElement;
@@ -416,7 +423,7 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   const open = (m: ControlModelItem) => {
     selected = m; nameIn.value = m.name; kindSel.value = m.kind; editor.value = m.source;
     viewBtns.diagram.disabled = !canDiagram(m.kind);
-    if (view === 'diagram') { if (canDiagram(m.kind)) { try { graph.load(m.kind as EditorKind, m.source); } catch (e) { toast(`Cannot draw the document: ${(e as Error).message}`, 'warn'); setView('text'); } } else setView('text'); }
+    if (view === 'diagram') { if (canDiagram(m.kind)) { try { loadDiagram(m.kind, m.source); graph.el.style.display = m.kind === 'bt' ? 'none' : ''; btGraph.el.style.display = m.kind === 'bt' ? '' : 'none'; } catch (e) { toast(`Cannot draw the document: ${(e as Error).message}`, 'warn'); setView('text'); } } else setView('text'); }
     clear(report); lastReport = null;
     if (m.lastReport) report.appendChild(h('div', { class: 'hint' }, t('Last verdict:') + ` ${m.lastOk ? '✅ OK' : '❌ issues found'} — ${t('press Analyse (Ctrl+Enter) for the full report')}`));
     renderList(); refreshStatus();
@@ -461,6 +468,6 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   };
   let shownDone = false;
   setInterval(() => { if (run && (!run.done || !shownDone) && el.offsetParent !== null) { refreshStatus(); shownDone = run.done; } }, 300);
-  (app as any).controlPanel = { render, open: (m: ControlModelItem) => { open(m); }, current: () => selected, run: () => run, start: doRun, stop: () => { if (run) run.stop(); refreshStatus(); }, analyse: doAnalyse, setView, graph, graphSvgs: () => [...report.querySelectorAll<SVGSVGElement>('svg.ctl-graph')].map(standaloneSvg) };
+  (app as any).controlPanel = { render, open: (m: ControlModelItem) => { open(m); }, current: () => selected, run: () => run, start: doRun, stop: () => { if (run) run.stop(); refreshStatus(); }, analyse: doAnalyse, setView, graph, btGraph, graphSvgs: () => [...report.querySelectorAll<SVGSVGElement>('svg.ctl-graph')].map(standaloneSvg) };
   return { el, render, open: (m) => { open(m); } };
 }

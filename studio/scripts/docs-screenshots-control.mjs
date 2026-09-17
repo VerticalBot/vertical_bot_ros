@@ -91,6 +91,11 @@ await shot('58-editor-petri', { clip: await clipOf('.ctl-right') });
 await ev(() => { const g = window.app.controlPanel.graph; const st = g.state(); st.petri.actions.push({ target: 't1a', kind: 'program', value: 'Load M1', robot: 'UR10e', args: {} }); g.select({ type: 'node', id: 't1a' }); }); await page.waitForTimeout(300);
 await shot('58b-editor-petri-action', { clip: await clipOf('.ctl-right') });
 await ev(() => document.querySelector('.ge-action')?.scrollIntoView()); await page.waitForTimeout(200); await shot('59-action-panel', { clip: await clipOf('.ge-action', 10) });
+await page.click('.ctl-view button:has-text("⛶")'); await page.waitForTimeout(200);
+await pickModel('A · Mission behavior tree'); await page.waitForTimeout(800); await page.click('.ctl-view button:has-text("⛶")'); await page.waitForTimeout(600);
+await ev(() => { const g = window.app.controlPanel.btGraph; const st = g.state(); const leaves = []; const rec = (n) => { if (n.type === 'action' && n.fn === 'grasp') leaves.push(n); (n.children ?? []).forEach(rec); }; rec(st.doc.root); g.select(leaves[0] ?? null); }); await page.waitForTimeout(300);
+await shot('60-editor-bt');
+await page.click('.ctl-view button:has-text("⛶")'); await page.waitForTimeout(200);
 await page.click('.ctl-view button:has-text("Text")'); await page.waitForTimeout(300);
 await tallDock(600);
 // 54-55 mission runtime scenario

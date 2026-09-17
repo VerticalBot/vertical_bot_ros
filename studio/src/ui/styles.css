@@ -247,3 +247,6 @@ progress { accent-color: var(--accent-2); }
 .ge-field { display: flex; flex-direction: column; gap: 1px; } .ge-field > span { color: var(--muted); font-size: 11px; }
 .ge-text, .ge-num, .ge-inspector select { background: var(--panel-2); color: inherit; border: 1px solid var(--border); border-radius: 3px; padding: 2px 4px; width: 100%; }
 .ge-check { display: flex; align-items: center; gap: 4px; }
+.bt-node rect { cursor: grab; } .bt-node.bt-drop rect { stroke: var(--warn); stroke-width: 2.5; stroke-dasharray: 4 2; } .bt-node.bt-dragging rect { opacity: 0.5; }
+.bt-node.retry rect, .bt-node.repeat rect, .bt-node.timeout rect, .bt-node.inverter rect, .bt-node.force_success rect, .bt-node.force_failure rect { stroke: var(--muted); stroke-dasharray: 3 2; }
+.ge-inspector textarea.ge-text { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; resize: vertical; }

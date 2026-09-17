@@ -153,3 +153,103 @@ export function setArc(spec: PetriNetSpec, from: string, to: string, opts: { wei
   a.weight = opts.weight !== undefined && opts.weight !== 1 ? opts.weight : undefined; a.inhibitor = opts.inhibitor || undefined;
 }
 export function removeArc(spec: PetriNetSpec, from: string, to: string): void { spec.arcs = spec.arcs.filter((a) => !(a.from === from && a.to === to)); }
+
+// ---------------------------------------------------------------------------------------------
+// Behavior trees
+// ---------------------------------------------------------------------------------------------
+
+import type { BtDoc } from './dsl';
+import type { BTNodeSpec, BTNodeType } from './bt';
+
+export const BT_COMPOSITES: BTNodeType[] = ['sequence', 'fallback', 'parallel'];
+export const BT_DECORATORS: BTNodeType[] = ['retry', 'repeat', 'timeout', 'inverter', 'force_success', 'force_failure'];
+export const BT_LEAVES: BTNodeType[] = ['action', 'condition'];
+export const BT_GLYPH: Record<BTNodeType, string> = { sequence: '→', fallback: '?', parallel: '⇉', retry: '↻', repeat: '⟳', timeout: '⏱', inverter: '!', force_success: '✓', force_failure: '✗', action: '▭', condition: '◯' };
+export const isBtLeaf = (n: BTNodeSpec): boolean => n.type === 'action' || n.type === 'condition';
+export const isBtDecorator = (n: BTNodeSpec): boolean => BT_DECORATORS.includes(n.type);
+/** Bindings the mission runtime and the host offer to `action` leaves. */
+export const BT_ACTION_BINDINGS = ['goto', 'halt', 'wait', 'dock', 'undock', 'reach', 'stow', 'grasp', 'place', 'set', 'event', 'report', 'select_target', 'refine_pose', 'program', 'move', 'signal'];
+
+const btLine = (n: BTNodeSpec, depth: number): string => {
+  const ind = '  '.repeat(depth);
+  if (isBtLeaf(n)) {
+    const fn = n.fn ?? ''; const parts = [n.type, /\s/.test(fn) || fn === '' ? `"${fn}"` : fn];
+    if (n.name && n.name !== fn && n.name !== n.type) parts.push(`name=${qv(n.name)}`);
+    for (const [k, v] of Object.entries(n.args ?? {})) if (v !== undefined && v !== null) parts.push(`${k}=${qv(v as string | number | boolean)}`);
+    if (n.timeout !== undefined) parts.push(`timeout=${n.timeout}`);
+    if (n.pre) parts.push(`pre="${n.pre}"`); if (n.post) parts.push(`post="${n.post}"`);
+    return ind + parts.join(' ');
+  }
+  const parts: string[] = [n.type];
+  if (n.name && n.name !== n.type && !/^\d+(\.\d+)?$/.test(n.name)) parts.push(q(n.name));
+  if (n.type === 'parallel' && n.threshold !== undefined) parts.push(String(n.threshold));
+  if ((n.type === 'retry' || n.type === 'repeat') && n.count !== undefined) parts.push(String(n.count));
+  if (n.type === 'timeout' && n.seconds !== undefined) parts.push(String(n.seconds));
+  if (n.memory) parts.push('memory');
+  return ind + parts.join(' ');
+};
+const btLines = (n: BTNodeSpec, depth: number, out: string[]): void => { out.push(btLine(n, depth)); for (const c of n.children ?? []) btLines(c, depth + 1, out); };
+
+export function btToDsl(doc: BtDoc): string {
+  const out = [`bt ${doc.name}`];
+  btLines(doc.root, 0, out);
+  const oc = Object.entries(doc.outcomes ?? {}); if (oc.length) out.push(`outcomes ${oc.map(([k, v]) => `${k}=${v.join(',')}`).join(' ')}`);
+  for (const [leaf, m] of Object.entries(doc.leafModels ?? {})) out.push(`model ${leaf}${m.p !== undefined ? ` p=${m.p}` : ''}${m.ticks !== undefined ? ` ticks=${m.ticks}` : ''}`);
+  if (doc.supervisor) out.push(`supervisor ${doc.supervisor}`);
+  if (doc.modes) out.push(`modes ${doc.modes}`);
+  for (const m of doc.monitors ?? []) out.push(`monitor ${m}`);
+  for (const c of doc.checks ?? []) out.push(checkLine(c));
+  return out.join('\n');
+}
+
+/** Depth-first list of nodes with their parents. */
+export function btWalk(root: BTNodeSpec): Array<{ node: BTNodeSpec; parent: BTNodeSpec | null; depth: number }> {
+  const out: Array<{ node: BTNodeSpec; parent: BTNodeSpec | null; depth: number }> = [];
+  const rec = (n: BTNodeSpec, p: BTNodeSpec | null, d: number) => { out.push({ node: n, parent: p, depth: d }); for (const c of n.children ?? []) rec(c, n, d + 1); };
+  rec(root, null, 0); return out;
+}
+export const btParentOf = (root: BTNodeSpec, node: BTNodeSpec): BTNodeSpec | null => btWalk(root).find((e) => e.node === node)?.parent ?? null;
+export const btIsAncestor = (a: BTNodeSpec, b: BTNodeSpec): boolean => a === b || (a.children ?? []).some((c) => btIsAncestor(c, b));
+export function newBtNode(type: BTNodeType): BTNodeSpec {
+  if (type === 'action') return { type, fn: 'wait', args: { seconds: 1 }, timeout: 5 };
+  if (type === 'condition') return { type, fn: 'true' };
+  const n: BTNodeSpec = { type, name: type, children: [] };
+  if (type === 'parallel') n.threshold = 1; if (type === 'retry' || type === 'repeat') n.count = 2; if (type === 'timeout') n.seconds = 10;
+  return n;
+}
+/** Append (or insert at `index`) a new child of `type` under `parent`; decorators hold one child, leaves none. */
+export function btAddChild(parent: BTNodeSpec, type: BTNodeType, index?: number): BTNodeSpec {
+  if (isBtLeaf(parent)) throw new Error('an action or condition has no children');
+  parent.children ??= [];
+  if (isBtDecorator(parent) && parent.children.length >= 1) throw new Error(`${parent.type} holds exactly one child`);
+  const n = newBtNode(type); parent.children.splice(index ?? parent.children.length, 0, n); return n;
+}
+export function btRemove(root: BTNodeSpec, node: BTNodeSpec): void { const p = btParentOf(root, node); if (!p) throw new Error('the root cannot be removed'); p.children = (p.children ?? []).filter((c) => c !== node); }
+export function btMove(root: BTNodeSpec, node: BTNodeSpec, dir: -1 | 1): void { const p = btParentOf(root, node); if (!p) return; const cs = p.children!; const i = cs.indexOf(node); const j = i + dir; if (j < 0 || j >= cs.length) return; cs.splice(i, 1); cs.splice(j, 0, node); }
+/** Move `node` under `target`: into a composite (appended), or next to a leaf / decorator child (after it). */
+export function btReparent(root: BTNodeSpec, node: BTNodeSpec, target: BTNodeSpec): void {
+  if (node === root) throw new Error('the root cannot be moved'); if (btIsAncestor(node, target)) throw new Error('cannot move a node into its own subtree');
+  const from = btParentOf(root, node)!;
+  let dest = target; let index: number | undefined;
+  if (isBtLeaf(target) || (isBtDecorator(target) && (target.children?.length ?? 0) >= 1)) { dest = btParentOf(root, target)!; index = (dest.children ?? []).indexOf(target) + 1; }
+  if (isBtDecorator(dest) && (dest.children?.length ?? 0) >= 1 && dest !== from) throw new Error(`${dest.type} holds exactly one child`);
+  from.children = (from.children ?? []).filter((c) => c !== node);
+  dest.children ??= []; if (index !== undefined && dest === from) index = Math.min(index, dest.children.length); dest.children.splice(index ?? dest.children.length, 0, node);
+}
+/** Move a node out of its parent, after the parent. */
+export function btOutdent(root: BTNodeSpec, node: BTNodeSpec): void { const p = btParentOf(root, node); const gp = p ? btParentOf(root, p) : null; if (!p || !gp) throw new Error('already at the top level'); p.children = p.children!.filter((c) => c !== node); gp.children!.splice(gp.children!.indexOf(p) + 1, 0, node); }
+export function btSetType(node: BTNodeSpec, type: BTNodeType): void {
+  const wasLeaf = isBtLeaf(node); const toLeaf = type === 'action' || type === 'condition';
+  if (!wasLeaf && toLeaf && (node.children?.length ?? 0) > 0) throw new Error('remove the children first');
+  if (BT_DECORATORS.includes(type) && (node.children?.length ?? 0) > 1) throw new Error(`${type} holds exactly one child`);
+  node.type = type;
+  if (toLeaf) { delete node.children; node.fn ??= type === 'action' ? 'wait' : 'true'; if (type === 'condition') { delete node.args; delete node.timeout; } }
+  else { node.children ??= []; if (wasLeaf) { delete node.fn; delete node.args; delete node.pre; delete node.post; delete node.timeout; } if (!node.name || node.name === node.fn) node.name = type; }
+}
+/** Label of a node in the diagram: glyph, name / binding and the key arguments. */
+export function btLabel(n: BTNodeSpec): string {
+  if (n.type === 'action') { const a = n.args ?? {}; const key = a.zone ?? a.name ?? a.target ?? a.emit ?? a.seconds; return `${n.fn}${key !== undefined ? ` ${key}` : ''}${n.name && n.name !== n.fn ? ` (${n.name})` : ''}`; }
+  if (n.type === 'condition') return n.fn ?? '';
+  const extra = n.type === 'parallel' ? ` ${n.threshold ?? ''}` : n.type === 'retry' || n.type === 'repeat' ? ` ×${n.count ?? 1}` : n.type === 'timeout' ? ` ${n.seconds ?? ''}s` : '';
+  return `${n.name && n.name !== n.type ? n.name : n.type}${extra}${n.memory ? '*' : ''}`;
+}

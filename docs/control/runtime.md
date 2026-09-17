@@ -45,6 +45,9 @@ the blackboard. Denials, model mismatches and violations are counted, logged and
 | `set key=value` | writes the blackboard |
 | `event emit=<e>` | reports an uncontrollable event (e.g. `v_detect`) |
 | `report`, `select_target`, `refine_pose` | mission bookkeeping (`reported`), target availability (`targets > 0`), a timed pose refinement |
+| `program name=<Program> [robot=]` | runs a robot program of the station in the program simulator (one at a time, first come first served) |
+| `move target=<Target> [robot=] [linear=true]` | moves an arm robot to a target over the planned MoveJ / MoveL duration |
+| `signal name= value=` | sets a process signal (feeders, conveyors, machines) |
 
 Sensed every tick: `battery`, `x`, `y`, `v`, `zone`, `moving`, `dist_human`, `human`, `held`, `placed`,
 `arm_extended`, `docked`, `time`, plus `plantState` / `enabled` from the supervisor and `mode` / `vmax` from the

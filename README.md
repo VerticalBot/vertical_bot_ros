@@ -36,9 +36,10 @@ into a design tool for real machines:
   STN / STNU, MDP / POMDP decisions, task allocation and MAPF, job-shop scheduling, real-time analysis, reliability
   and functional safety (FMEA, FTA, ISO 13849 PL, ISO/TS 15066), STL falsification and acceptance statistics —
   with deadlock / livelock / realisability checks, missions that run on the station robots under the synthesised
-  supervisor with runtime monitors, and supervisor export (JSON table, Python) for real controllers. Automata and
-  Petri nets are also drawn in **graphical editors** synchronised with the text, and their states / transitions are
-  bound to the station's own robot programs, targets, zones and signals, so an automaton or a net runs the cell. The two worked
+  supervisor with runtime monitors, and supervisor export (JSON table, Python) for real controllers. Automata,
+  Petri nets and behavior trees are also drawn in **graphical editors** synchronised with the text, and their states,
+  transitions and action leaves are bound to the station's own robot programs, targets, zones and signals, so an
+  automaton, a net or a tree runs the cell. The two worked
   examples of the course (mobile manipulator, production cell) are built in with step-by-step guides.
 
 Everything is verified by 236 unit / integration tests and 45 published demo scenarios (one per localization

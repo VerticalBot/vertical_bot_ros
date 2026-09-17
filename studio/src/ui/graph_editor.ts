@@ -43,11 +43,11 @@ export interface GraphEditor {
 const NS = 'http://www.w3.org/2000/svg';
 const R = 22;
 const PLACE_KINDS: PlaceKind[] = ['idle', 'activity', 'resource', 'monitor', 'buffer', 'other'];
-const svgEl = (tag: string, attrs: Record<string, string | number | undefined>, text?: string) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v !== undefined) e.setAttribute(k, String(v)); if (text !== undefined) e.textContent = text; return e; };
-const field = (label: string, input: HTMLElement) => h('label', { class: 'ge-field' }, h('span', null, t(label)), input);
-const num = (v: number | undefined, onChange: (n: number | undefined) => void, step = 'any') => { const i = h('input', { type: 'number', step, value: v === undefined ? '' : String(v), class: 'ge-num' }) as HTMLInputElement; i.addEventListener('change', () => onChange(i.value === '' ? undefined : Number(i.value))); return i; };
-const text = (v: string, onChange: (s: string) => void, placeholder = '') => { const i = h('input', { type: 'text', value: v, placeholder, class: 'ge-text' }) as HTMLInputElement; i.addEventListener('change', () => onChange(i.value)); i.addEventListener('keydown', (e) => { if (e.key === 'Enter') i.blur(); }); return i; };
-const check = (label: string, v: boolean, onChange: (b: boolean) => void) => { const i = h('input', { type: 'checkbox' }) as HTMLInputElement; i.checked = v; i.addEventListener('change', () => onChange(i.checked)); return h('label', { class: 'ge-check' }, i, ' ', t(label)); };
+export const svgEl = (tag: string, attrs: Record<string, string | number | undefined>, text?: string) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v !== undefined) e.setAttribute(k, String(v)); if (text !== undefined) e.textContent = text; return e; };
+export const field = (label: string, input: HTMLElement) => h('label', { class: 'ge-field' }, h('span', null, t(label)), input);
+export const num = (v: number | undefined, onChange: (n: number | undefined) => void, step = 'any') => { const i = h('input', { type: 'number', step, value: v === undefined ? '' : String(v), class: 'ge-num' }) as HTMLInputElement; i.addEventListener('change', () => onChange(i.value === '' ? undefined : Number(i.value))); return i; };
+export const text = (v: string, onChange: (s: string) => void, placeholder = '') => { const i = h('input', { type: 'text', value: v, placeholder, class: 'ge-text' }) as HTMLInputElement; i.addEventListener('change', () => onChange(i.value)); i.addEventListener('keydown', (e) => { if (e.key === 'Enter') i.blur(); }); return i; };
+export const check = (label: string, v: boolean, onChange: (b: boolean) => void) => { const i = h('input', { type: 'checkbox' }) as HTMLInputElement; i.checked = v; i.addEventListener('change', () => onChange(i.checked)); return h('label', { class: 'ge-check' }, i, ' ', t(label)); };
 
 export function buildGraphEditor(opts: { onChange: (source: string) => void; catalog?: () => ActionCatalog }): GraphEditor {
   let kind: EditorKind | null = null; let des: DesDoc | null = null; let petri: PetriDoc | null = null; let block = 0;

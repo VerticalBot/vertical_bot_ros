@@ -55,7 +55,7 @@ of the selected model, the analysis report and the mission runtime.
 | **Course examples ▾** | adds a course example (or all of them) — A · … are example A, B · … example B, with the chapter of the course |
 | **Delete** | removes the selected model from the station |
 | name, kind | the model name (tree item) and its kind; **Detect kind** reads the first keyword of the document |
-| **Text** / **Diagram** | the text editor, or the graphical editor for automata and Petri nets ({doc}`editors`): states / places / transitions / arcs drawn and inspected, robot actions bound to states and transitions |
+| **Text** / **Diagram** | the text editor, or the graphical editors for automata, Petri nets and behavior trees ({doc}`editors`): states / places / transitions / arcs / tree nodes drawn and inspected, robot actions bound to states, transitions and action leaves |
 | editor | the model text; `Tab` indents, `Ctrl+Enter` analyses; comments start with `#` |
 | **Analyse** / **Analyse all** | runs the analysis of the selected / of every model; the verdict is stored on the item (tree badge ✓ / ✗, properties panel) |
 | report | sections with a level (✅ ok, ⚠️ warning, ❌ error, ℹ️ info), tables, graph views (automata, Petri nets, behavior trees, mode automata, synthesised controllers) and the metrics table |

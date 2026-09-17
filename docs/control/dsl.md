@@ -114,7 +114,8 @@ check ltl "name" G("ok:estop" -> "tick:halt")    # properties of the abstraction
   events the world reports), `emit=` for the `event` action.
 - Runtime bindings for a station robot: `goto zone=<zone name>`, `halt`, `wait seconds=`, `dock`, `undock`,
   `reach`, `stow`, `grasp p=`, `place`, `set key=value`, `event emit=`, `report`, `select_target`,
-  `refine_pose` ({doc}`runtime`).
+  `refine_pose`, plus the station actions `program name= [robot=]`, `move target= [robot=] [linear=true]` and
+  `signal name= value=` ({doc}`runtime`). Trees can also be drawn in the graphical editor ({doc}`editors`).
 - Atoms of `check` formulas on the abstraction: `"tick:<leaf>"` (the leaf was ticked), `"run:<leaf>"`,
   `"ok:<leaf>"`, `"fail:<leaf>"`, `"tree:success|failure|running"`.
 

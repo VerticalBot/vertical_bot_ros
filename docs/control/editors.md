@@ -1,6 +1,6 @@
-# Graphical editors: automata and Petri nets, with robot actions
+# Graphical editors: automata, Petri nets and behavior trees, with robot actions
 
-Automata (`des` documents) and Petri nets (`petri` documents) can be drawn instead of typed. The **Diagram** view
+Automata (`des` documents), Petri nets (`petri` documents) and behavior trees (`bt` documents) can be drawn instead of typed. The **Diagram** view
 of the Control tab is a graphical editor on top of the DSL: the diagram and the text are two views of the same
 document — every edit in the diagram regenerates the text (node positions are kept in `layout` lines, so a drawing
 survives save / load), and switching back to the diagram re-parses the text. Analysis, exports and the runtime see
@@ -126,6 +126,43 @@ output tokens are produced when the action finishes. A transition whose robot is
 marking shows where the cell is. The run stops when no transition is enabled and nothing is running — for the
 deadlocking cell of example B that is the marking `{a1 b1}` the analysis predicted; with the monitor place added
 in the editor the net runs forever.
+
+## Behavior-tree editor
+
+```{image} ../_static/screens/60-editor-bt.png
+:alt: Behavior-tree editor: the course mission tree with the inspector of an action
+:class: screenshot
+:width: 900px
+```
+
+A `bt` model opens in the tree editor: the root on the left, one row per leaf, composites (→ sequence, ? fallback,
+⇉ parallel), decorators (↻ retry, ⟳ repeat, ⏱ timeout, ! inverter, ✓ / ✗ force) and leaves (▭ action, ◯ condition);
+memory sequences carry `*`, actions show their binding and key argument (`goto table`, `program PickPlace`).
+
+| Tool | Effect |
+|---|---|
+| click | selects a node (the inspector shows it); click on the canvas deselects (document properties) |
+| **+ Child ▾** | adds a node of the chosen type under the selection (or under the root); decorators accept one child, leaves none |
+| **+ Sibling ▾** | inserts a node after the selection |
+| **↑ ↓** (Alt+↑ / Alt+↓) | reorder among the siblings — the order is the priority in a fallback and the sequence of a sequence |
+| **⇤** | moves the node out of its parent (after it) |
+| drag a node onto a composite | moves it inside (last child); onto a leaf or a full decorator — places it after that node; a node cannot be dropped into its own subtree |
+| **Delete** (or the `Delete` key) | removes the subtree |
+
+The inspector edits, per node type: the **type** (a leaf becomes a composite and back — the children must be removed
+first), the **name**, **memory**, the **threshold** / **count** / **seconds** of parallel / retry-repeat / timeout,
+the **expression** of a condition; for an action the **binding** (the runtime actions: `goto`, `grasp`, `place`,
+`reach`, `stow`, `dock`, `wait`, `set`, `event`, `report`, … and the station actions `program`, `move`, `signal`)
+with the arguments the binding needs — zone, program and robot, target, signal and value, seconds, event — chosen
+from the station like in the action panel of automata; the **supervisor events** (`event=`, `done=`, the world
+events `arrive= / ok= / miss= / put=`); the **contract** (timeout, pre- and postcondition) and any other
+`key=value` arguments. With nothing selected the panel edits the document: name, the `supervisor` and `modes`
+models (chosen among the station's `des` / `hybrid` models), the runtime **monitors**, the **leaf models** and the
+**outcomes** used by the abstraction.
+
+Because the tree is written back to the DSL, **Analyse** (structure, finite-time success, model checking of the
+abstraction) and **▶ Run mission** work on the drawn tree exactly as on the typed one — and a `program` or `move`
+action in the tree runs the station's own robot program or target motion during the mission.
 
 ## Layout and text
 
