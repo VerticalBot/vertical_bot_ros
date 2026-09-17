@@ -10,13 +10,14 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 
 | | |
 |---|---|
-| Code | ~21 k lines TypeScript in `src/` + server, Python `robodk` drop-in, Blender add-on |
-| Verification | 157 vitest tests (7 network tests skipped offline), Playwright smoke, 32 demo scenarios (`npm run scenarios`), GitHub Actions (typecheck, tests, builds, Sphinx `-W`) |
-| Docs | ~50 Read the Docs pages with screenshots generated from the running app, RoboDK guide map, integration page, scenario results |
-| Done this cycle | machine-vision stack (catalogue, recommender, pluggable YOLO / VLM / VLA adapters, point clouds, Vision tab, ROS 2 perception export), navigation & SLAM stack, demo scenarios for every method, rosbridge publishers for navigation and perception, API params / webhooks, protocol tests |
+| Code | ~30 k lines TypeScript in `src/` + server, Python `robodk` drop-in, Blender add-on |
+| Verification | 236 vitest tests (7 network tests skipped offline), Playwright smoke, 45 demo scenarios (`npm run scenarios`), GitHub Actions (typecheck, tests, builds, Sphinx `-W`) |
+| Docs | ~56 Read the Docs pages with screenshots generated from the running app, RoboDK guide map, integration page, scenario results, control-design section with the course demo guides |
+| Done this cycle | control-design layer (all 17 chapters of the control-of-robotic-complexes course as features: supervisory control, Petri nets, model checking, GR(1), behavior trees, planning, decisions, coordination, scheduling, real-time, safety, V&V; Control tab, DSL, reports with graph views, mission runtime under a supervisor, supervisor export, course examples A / B, 13 scenarios, demo guides); before that: machine-vision stack, navigation & SLAM stack, demo scenarios, rosbridge publishers, API params / webhooks |
 
 ### Next up (приоритеты)
 
+0. Control design follow-ups: symbolic (BDD) model checking and synthesis for larger plants, a graphical automaton / Petri-net editor on top of the DSL, supervisor deployment as a ROS 2 node from the exported Python class, timed automata (UPPAAL-style) and probabilistic model checking (PRISM-style), schedule Gantt view in the Process tab.
 1. Hardware validation loop: real camera + arm through the exported perception package (ROS 2 detections → targets), real AMR through the exported Nav2 package; record the first field logs and calibrate the simulated noise models from them.
 2. Photorealistic camera simulation so real detectors can run on simulated images (textures, lighting, leaves, motion blur) and depth from the WebGL depth buffer.
 3. Open-RMF / Nav2 action bridge for real AMRs; VDA 5050 with a real fleet manager.
@@ -98,6 +99,20 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 - [ ] COLLADA / glTF assets inside `.vbstation` decoded by the add-on (today: STL/OBJ)
 - [ ] Import glTF animations from Blender onto robots (retargeting joint curves)
 - [ ] USD / OpenUSD export for Omniverse / Isaac Sim
+
+## 6a. Control design — course methods (проектирование верхнего уровня управления)
+
+- [x] DES automata: composition, trim, deadlock / livelock traces, Ramadge–Wonham synthesis (Algorithm 3.1), controllability, modular supervisors and non-conflict, observer / observability, twin-plant diagnosability, supervisor table (JSON) + Python runtime
+- [x] Petri nets and S³PR: P/T-invariants (Farkas), reachability, bounds, liveness, reversibility, minimal siphons / traps (Commoner), GMEC monitors with resource "thieves", banker, resource ordering, timed simulation, GSPN steady state; performance: bottleneck, saturation, max-plus / resource circuits, Little, Monte Carlo
+- [x] Behavior trees (tick semantics, memory, preemption with halt, skill contracts, Monte Carlo FTS, Kripke abstraction), statecharts (hierarchy, regions, history, flattening)
+- [x] LTL → Büchi (GPVW) + nested DFS with shortest lasso counterexamples and fairness, CTL marking with witnesses, LTL₃ monitors, SMV-style synchronous models
+- [x] GR(1) synthesis (three nested fixpoints, controller extraction, counter-strategy), hybrid modes (hysteresis, dwell time), CBF QP filter
+- [x] PDDL (typed, `forall` / `exists` / `imply`, costs, durative) with h_max / h_add / h_FF, A* / GBFS, validation, HTN, STN / STNU (Morris), plan–execute–replan, TAMP helpers; MDP VI / PI, POMDP (α-vectors, QMDP, thresholds), shield
+- [x] MRTA (Hungarian, bottleneck, auction, CBBA), MAPF (priority, CBS, TPG, critical sections), job shop (rules, bounds, B&B, tabu, FJSP, right shift, OEE), real-time (RM / RTA, EDF, PCP, latency chains, QoS), reliability (Weibull, Markov availability, FMEA AP, FTA MOCUS, FDIR, ISO 13849 PL, ISO/TS 15066 SSM), V&V (STL robustness, falsification, pairwise, rule of three, Clopper–Pearson, Welch, acceptance, traceability)
+- [x] Control tab (models in the tree, DSL editor, reports with tables and SVG graph views, exports), Control menu, properties section, tree badges; mission runtime on a station robot with supervisor gating, monitors and mode machine; course examples A / B; 13 demo scenarios; 66 tests; docs section with demo guides
+- [ ] Symbolic (BDD / SAT) engines for plants beyond ~10⁶ product states; timed automata; probabilistic model checking
+- [ ] Graphical editors (automata, Petri nets, behavior trees) synchronised with the DSL text
+- [ ] Deploy the exported supervisor / behavior tree as a ROS 2 node (BehaviorTree.CPP XML export) and drive a real robot through the studio server
 
 ## 7. Platform & quality (платформа и качество)
 

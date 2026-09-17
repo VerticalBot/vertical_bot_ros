@@ -5,7 +5,7 @@ import { ALL_SCENARIOS, Scenario, ScenarioResult, scenarioReportMarkdown } from 
 import { t } from './i18n';
 
 export async function scenariosDialog(app: App): Promise<void> {
-  let group: 'all' | 'navigation' | 'vision' = 'all';
+  let group: 'all' | 'navigation' | 'vision' | 'control' = 'all';
   const list = h('div', { class: 'nav-recs' });
   const results = new Map<string, ScenarioResult>();
   const status = h('div', { class: 'hint' });
@@ -14,7 +14,7 @@ export async function scenariosDialog(app: App): Promise<void> {
     for (const s of ALL_SCENARIOS.filter((x) => group === 'all' || x.group === group)) {
       const r = results.get(s.id);
       list.appendChild(h('div', { class: 'nav-rec' },
-        h('div', { class: 'nav-rec-head' }, h('b', null, `${s.group === 'navigation' ? '🧭' : '👁'} ${s.title}`), r ? h('span', { class: `badge ${r.pass ? 'ok' : 'warn'}` }, r.pass ? 'pass' : 'FAIL') : h('span', { class: 'badge' }, s.method)),
+        h('div', { class: 'nav-rec-head' }, h('b', null, `${s.group === 'navigation' ? '🧭' : s.group === 'vision' ? '👁' : '🎛'} ${s.title}`), r ? h('span', { class: `badge ${r.pass ? 'ok' : 'warn'}` }, r.pass ? 'pass' : 'FAIL') : h('span', { class: 'badge' }, s.method)),
         h('div', { class: 'hint' }, s.description),
         h('div', { class: 'hint' }, `${t('How to')}: ${s.howTo}`),
         r ? h('div', { class: 'hint' }, r.metrics.filter((m) => m.ok !== undefined).map((m) => `${m.name} ${m.value}${m.unit ? ' ' + m.unit : ''} ${m.ok ? '✓' : '✗'}`).join(' · ')) : null,
@@ -28,11 +28,11 @@ export async function scenariosDialog(app: App): Promise<void> {
     app.setStation(station);
     const item = focus ? app.station.findById(focus.id) : null;
     if (item) app.select(item);
-    (app as any).bottom?.show?.(s.group === 'navigation' ? 'nav' : 'vision');
+    (app as any).bottom?.show?.(s.group === 'navigation' ? 'nav' : s.group === 'vision' ? 'vision' : 'control');
     if (s.group === 'navigation') app.startWorld();
     toast(`${s.title} loaded`, 'ok');
     app.log(`Scenario ${s.id}: ${s.howTo}`);
-    document.querySelector('.dialog .close')?.dispatchEvent(new Event('click'));
+    document.querySelector<HTMLElement>('.dialog .dialog-title .btn-icon')?.click();
   };
   const runOne = async (s: Scenario) => {
     status.textContent = `${t('Running')} ${s.title}…`;
@@ -49,10 +49,10 @@ export async function scenariosDialog(app: App): Promise<void> {
   };
   const body = h('div', null,
     h('div', { class: 'btn-row' },
-      h('select', { onChange: (e: Event) => { group = (e.target as HTMLSelectElement).value as any; render(); } }, h('option', { value: 'all' }, t('All scenarios')), h('option', { value: 'navigation' }, t('Navigation & localization')), h('option', { value: 'vision' }, t('Machine vision'))),
+      h('select', { onChange: (e: Event) => { group = (e.target as HTMLSelectElement).value as any; render(); } }, h('option', { value: 'all' }, t('All scenarios')), h('option', { value: 'navigation' }, t('Navigation & localization')), h('option', { value: 'vision' }, t('Machine vision')), h('option', { value: 'control' }, t('Control design'))),
       h('button', { class: 'btn small', onClick: runAll }, t('Run all (headless)')),
       h('button', { class: 'btn small', onClick: () => { if (!results.size) return toast('Run the scenarios first', 'warn'); downloadText('scenario-results.md', scenarioReportMarkdown([...results.values()]), 'text/markdown'); } }, t('Download report (.md)'))),
     status, list);
   render();
-  await dialog('Demo scenarios — navigation & machine vision', [], { width: 860, okLabel: 'Close', body });
+  await dialog('Demo scenarios — navigation, machine vision, control design', [], { width: 900, okLabel: 'Close', body });
 }

@@ -12,7 +12,9 @@
 │   ├ MobileRobot/Map/Zone      ├ ProcessSimulator (components)   │
 │   ├ Field/CropRow/Mission     ├ posts (compileForPost → files)  │
 │   ├ Component (VC behaviours) ├ NavRuntime (estimator, SLAM)    │
-│   └ Camera (visionStack)      └ VisionRuntime (models, tracker) │
+│   ├ Camera (visionStack)      ├ VisionRuntime (models, tracker) │
+│   └ ControlModelItem (DSL)    └ ControlRuntime (BT + supervisor │
+│        analyse() → Report        + monitors + modes, worldHooks)│
 │                                  │  publishers (ROS msgs, JSON) │
 └──────────────────────────────────┼──────────────────────────────┘
             ▲ JSON-RPC (ws://:20500)  │ rosbridge (ws://:9090)  │ http: inference / VLM / VLA / webhook
@@ -88,3 +90,18 @@ its pedestal) are reported once as warnings and ignored along the trajectory.
   `VisionModel` in `models.ts` if it is a new execution path, map it in `createModel`, and add a scenario.
 - New outgoing protocol: build the message in `src/ros/publishers.ts` and call it from `RosBridge.publishState`
   or the `onOutput` hook of `VisionRuntime`.
+- New control-design method: add the algorithm to the matching module in `src/ctl/` (`des`, `petri`, `perf`,
+  `bt`, `temporal`, `gr1`, `hybrid`, `planning`, `mdp`, `mrta`, `sched`, `realtime`, `reliability`, `vv`), a
+  parser keyword in `dsl.ts`, a report section in `analysis.ts` (and a `GraphView` if it has a picture), a template
+  in `TEMPLATES`, a course example in `examples_dsl.ts`, a scenario in `src/scenarios/control.ts` and a test. A
+  new runtime action for behavior trees goes into `stationBindings` / `simulatedBindings` in `runtime.ts`.
+
+## Control-design layer
+
+`src/ctl` is independent of the renderer and the UI: pure algorithms per chapter of the course, a text DSL
+(`dsl.ts`) that turns documents into model objects, `analysis.ts` that turns a document into a `Report`
+(sections with level / lines / table / graph, metrics, Markdown), and `runtime.ts` that executes a behavior tree
+against `WorldBindings`. `ControlModelItem` (type 111) stores the document in the station tree; the Control tab
+(`src/ui/control_ui.ts`) renders reports and SVG graph views and drives `ControlRuntime` from the world loop
+(`app.worldHooks`, stepped inside `App.tick` with the fleet and process simulators). The supervisor table format
+(`SupervisorTable`) is shared by the runtime, the JSON export and the generated Python class.

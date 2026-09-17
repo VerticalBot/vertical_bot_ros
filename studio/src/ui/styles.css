@@ -189,3 +189,42 @@ progress { accent-color: var(--accent-2); }
 .vision-prompt { flex: 1 1 240px; min-width: 200px; background: var(--panel-2); color: inherit; border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; }
 .vision-answer { white-space: pre-wrap; max-height: 80px; overflow: auto; }
 .vision-tasks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 12px; }
+
+/* Control tab (control design: models, reports, graph views, mission runtime) */
+.ctl-panel { display: flex; height: 100%; min-height: 0; }
+.ctl-left { width: 260px; flex: 0 0 260px; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+.ctl-left .btn-row { padding: 6px; flex-wrap: wrap; gap: 4px; }
+.ctl-list { overflow: auto; flex: 1; }
+.ctl-item { display: flex; align-items: center; gap: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px; border-bottom: 1px solid var(--border); }
+.ctl-item:hover { background: var(--panel-2); }
+.ctl-item.active { background: var(--accent-bg, rgba(80, 140, 255, 0.18)); }
+.ctl-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctl-dot { color: var(--muted); } .ctl-dot.ok { color: var(--accent-2); } .ctl-dot.bad { color: var(--err); }
+.ctl-right { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 6px; gap: 6px; }
+.ctl-head { align-items: center; gap: 6px; flex-wrap: wrap; }
+.ctl-name { width: 220px; } .ctl-kind { max-width: 320px; }
+.ctl-split { display: flex; gap: 8px; flex: 1; min-height: 0; }
+.ctl-editor { flex: 0 0 46%; min-width: 280px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.35; background: var(--panel-2); color: inherit; border: 1px solid var(--border); border-radius: 4px; padding: 6px; resize: none; white-space: pre; overflow: auto; tab-size: 2; }
+.ctl-report-wrap { flex: 1; overflow: auto; min-width: 0; font-size: 12px; }
+.ctl-verdict { font-weight: 600; padding: 4px 6px; border-radius: 4px; margin-bottom: 4px; background: var(--panel-2); }
+.ctl-verdict.bad { color: var(--err); } .ctl-verdict.ok { color: var(--accent-2); }
+.ctl-section { border: 1px solid var(--border); border-radius: 4px; margin: 4px 0; padding: 2px 6px; }
+.ctl-section > summary { cursor: pointer; font-weight: 600; }
+.ctl-section.lvl-error > summary { color: var(--err); } .ctl-section.lvl-warn > summary { color: var(--warn); }
+.ctl-section ul { margin: 4px 0 4px 18px; padding: 0; } .ctl-section li { margin: 1px 0; }
+.ctl-section table.grid { margin: 4px 0; }
+.ctl-graph-wrap { overflow: auto; max-height: 420px; margin: 4px 0; background: var(--panel-2); border-radius: 4px; }
+.ctl-graph { color: var(--muted); font-size: 11px; display: block; }
+.ctl-graph .ctl-edge { stroke-width: 1.2; opacity: 0.8; }
+.ctl-graph .ctl-elabel { fill: var(--text); font-size: 10px; opacity: 0.9; }
+.ctl-graph .ctl-node circle, .ctl-graph .ctl-node rect { fill: var(--panel); stroke: currentColor; stroke-width: 1.4; }
+.ctl-graph .ctl-node.initial circle, .ctl-graph .ctl-node.initial rect { stroke: var(--accent); }
+.ctl-graph .ctl-node.marked circle.inner { fill: none; }
+.ctl-graph .ctl-node.transition rect { fill: currentColor; }
+.ctl-graph .ctl-node.resource circle { stroke: var(--warn); } .ctl-graph .ctl-node.idle circle { stroke: var(--accent-2); }
+.ctl-graph .ctl-node.action rect { stroke: var(--accent-2); } .ctl-graph .ctl-node.condition rect { stroke: var(--warn); }
+.ctl-graph .ctl-node.sequence rect, .ctl-graph .ctl-node.fallback rect, .ctl-graph .ctl-node.parallel rect { stroke: var(--accent); }
+.ctl-graph .ctl-node text { fill: var(--text); font-size: 11px; } .ctl-graph .ctl-node text.sub { font-size: 10px; fill: var(--muted); } .ctl-graph .ctl-node text.tok { font-size: 9px; } .ctl-graph .ctl-node text.box { font-size: 10px; }
+.ctl-run { align-items: center; gap: 6px; flex-wrap: wrap; } .ctl-targets { width: 56px; } .ctl-robot { max-width: 200px; }
+.ctl-status { flex: 1 1 100%; white-space: normal; }
+.ctl-runlog { max-height: 84px; overflow: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }

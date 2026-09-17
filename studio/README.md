@@ -21,10 +21,11 @@ Documentation: **https://vertical-bot-ros.readthedocs.io** (built from `../docs/
 | **Mobile robots & fleets** | differential / Ackermann / omni / tracked platforms, occupancy maps, A*, coverage and row-traversal planners, pure pursuit, fleet manager (auctions, alley reservations, deadlock-free braking, charging, KPIs), **VDA 5050 v2** master and AGV-twin bridge over MQTT | Mobile robots, Fleet, VDA 5050 |
 | **Navigation & SLAM stack** | catalogue of 21 localization methods (2D / 3D LiDAR SLAM, LIO, visual SLAM, VIO, RTK / INS, UWB, tape / QR / reflectors / rail, hybrids, dead reckoning) and 7 navigation methods with a recommender per platform / environment / sensors; localization error simulation (drift, outages under canopy, loop closures, scale drift, tracking loss) that drives the controller; 2D LiDAR and SLAM-map view; **Nav2 + SLAM + EKF ROS 2 package export** | Mobile › Navigation & SLAM stack |
 | **Machine-vision stack (СТЗ)** | catalogue of 15 sensors (mono, stereo, RGB-D, ToF, 3D LiDAR, thermal, multispectral, event), 10 compute targets, 45 models (YOLOv8/10/11, RT-DETR, YOLO-World, Grounding DINO, YOLO-seg, FastSAM, SAM 2, Mask2Former, CLIP, ByteTrack / BoT-SORT / OC-SORT, YOLO-pose, FoundationPose / MegaPose / DOPE, Depth Anything, RAFT-Stereo, PCL / Patchwork++ / PointPillars / PointNet++, GraspNet, Florence-2 / PaliGemma / Qwen2.5-VL / LLaVA, OpenVLA / π0 / Octo / GR00T / ACT) with a recommender; the **pipeline runs on the station's cameras**: simulated ground truth with model statistics, or real models through **ONNX Runtime Web**, an inference server, an **OpenAI-compatible VLM**, a **VLA policy server** or ROS 2 `vision_msgs`; tracking, 3D localisation with sensor error models, grasp / approach targets, following, point clouds (PCD / PLY, ground, clusters, crop rows, canopy metrics), ROS 2 perception package export | Programming › Machine vision stack |
+| **Control design (course methods)** | the Control tab: 22 model kinds in a small text DSL — automata + Ramadge–Wonham supervisory control (supremal controllable sublanguage, modular non-conflict, observer / observability, twin-plant diagnosability, supervisor table + Python export), Petri nets and S³PR (invariants, reachability, liveness, siphons / traps, GMEC monitor synthesis, banker, timed and GSPN analysis), performance bounds (bottleneck, saturation, max-plus, Little), behavior trees (contracts, preemption, Monte Carlo, Kripke abstraction) and statecharts, LTL / CTL model checking with lasso counterexamples and fairness, GR(1) synthesis with controller / counter-strategy, hybrid modes (hysteresis, dwell time) + CBF filter, PDDL (typed, `forall`, costs) with h_max / h_add / h_FF and HTN, STN / STNU, MDP / POMDP, MRTA (Hungarian, auction, CBBA), MAPF (priority, CBS, TPG), job shop (rules, bounds, B&B, robustness), real-time (RTA, EDF, PCP, latency budgets), reliability & safety (MTTF, FMEA, FTA, ISO 13849 PL, ISO/TS 15066 SSM, FDIR), V&V (STL robustness, falsification, pairwise, Clopper–Pearson, sim-to-real, traceability); **mission runtime** executes a behavior tree on a station robot under the synthesised supervisor with LTL₃ monitors and a mode machine; both course examples (A mobile manipulator, B production cell) as ready models with demo guides | Control design |
 | **Agriculture** | 15 crop presets, orchard / greenhouse generators, GeoJSON fields, missions (harvest, spray, mow, prune, scout, pollinate, weed, transport, thin, irrigate), harvesting program generator, canopy GNSS-denied zones | Agriculture |
 | **Interoperability** | URDF / xacro / STL / OBJ / COLLADA / glTF / STEP import, URDF package and animated glTF export, **Blender add-on** (`blender/`), best-effort Visual Components / KUKA.Sim import | Interop › Blender, ROS, VC |
 | **Integration** | rosbridge digital twin (joints, TCP, cmd_vel; navigation estimate / truth / scan / SLAM map; `vision_msgs` detections, targets, point clouds, images), `visionLast` / `navEstimate` readable through the API, webhooks, HTTP contracts for inference / VLM / VLA, drivers (UR, ABB RWS, KUKA KVP, ROS 2) | Developer › Integration |
-| **Verification** | 157 vitest tests (kinematics, posts, importers, planners, fleet, VDA 5050 with an embedded MQTT broker, vision adapters with mock servers, a real onnxruntime-web run), Playwright smoke, **32 demo scenarios** (every localization method, every vision task) with published results | Reference › Demo scenarios |
+| **Verification** | 236 vitest tests (kinematics, posts, importers, planners, fleet, VDA 5050 with an embedded MQTT broker, vision adapters with mock servers, a real onnxruntime-web run, every control-design method against the course numbers), Playwright smoke, **45 demo scenarios** (every localization method, every vision task, every control-design method) with published results | Reference › Demo scenarios |
 
 UI in English and Russian (View › Language).
 
@@ -34,14 +35,15 @@ UI in English and Russian (View › Language).
 npm install
 npm run dev          # http://localhost:5173  (?demo=orchard | pickplace | tutorial | packing | welding | greenhouse | verticalbot)
 npm test             # unit + integration tests
-npm run scenarios    # demo scenarios → docs/scenario-results.md
+npm run scenarios    # 45 demo scenarios → docs/scenario-results.md
 npm run build        # static build in dist/
 npm run server       # RoboDK-compatible API server: ws/http :20500, tcp :20501 (+ drivers, VDA 5050, /vision/infer)
 ```
 
 Typical first session: *Help › Quick start* or the documentation tutorial (`?demo=tutorial`). To see the stacks:
 *Help › Demo scenarios…* → *Load into the studio* (navigation scenarios open the Navigation tab with truth vs
-estimate; vision scenarios open the Vision tab with detections on the camera image).
+estimate; vision scenarios open the Vision tab with detections on the camera image; control scenarios open the
+Control tab with the course models). *Control › Course examples…* adds the worked examples of the control course.
 
 Drive the browser session from Python (RoboDK API):
 
@@ -80,15 +82,16 @@ studio/
   src/fleet       fleet manager (tasks, allocation, traffic, charging, KPIs), VDA 5050
   src/agri        geo, fields/rows/missions, orchard generator, mission planners, harvest program generator, fruit detection sim
   src/vision      machine-vision stack: catalogue & recommender, model adapters, pipeline, point clouds, camera model, ROS 2 export
-  src/scenarios   demo scenarios (navigation per method, vision per task) and the report generator
+  src/ctl         control design: DES / supervisory control, Petri nets, performance, behavior trees, temporal logic, GR(1), hybrid, planning, MDP/POMDP, MRTA/MAPF, scheduling, real-time, reliability, V&V, DSL parsers, analysis reports, mission runtime
+  src/scenarios   demo scenarios (navigation per method, vision per task, control design per course method) and the report generator
   src/api         RoboDK-compatible JS API + JSON-RPC + browser bridge
   src/ros         rosbridge client and ROS 2 message publishers (navigation, perception)
   src/scene       three.js renderer & assets
-  src/ui          panels, dialogs, menu, tabs (Program, Simulation, Fleet, Process, Navigation, Vision, Camera, Console, Log)
+  src/ui          panels, dialogs, menu, tabs (Program, Simulation, Fleet, Process, Navigation, Vision, Control, Camera, Console, Log)
   server/         WebSocket/HTTP/TCP server (relay + headless), drivers, VDA 5050 service, vision inference endpoint
   python/         robodk drop-in package, rdk_export.py / rdk2vbs.py, vision_infer.py, examples (ROS 2 consumer, webhook sink, inference server, polling)
   blender/        Blender add-on (.vbstation import/export, program animation)
-  scripts/        Playwright smoke and documentation screenshots
+  scripts/        Playwright smoke and documentation screenshots (docs-screenshots.mjs, docs-screenshots-control.mjs)
   tests/          vitest suites (unit, integration with mock servers / embedded broker, demo scenarios)
   docs/           developer notes included in the Read the Docs build (architecture, RoboDK compatibility, formats, scenario results)
 ```

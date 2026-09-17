@@ -40,7 +40,7 @@ export function icon(name: string, title?: string): HTMLSpanElement {
 
 const ICONS: Record<string, string> = {
   station: '🏭', robot: '🦾', frame: '⌖', tool: '🔧', object: '📦', target: '🎯', program: '📜', instruction: '›', folder: '📁', camera: '📷',
-  mobile: '🚜', component: '⚙️', fleet: '🚚', map: '🗺️', field: '🌳', mission: '🧭', sensor: '📡', zone: '⬠', path: '〰️', notes: '📝', row: '🌿',
+  mobile: '🚜', component: '⚙️', fleet: '🚚', map: '🗺️', field: '🌳', mission: '🧭', sensor: '📡', zone: '⬠', path: '〰️', notes: '📝', row: '🌿', control: '🎛',
   play: '▶', pause: '⏸', stop: '⏹', step: '⏭', add: '＋', remove: '✕', up: '↑', down: '↓', eye: '👁', eyeoff: '🚫', gear: '⚙', save: '💾', open: '📂', new: '🗋',
   fit: '⤢', translate: '✥', rotate: '⟳', undo: '↶', redo: '↷', export: '⇩', import: '⇧', run: '⚡', tree: '🌲', warn: '⚠', ok: '✓', link: '🔗', info: 'ⓘ',
 };

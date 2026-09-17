@@ -56,6 +56,8 @@ export class App {
   /** Global sim clock for fleet & process simulation (independent from program playback). */
   worldRunning = false;
   worldTime = 0;
+  /** Extra per-step callbacks run inside the world loop (control runtimes, plugins). */
+  worldHooks: Array<(dt: number) => void> = [];
   logs: Array<{ t: number; text: string; level: 'info' | 'warn' | 'error' }> = [];
   /** Open stations (multi-station tabs); `station` is the active one. */
   stations: Station[] = [];
@@ -402,6 +404,7 @@ export class App {
         this.worldTime += h;
         for (const f of this.station.itemsOfType<FleetItem>(ItemType.FLEET)) this.fleetManager(f).step(h);
         if (this.station.itemsOfType(ItemType.COMPONENT).length) this.processSim.step(h);
+        for (const hook of this.worldHooks) hook(h);
       }
       for (const mi of this.station.itemsOfType<MissionItem>(ItemType.MISSION)) {
         const f = mi.fleetId ? (this.station.findById(mi.fleetId) as FleetItem | null) : this.station.itemsOfType<FleetItem>(ItemType.FLEET)[0];

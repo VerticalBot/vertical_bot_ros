@@ -11,6 +11,8 @@ import { poseToXyzrpw, xyzrpwToPose, poseToKuka, kukaToPose, poseToQuat, poseToU
 import { robotParametersDialog, runMissionPlan, exportDialog } from './dialogs';
 import { navStackSection } from './navstack_ui';
 import { visionSection } from './vision_ui';
+import { controlSection } from './control_ui';
+import { ControlModelItem } from '../ctl/model';
 import { t } from './i18n';
 
 type EulerMode = 'xyzrpw' | 'kuka' | 'ur' | 'abb';
@@ -55,7 +57,7 @@ export class PropertiesPanel {
     if (!item) { this.el.appendChild(h('div', { class: 'panel-body hint' }, t('Select an item in the tree or the 3D view.'))); return; }
     const body = h('div', { class: 'panel-body' });
     body.appendChild(h('div', { class: 'prop-title' }, h('b', null, item.name), h('small', null, ` ${item.typeName()}`)));
-    if (item.type !== ItemType.STATION && item.type !== ItemType.INSTRUCTION && item.type !== ItemType.PROGRAM && item.type !== ItemType.CROP_ROW) body.appendChild(this.poseEditor(item));
+    if (item.type !== ItemType.STATION && item.type !== ItemType.INSTRUCTION && item.type !== ItemType.PROGRAM && item.type !== ItemType.CROP_ROW && item.type !== ItemType.CONTROL_MODEL) body.appendChild(this.poseEditor(item));
     if (item instanceof Robot) body.appendChild(this.robotEditor(item));
     else if (item instanceof Target) body.appendChild(this.targetEditor(item));
     else if (item instanceof Tool) body.appendChild(this.toolEditor(item));
@@ -69,6 +71,7 @@ export class PropertiesPanel {
     else if (item instanceof Component) body.appendChild(this.componentEditor(item));
     else if (item instanceof MapItem) body.appendChild(this.section('Map', h('div', { class: 'kv' }, kv('Size', `${item.width} × ${item.height} cells`), kv('Resolution', `${item.resolution} mm`), kv('Inflation', `${item.inflation} mm`))));
     else if (item instanceof ZoneItem) body.appendChild(this.section('Zone', formField({ key: 'kind', label: 'Kind', type: 'select', value: item.kind, options: ['work', 'nogo', 'charging', 'loading', 'unloading', 'parking', 'speed_limit', 'headland'].map((k) => ({ value: k, label: k })) }, (v) => this.app.cmd(() => { item.kind = v; item.notify('kind'); })).el));
+    else if (item instanceof ControlModelItem) body.appendChild(controlSection(this.app, item));
     else if (item instanceof SceneObject) body.appendChild(this.objectEditor(item));
     else if (item instanceof CameraItem) body.appendChild(this.cameraEditor(item));
     // generic params

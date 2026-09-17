@@ -37,6 +37,8 @@ export enum ItemType {
   CROP_ROW = 108,
   ZONE = 109,
   PATH = 110,
+  /** Control-design model document (automata, Petri nets, behavior trees, specifications…). */
+  CONTROL_MODEL = 111,
 }
 
 export type ParamValue = string | number | boolean | null | ParamValue[] | { [k: string]: ParamValue };

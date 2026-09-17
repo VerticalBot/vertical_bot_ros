@@ -3,6 +3,7 @@ import { Item, ItemType, Frame, Target, Tool, SceneObject, Folder } from '../cor
 import { Robot } from '../core/items/robot';
 import { Program, Instruction } from '../core/items/program';
 import { MobileRobot } from '../mobile/items';
+import { ControlModelItem } from '../ctl/model';
 import { h, clear, icon, contextMenu, MenuEntry, dialog } from './dom';
 import { itemContextMenu } from './dialogs';
 import { t } from './i18n';
@@ -11,7 +12,7 @@ const ICON_OF: Partial<Record<ItemType, string>> = {
   [ItemType.STATION]: 'station', [ItemType.ROBOT]: 'robot', [ItemType.FRAME]: 'frame', [ItemType.TOOL]: 'tool', [ItemType.OBJECT]: 'object', [ItemType.TARGET]: 'target',
   [ItemType.PROGRAM]: 'program', [ItemType.INSTRUCTION]: 'instruction', [ItemType.FOLDER]: 'folder', [ItemType.CAMERA]: 'camera', [ItemType.MOBILE_ROBOT]: 'mobile',
   [ItemType.COMPONENT]: 'component', [ItemType.FLEET]: 'fleet', [ItemType.MAP]: 'map', [ItemType.FIELD]: 'field', [ItemType.MISSION]: 'mission', [ItemType.SENSOR]: 'sensor',
-  [ItemType.ZONE]: 'zone', [ItemType.PATH]: 'path', [ItemType.NOTES]: 'notes', [ItemType.CROP_ROW]: 'row',
+  [ItemType.ZONE]: 'zone', [ItemType.PATH]: 'path', [ItemType.NOTES]: 'notes', [ItemType.CROP_ROW]: 'row', [ItemType.CONTROL_MODEL]: 'control',
 };
 
 /** Station tree panel. */
@@ -97,6 +98,7 @@ export class TreePanel {
     if (item instanceof MobileRobot) return h('small', { class: `badge ${item.state.status}` }, `${item.state.status} ${(item.batteryLevel() * 100).toFixed(0)}%`);
     if (item instanceof Tool && item.parent instanceof Robot && item.parent.activeTool() === item) return h('small', { class: 'badge' }, 'active');
     if (item instanceof Frame && this.app.activeRobot?.activeFrame() === item) return h('small', { class: 'badge' }, 'ref');
+    if (item instanceof ControlModelItem) return h('small', { class: `badge ${item.lastOk === false ? 'bad' : ''}` }, `${item.kind}${item.lastOk === null ? '' : item.lastOk ? ' ✓' : ' ✗'}`);
     return null;
   }
 

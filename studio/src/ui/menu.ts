@@ -100,6 +100,17 @@ export class MenuBar {
         { label: 'Demo: apple orchard with harvesting fleet', action: () => { const d = demos.find((x) => x.id === 'orchard'); if (d) app.setStation(d.build()); } },
         { label: 'Demo: greenhouse tomato with rail robots', action: () => { const d = demos.find((x) => x.id === 'greenhouse'); if (d) app.setStation(d.build()); } },
       ]],
+      ['Control', () => [
+        { label: 'New control model…', action: async () => { const { newModelDialog } = await import('./control_ui'); newModelDialog(app); } },
+        { label: 'Course examples (A: mobile manipulator, B: production cell)…', action: async () => { const { courseExamplesDialog } = await import('./control_ui'); courseExamplesDialog(app); } },
+        { label: 'Open Control tab', action: () => { (app as any).bottom?.show?.('control'); } },
+        { separator: true },
+        { label: 'Analyse all models (deadlocks, livelocks, specifications, synthesis)', action: async () => { const { analyseAll } = await import('./control_ui'); analyseAll(app); } },
+        { label: 'Run mission (selected behavior tree on the selected robot)', action: () => { (app as any).bottom?.show?.('control'); (app as any).controlPanel?.start?.(); } },
+        { label: 'Stop mission', action: () => { (app as any).controlPanel?.stop?.(); } },
+        { separator: true },
+        { label: 'Demo scenarios: control design…', action: async () => { const { scenariosDialog } = await import('./scenarios_ui'); scenariosDialog(app); } },
+      ]],
       ['Tools', () => [
         { label: 'Collision map…', action: () => collisionMapDialog(app) },
         { label: 'Measure (two selected items / item to TCP)', shortcut: 'M', action: () => measureDialog(app) },
@@ -142,7 +153,7 @@ export class MenuBar {
         { label: 'Language: Русский', action: () => { setLang(getLang() === 'ru' ? 'en' : 'ru'); location.reload(); } },
       ]],
       ['Help', () => [
-        { label: 'Demo scenarios (navigation & vision)…', action: async () => { const { scenariosDialog } = await import('./scenarios_ui'); scenariosDialog(app); } },
+        { label: 'Demo scenarios (navigation, vision, control design)…', action: async () => { const { scenariosDialog } = await import('./scenarios_ui'); scenariosDialog(app); } },
         { label: 'Quick start', action: () => this.help() },
         { label: 'RoboDK API compatibility notes', action: () => window.open('docs/robodk-compatibility.md', '_blank') },
         { label: 'About', action: () => toast('VerticalBot Studio — browser-native robot simulation & offline programming (RoboDK / Visual Components class) for industrial, mobile and agricultural robotics. MIT.', 'info', 8000) },
