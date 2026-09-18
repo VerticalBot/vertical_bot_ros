@@ -21,9 +21,22 @@ jobs:
           cache-dependency-path: studio/package-lock.json
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run build
       - run: npm run build:server
+      - name: Browser end-to-end tests (Playwright over the production build)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+      - run: npm run scenarios
+      - run: npm run test:report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: studio-test-report
+          path: |
+            studio/docs/test-report.md
+            studio/coverage/coverage-summary.json
+            studio/test-results/e2e-results.json
       - name: Python client smoke test against the headless server
         run: |
           (STUDIO_PORT=20500 node dist-server/index.js > server.log 2>&1 &) 

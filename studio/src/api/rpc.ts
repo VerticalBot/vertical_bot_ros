@@ -43,7 +43,11 @@ export function executeRpc(RDK: Robolink, req: RpcRequest, ctx: { app?: any } = 
       const it = RDK.station.findById(req.target);
       target = new RobolinkItem(RDK, it);
     }
-    if (req.method === '__app__' && ctx.app) return { id: req.id, result: encode(callPath(ctx.app, params[0], params.slice(1))) };
+    if (req.method === '__app__' && ctx.app) {
+      const appResult = callPath(ctx.app, params[0], params.slice(1));
+      if (appResult && typeof appResult.then === 'function') return { id: req.id, result: appResult };
+      return { id: req.id, result: encode(appResult) };
+    }
     const fn = target[req.method];
     if (typeof fn !== 'function') return { id: req.id, error: `Unknown method ${req.method}` };
     const result = fn.apply(target, params);

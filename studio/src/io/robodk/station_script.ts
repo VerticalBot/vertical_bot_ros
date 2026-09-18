@@ -70,7 +70,8 @@ export function stationToRoboDKScript(station: Station): string {
         L.push(`${v(c)} = RDK.AddFile(os.path.join(os.path.dirname(__file__), ${py(meshFile)}), ${pv}) if os.path.exists(os.path.join(os.path.dirname(__file__), ${py(meshFile)})) else RDK.AddFrame(${py(c.name)}, ${pv})`);
         L.push(`${v(c)}.setName(${py(c.name)})`, `${v(c)}.setPose(${mat(c.pose())})`);
       } else if (c instanceof Program) {
-        // programs emitted after everything else
+        // programs (and their instructions) are emitted after everything else
+        continue;
       } else if (c.type === ItemType.FOLDER) {
         L.push(`${v(c)} = RDK.AddFolder(${py(c.name)}, ${pv})`);
       } else {

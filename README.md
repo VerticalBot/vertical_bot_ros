@@ -58,16 +58,21 @@ into a design tool for real machines:
   the station robots (**Run on fleet**), a warehouse scene builder, course examples ПР1–ПР6 / homework /
   architectures, nine demo scenarios, how-to guides.
 
-Everything is verified by 236 unit / integration tests and 45 published demo scenarios (one per localization
-method, vision task and control-design method), and wired to the outside world through documented ports and contracts
+Everything is verified on four layers — unit / integration tests with coverage, A/B tests that run the same job two
+ways and compare (solver against heuristic, model against fleet, saved against reloaded, EN against RU), browser
+end-to-end tests over the production build, and published demo scenarios (one per localization method, vision task,
+control-design method and group-control practicum) — see *Reference › Testing and module verification*; and wired to the
+outside world through documented ports and contracts
 (RoboDK-compatible API on 20500/20501, rosbridge topics, VDA 5050 over MQTT, HTTP inference / VLM / VLA
 contracts, webhooks).
 
 ```bash
 cd studio && npm install
 npm run dev          # http://localhost:5173  (?demo=orchard | pickplace | tutorial | packing | welding | greenhouse | verticalbot)
-npm test             # 236 tests
-npm run scenarios    # 45 demo scenarios → docs/scenario-results.md
+npm test             # unit, integration and A/B tests (npm run test:coverage for the coverage report)
+npm run test:e2e     # browser end-to-end tests over dist/ (after npm run build)
+npm run scenarios    # demo scenarios → docs/scenario-results.md
+npm run test:all     # build + all layers + docs/test-report.md
 npm run server       # RoboDK-compatible API + drivers + VDA 5050 + vision inference (ws/http :20500, tcp :20501)
 ```
 

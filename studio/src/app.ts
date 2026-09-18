@@ -168,6 +168,8 @@ export class App {
     this.lastSnapshot = s;
     const st = loadStation(JSON.parse(s), this.assets);
     const progId = this.activeProgram?.id, robId = this.activeRobot?.id;
+    const i = this.stations.indexOf(this.station);
+    if (i >= 0) this.stations[i] = st; else this.stations.push(st);
     this.station = st;
     this.sim = new ProgramSimulator(st);
     this.processSim = new ProcessSimulator(st);

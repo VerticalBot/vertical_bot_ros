@@ -4,3 +4,5 @@ dist
 .vite
 dist-server
 __pycache__/
+coverage/
+test-results/

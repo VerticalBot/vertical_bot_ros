@@ -132,7 +132,7 @@ export class ProgramEditor {
     const i = p.children.indexOf(ins);
     const j = i + dir;
     if (j < 0 || j >= p.children.length) return;
-    this.app.cmd(() => p.addChild(ins, j > i ? j + 1 : j));
+    this.app.cmd(() => p.addChild(ins, j));
     this.app.previewProgram();
   }
 }

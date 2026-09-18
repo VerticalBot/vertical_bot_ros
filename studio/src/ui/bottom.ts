@@ -77,7 +77,7 @@ export class BottomPanel {
 
   private buildSim(): HTMLElement {
     this.timelineRange = h('input', { type: 'range', min: 0, max: 1, step: 0.01, value: 0, class: 'timeline' }) as HTMLInputElement;
-    this.timelineRange.addEventListener('input', () => { this.app.pauseProgram(); this.app.seekProgram(parseFloat(this.timelineRange.value)); });
+    this.timelineRange.addEventListener('input', () => { const t = parseFloat(this.timelineRange.value); this.app.pauseProgram(); this.app.seekProgram(t); });
     this.timeLabel = h('span', { class: 'time-label' }, '0.00 / 0.00 s');
     const speed = h('select', { onChange: (e: Event) => { this.app.simSpeed = parseFloat((e.target as HTMLSelectElement).value); } }, ...[0.25, 0.5, 1, 2, 5, 10, 50, 100].map((s) => h('option', { value: s, selected: s === 1 }, `${s}×`)));
     const worldState = h('span', { class: 'hint' });

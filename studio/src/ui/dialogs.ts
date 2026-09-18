@@ -477,10 +477,10 @@ export async function exportDialog(app: App, program: Program | null = app.activ
   } }, 'Run a RoboDK Python post (.py)…');
   const body = h('div', null, h('div', { class: 'btn-row' }, pyBtn, h('span', { class: 'hint' }, 'Load any RoboDK post processor file (class RobotPost) and run it in the browser.')), preview);
   const update = (v: Record<string, any>) => { const files = app.exportProgram(v.post, program); preview.textContent = files.map((f) => `# ---- ${f.name} ----\n${f.content}`).join('\n').slice(0, 20000); };
+  update({ post: posts.some((p) => p.id === def) ? def : 'Generic' });
   const r = await dialog<{ post: string }>(`Export ${program.name}`, [
     { key: 'post', label: 'Post processor', type: 'select', value: posts.some((p) => p.id === def) ? def : 'Generic', options: posts.map((p) => ({ value: p.id, label: `${p.name} (.${p.extension})` })) },
   ], { width: 760, okLabel: 'Download', body, onChange: update });
-  update({ post: posts.some((p) => p.id === def) ? def : 'Generic' });
   if (!r) return;
   for (const f of app.exportProgram(r.post, program)) downloadText(f.name, f.content, f.mime);
 }

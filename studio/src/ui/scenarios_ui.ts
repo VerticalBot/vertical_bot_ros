@@ -50,7 +50,7 @@ export async function scenariosDialog(app: App, initial: 'all' | 'navigation' | 
   };
   const body = h('div', null,
     h('div', { class: 'btn-row' },
-      h('select', { value: initial, onChange: (e: Event) => { group = (e.target as HTMLSelectElement).value as any; render(); } }, h('option', { value: 'all' }, t('All scenarios')), h('option', { value: 'navigation' }, t('Navigation & localization')), h('option', { value: 'vision' }, t('Machine vision')), h('option', { value: 'control' }, t('Control design')), h('option', { value: 'group' }, t('Group control'))),
+      Object.assign(h('select', { onChange: (e: Event) => { group = (e.target as HTMLSelectElement).value as any; render(); } }, h('option', { value: 'all' }, t('All scenarios')), h('option', { value: 'navigation' }, t('Navigation & localization')), h('option', { value: 'vision' }, t('Machine vision')), h('option', { value: 'control' }, t('Control design')), h('option', { value: 'group' }, t('Group control'))), { value: initial }),
       h('button', { class: 'btn small', onClick: runAll }, t('Run all (headless)')),
       h('button', { class: 'btn small', onClick: () => { if (!results.size) return toast('Run the scenarios first', 'warn'); downloadText('scenario-results.md', scenarioReportMarkdown([...results.values()]), 'text/markdown'); } }, t('Download report (.md)'))),
     status, list);

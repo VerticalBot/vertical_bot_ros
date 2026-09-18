@@ -141,6 +141,7 @@ api/plugins
 reference/coverage
 reference/robodk-guide-map
 reference/scenarios
+reference/testing
 reference/shortcuts
 reference/faq
 developer/architecture

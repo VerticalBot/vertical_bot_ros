@@ -751,7 +751,7 @@ Five component automata compose to 648 states; E1 E2 E3 E5 give a 324-state non-
 | observer states | 324 | = 324 ✓ |
 | LTL/CTL checks | pass | R1 holds under supervision ✓ |
 | E4 realisable | false | false (g_slip uncontrollable) ✓ |
-| analysis time | 151 ms |   |
+| analysis time | 181 ms |   |
 
 </details>
 
@@ -982,7 +982,7 @@ Chain P₄ with x(0) = (0, 4, 8, 12), ε = 0.25 reproduces the text (λ₂ = 0.5
 | links broken (rendezvous) | 0 | = 0 ✓ |
 | W-MSR on K₇ | converges | normal agents inside [0, 0.9] ✓ |
 | W-MSR on P₇ | hijacked | 1-robust chain fails ✓ |
-| analysis time | 87 ms |   |
+| analysis time | 130 ms |   |
 
 </details>
 

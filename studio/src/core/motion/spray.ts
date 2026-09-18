@@ -64,7 +64,9 @@ export class SpraySimulator {
           const area = triArea(a, b, c);
           const n = Math.max(1, Math.round(area / (spacing * spacing)));
           for (let q = 0; q < n; q++) {
-            let u = ((q * 0.618034) % 1), v = ((q * 0.381966) % 1);
+            // R2 low-discrepancy pair (1/g, 1/g² with g the plastic constant): the two multipliers must not sum to 1,
+            // otherwise u + v is always ~1 and every sample lands on the b-c edge of the triangle
+            let u = ((0.5 + q * 0.7548777) % 1), v = ((0.5 + q * 0.5698403) % 1);
             if (u + v > 1) { u = 1 - u; v = 1 - v; }
             out.push({ p: tf([a[0] + (b[0] - a[0]) * u + (c[0] - a[0]) * v, a[1] + (b[1] - a[1]) * u + (c[1] - a[1]) * v, a[2] + (b[2] - a[2]) * u + (c[2] - a[2]) * v]), n: nrm, dep: 0 });
           }
