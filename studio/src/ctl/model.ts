@@ -7,10 +7,14 @@
  * supervisors, monitors and mode machines against the simulated station.
  */
 import { Item, ItemType, Station, Folder, registerItemType, SerializedItem, DeserializeContext } from '../core/items/item';
+import { MRS_KINDS, MrsKind } from '../mrs/model';
 
-export type ControlKind = 'des' | 'petri' | 's3pr' | 'smv' | 'bt' | 'statechart' | 'gr1' | 'hybrid' | 'pddl' | 'stn' | 'mdp' | 'pomdp' | 'jobshop' | 'realtime' | 'fta' | 'reliability' | 'mrta' | 'mapf' | 'stl' | 'fmea' | 'acceptance' | 'perf';
+export type CtlKind = 'des' | 'petri' | 's3pr' | 'smv' | 'bt' | 'statechart' | 'gr1' | 'hybrid' | 'pddl' | 'stn' | 'mdp' | 'pomdp' | 'jobshop' | 'realtime' | 'fta' | 'reliability' | 'mrta' | 'mapf' | 'stl' | 'fmea' | 'acceptance' | 'perf';
+/** All document kinds: the control-design kinds (course *control of robotic complexes*) and the group-control kinds of the multi-robot module (course *control of distributed robotic systems*, src/mrs). */
+export type ControlKind = CtlKind | MrsKind;
+export type ControlGroup = 'discrete' | 'executive' | 'verification' | 'planning' | 'coordination' | 'engineering' | 'multi-robot';
 
-export const CONTROL_KINDS: Array<{ kind: ControlKind; label: string; chapter: string; group: 'discrete' | 'executive' | 'verification' | 'planning' | 'coordination' | 'engineering' }> = [
+export const CONTROL_KINDS: Array<{ kind: ControlKind; label: string; chapter: string; group: ControlGroup; /** practicum of the group-control course (multi-robot kinds) */ practicum?: string }> = [
   { kind: 'des', label: 'Automata & supervisory control', chapter: '2–3', group: 'discrete' },
   { kind: 'petri', label: 'Petri net', chapter: '4–5', group: 'discrete' },
   { kind: 's3pr', label: 'Resource-allocation system (S³PR)', chapter: '4', group: 'discrete' },
@@ -33,7 +37,10 @@ export const CONTROL_KINDS: Array<{ kind: ControlKind; label: string; chapter: s
   { kind: 'fta', label: 'Fault tree', chapter: '16', group: 'engineering' },
   { kind: 'fmea', label: 'FMEA', chapter: '16', group: 'engineering' },
   { kind: 'acceptance', label: 'Acceptance statistics & traceability', chapter: '17', group: 'engineering' },
+  // group control (multi-robot systems) — chapters of the second course, see src/mrs
+  ...MRS_KINDS.map((k) => ({ kind: k.kind as ControlKind, label: k.label, chapter: `MRS ${k.chapter}`, group: 'multi-robot' as ControlGroup, practicum: k.practicum })),
 ];
+export const GROUP_LABELS: Record<ControlGroup, string> = { discrete: 'Discrete-event models', executive: 'Executive layer', verification: 'Verification & synthesis', planning: 'Planning & decisions', coordination: 'Coordination & scheduling', engineering: 'Engineering: real-time, reliability, V&V', 'multi-robot': 'Group control (multi-robot systems)' };
 
 export class ControlModelItem extends Item {
   kind: ControlKind = 'des';

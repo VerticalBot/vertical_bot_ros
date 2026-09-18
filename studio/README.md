@@ -11,6 +11,14 @@ imported directly (URDF/xacro + STL) and driven through the ROS 2 post processor
 
 Documentation: **https://vertical-bot-ros.readthedocs.io** (built from `../docs/`). Roadmap and status: `TODO.md`.
 
+## Group control (multi-robot systems)
+
+The **Group** menu and the *Group control* kinds of the Control tab implement the course on distributed robotic
+systems: consensus / formations on communication graphs, swarms, task allocation, grid MAPF, coverage, group safety
+with barrier functions, the warehouse fleet of the homework and the chapter examples (games, learning, evolution,
+cellular automata, fuzzy control, resilience). Reports carry charts; six kinds run on the station robots (**Run on
+fleet**). See `docs/group/` on Read the Docs and `src/mrs/`.
+
 ## What it does
 
 | Area | Highlights | Docs |

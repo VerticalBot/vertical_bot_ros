@@ -10,7 +10,12 @@ import { h, clear, dialog, toast, downloadText, contextMenu, MenuEntry, fmt } fr
 import { ItemType, Item } from '../core/items/item';
 import { MobileRobot } from '../mobile/items';
 import { FleetItem } from '../fleet/fleet';
-import { ControlModelItem, controlModels, addControlModel, CONTROL_KINDS, ControlKind } from '../ctl/model';
+import { ControlModelItem, controlModels, addControlModel, CONTROL_KINDS, ControlKind, GROUP_LABELS } from '../ctl/model';
+import { isMrsKind, MrsKind } from '../mrs/model';
+import { MRS_EXAMPLES, MRS_PARTS } from '../mrs/examples';
+import { FleetRuntime, RUNNABLE_KINDS, buildWarehouseScene } from '../mrs/runtime';
+import { parseWarehouse } from '../mrs/dsl';
+import { renderPlot } from './plots';
 import { TEMPLATES, parseBt, parseDes, parsePetri, parseHybrid, detectKind } from '../ctl/dsl';
 import { analyse, Report, GraphView } from '../ctl/analysis';
 import { COURSE_EXAMPLES } from '../ctl/examples_dsl';
@@ -29,6 +34,8 @@ import { buildBtEditor } from './bt_editor';
 
 const LEVEL_ICON = { ok: '✅', warn: '⚠️', error: '❌', info: 'ℹ️' } as const;
 const kindLabel = (k: ControlKind) => CONTROL_KINDS.find((x) => x.kind === k)?.label ?? k;
+/** "(ch. 4)" for the control-design kinds, "(ПР1, MRS 4, 13, 16)" for the group-control kinds. */
+const kindTag = (k: { chapter: string; practicum?: string; group: string }) => (k.group === 'multi-robot' ? `${k.practicum && k.practicum !== '—' ? k.practicum + ', ' : ''}${k.chapter}` : `ch. ${k.chapter}`);
 const kv = (k: string, v: string) => h('div', { class: 'kv-row' }, h('span', { class: 'k' }, t(k)), h('span', { class: 'v' }, v));
 
 /** Synthesise the supervisor table of a DES document (null when the specification is unrealisable). */
@@ -61,9 +68,9 @@ export function openControl(app: App, m?: ControlModelItem): void {
   if (m) (app as any).controlPanel?.open?.(m);
 }
 
-export async function newModelDialog(app: App): Promise<void> {
-  const r = await dialog<{ kind: ControlKind; name: string }>('New control model', [
-    { key: 'kind', label: 'Kind', type: 'select', value: 'des', options: CONTROL_KINDS.map((k) => ({ value: k.kind, label: `${k.label} (ch. ${k.chapter})` })) },
+export async function newModelDialog(app: App, defaultKind: ControlKind = 'des'): Promise<void> {
+  const r = await dialog<{ kind: ControlKind; name: string }>(isMrsKind(defaultKind) ? 'New group-control model' : 'New control model', [
+    { key: 'kind', label: 'Kind', type: 'select', value: defaultKind, options: CONTROL_KINDS.map((k) => ({ value: k.kind, label: `${k.label} (${kindTag(k)})` })) },
     { key: 'name', label: 'Name', type: 'text', value: '' },
   ], { okLabel: 'Create' });
   if (r) newControlModel(app, r.kind, r.name.trim() || undefined);
@@ -79,6 +86,25 @@ export async function courseExamplesDialog(app: App): Promise<void> {
   app.cmd(() => { for (const e of list) last = addControlModel(app.station, e.kind, e.name, e.source); });
   if (last) { app.select(last); openControl(app, last); }
   toast(`${list.length} model(s) added`, 'ok');
+}
+
+/** Course examples of the group-control module (ПР1–ПР6, the warehouse homework, chapter examples). */
+export async function groupExamplesDialog(app: App): Promise<void> {
+  const r = await dialog<{ id: string }>('Group control — course examples (ПР1–ПР6, warehouse homework, chapters)', [
+    { key: 'id', label: 'Example', type: 'select', value: MRS_EXAMPLES[0].id, options: [{ value: '*', label: 'All examples' }, ...MRS_PARTS.map((part) => ({ value: `part:${part}`, label: `All of ${part}` })), ...MRS_EXAMPLES.map((e) => ({ value: e.id, label: `${e.name} — ${e.kind}` }))] },
+  ], { okLabel: 'Add', width: 720 });
+  if (!r) return;
+  const list = r.id === '*' ? MRS_EXAMPLES : r.id.startsWith('part:') ? MRS_EXAMPLES.filter((e) => e.part === r.id.slice(5)) : MRS_EXAMPLES.filter((e) => e.id === r.id);
+  let last: ControlModelItem | null = null;
+  app.cmd(() => { for (const e of list) last = addControlModel(app.station, e.kind, e.name, e.source); });
+  if (last) { app.select(last); openControl(app, last); }
+  toast(`${list.length} model(s) added`, 'ok');
+}
+
+/** Build the station scene (map, station zones, robots at their homes) of a warehouse model. */
+export function buildWarehouseSceneFromModel(app: App, m: ControlModelItem): void {
+  if (m.kind !== 'warehouse') return toast('Select a warehouse model (group control) first', 'warn');
+  try { const d = parseWarehouse(m.source); const existing = app.station.itemsOfType<MobileRobot>(ItemType.MOBILE_ROBOT).filter((r) => d.cfg.robots.names.includes(r.name)); if (existing.length) return toast(`Robots ${existing.map((r) => r.name).join(', ')} already exist — remove them or rename the fleet`, 'warn'); const built = app.cmd(() => buildWarehouseScene(app.station, d.cfg, d.stationKinds)); app.select(built.robots[0]); toast(`Warehouse scene: ${built.zones.length} stations, ${built.robots.length} robots`, 'ok'); app.log(`[fleet] built the scene of "${m.name}": map ${d.cfg.warehouse.map.split('\n').length} rows, stations ${Object.keys(d.cfg.warehouse.stations).join(' ')}`); } catch (e) { toast(`Cannot build the scene: ${(e as Error).message}`, 'error', 6000); }
 }
 
 export function analyseAll(app: App): void {
@@ -109,7 +135,14 @@ export function controlSection(app: App, m: ControlModelItem): HTMLElement {
 export function renderGraph(g: GraphView, width = 320): SVGSVGElement {
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag: string, attrs: Record<string, string | number>, text?: string) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v)); if (text !== undefined) e.textContent = text; return e; };
-  const lay = layoutGraph(g, width); const { pos, tree } = lay; const Wf = lay.width, H = lay.height; const BOX_W = TREE_BOX.w, BOX_H = TREE_BOX.h;
+  let fixed: Map<string, [number, number]> | undefined;
+  if (g.kind === 'network' && !g.positions && g.nodes.length > 2) { // communication graphs without coordinates: nodes on a circle
+    const n = g.nodes.length; const r = Math.max(60, 22 * n); fixed = new Map(g.nodes.map((nd, i) => [nd.id, [r + 40 + r * Math.cos((2 * Math.PI * i) / n - Math.PI / 2), r + 40 + r * Math.sin((2 * Math.PI * i) / n - Math.PI / 2)] as [number, number]]));
+  }
+  if (g.positions) { // pin the nodes to the model coordinates, scaled into the drawing
+    const ps = Object.values(g.positions); const xs = ps.map((q) => q[0]), ys = ps.map((q) => q[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys); const span = Math.max(x1 - x0, y1 - y0, 1e-9); const sc = Math.max(width, 320) / span; fixed = new Map(Object.entries(g.positions).map(([id, q]) => [id, [40 + (q[0] - x0) * sc, 40 + (y1 - q[1]) * sc] as [number, number]]));
+  }
+  const lay = layoutGraph(g, width, fixed); const { pos, tree } = lay; const Wf = lay.width, H = lay.height; const BOX_W = TREE_BOX.w, BOX_H = TREE_BOX.h;
   const svg = el('svg', { class: 'ctl-graph', viewBox: `0 0 ${Wf} ${H}`, width: Wf, height: H }) as SVGSVGElement;
   const defs = el('defs', {}); const marker = el('marker', { id: 'ctl-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
   marker.appendChild(el('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: 'currentColor' })); defs.appendChild(marker); svg.appendChild(defs);
@@ -128,7 +161,7 @@ export function renderGraph(g: GraphView, width = 320): SVGSVGElement {
     const nx = -uy, ny = ux; const off = (k - (k > 0 ? 0.5 : 0)) * 24 * (e.from < e.to ? 1 : -1);
     const sx = a[0] + ux * R, sy = a[1] + uy * R, ex = b[0] - ux * R, ey = b[1] - uy * R;
     const mx = (sx + ex) / 2 + nx * off, my = (sy + ey) / 2 + ny * off;
-    svg.appendChild(el('path', { d: off ? `M ${sx} ${sy} Q ${mx} ${my} ${ex} ${ey}` : `M ${sx} ${sy} L ${ex} ${ey}`, fill: 'none', stroke: 'currentColor', 'marker-end': 'url(#ctl-arrow)', class: 'ctl-edge' }));
+    svg.appendChild(el('path', { d: off ? `M ${sx} ${sy} Q ${mx} ${my} ${ex} ${ey}` : `M ${sx} ${sy} L ${ex} ${ey}`, fill: 'none', stroke: 'currentColor', ...(g.undirected ? {} : { 'marker-end': 'url(#ctl-arrow)' }), class: 'ctl-edge' }));
     if (e.label) { const lx = sx + (ex - sx) * 0.38 + nx * (off * 0.6 + 7), ly = sy + (ey - sy) * 0.38 + ny * (off * 0.6 + 7); svg.appendChild(el('text', { x: lx, y: ly, class: 'ctl-elabel', 'text-anchor': 'middle' }, e.label.length > 26 ? e.label.slice(0, 25) + '…' : e.label)); }
   }
   for (const n of g.nodes) {
@@ -166,7 +199,9 @@ export function standaloneSvg(svg: SVGSVGElement): string {
 .ctl-node circle, .ctl-node rect { fill: #242932; stroke: #9aa4b2; stroke-width: 1.4; } .ctl-node.initial circle, .ctl-node.initial rect { stroke: #4dabf7; }
 .ctl-node.marked circle.inner { fill: none; } .ctl-node.transition rect { fill: #9aa4b2; } .ctl-node.resource circle { stroke: #fab005; } .ctl-node.idle circle { stroke: #51cf66; }
 .ctl-node.action rect { stroke: #51cf66; } .ctl-node.condition rect { stroke: #fab005; } .ctl-node.sequence rect, .ctl-node.fallback rect, .ctl-node.parallel rect { stroke: #4dabf7; }
-.ctl-node text { fill: #e6e9ef; font-size: 11px; } .ctl-node text.sub { font-size: 10px; fill: #9aa4b2; } .ctl-node text.tok { font-size: 9px; } .ctl-node text.box { font-size: 10px; }`;
+.ctl-node text { fill: #e6e9ef; font-size: 11px; } .ctl-node text.sub { font-size: 10px; fill: #9aa4b2; } .ctl-node text.tok { font-size: 9px; } .ctl-node text.box { font-size: 10px; }
+.plot-title { fill: #e6e9ef; font-size: 11px; font-weight: 600; } .plot-tick { fill: #9aa4b2; font-size: 9px; } .plot-label { fill: #9aa4b2; font-size: 10px; } .plot-grid { stroke: #3a414d; stroke-width: 0.6; } .plot-frame { fill: none; stroke: #9aa4b2; stroke-width: 0.8; opacity: 0.6; } .plot-obstacle { fill: #9aa4b2; opacity: 0.45; }
+.plot-marker.goal { stroke: #ff6b6b; stroke-width: 1.6; } .plot-marker.source { fill: #fab005; } .plot-marker.station { fill: #4dabf7; } .plot-marker.task { fill: #51cf66; } .plot-marker.robot { fill: none; stroke: #e6e9ef; stroke-width: 1.2; } .plot-marker.start { fill: none; stroke: #51cf66; stroke-width: 1.4; } .plot-marker.obstacle { fill: #9aa4b2; }`;
   c.insertBefore(style, c.firstChild);
   const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); bg.setAttribute('width', '100%'); bg.setAttribute('height', '100%'); bg.setAttribute('fill', '#2c323d');
   c.insertBefore(bg, style.nextSibling);
@@ -178,10 +213,11 @@ export function renderReport(r: Report): HTMLElement {
   const wrap = h('div', { class: 'ctl-report' });
   wrap.appendChild(h('div', { class: `ctl-verdict ${r.ok ? 'ok' : 'bad'}` }, `${r.ok ? '✅' : '❌'} ${r.title} — ${r.ok ? t('OK') : t('issues found')} · ${r.durationMs} ms`));
   for (const s of r.sections) {
-    const d = h('details', { class: `ctl-section lvl-${s.level}`, open: s.level !== 'info' || !!s.graph }, h('summary', null, `${LEVEL_ICON[s.level]} ${s.title}`));
+    const d = h('details', { class: `ctl-section lvl-${s.level}`, open: s.level !== 'info' || !!s.graph || !!s.plot }, h('summary', null, `${LEVEL_ICON[s.level]} ${s.title}`));
     if (s.lines.length) d.appendChild(h('ul', null, ...s.lines.map((l) => h('li', null, l))));
     if (s.table) d.appendChild(h('table', { class: 'grid small' }, h('thead', null, h('tr', null, ...s.table.head.map((c) => h('th', null, c)))), h('tbody', null, ...s.table.rows.map((row) => h('tr', null, ...row.map((c) => h('td', null, String(c))))))));
     if (s.graph) d.appendChild(h('div', { class: 'ctl-graph-wrap' }, renderGraph(s.graph) as unknown as HTMLElement));
+    if (s.plot) d.appendChild(h('div', { class: 'ctl-graph-wrap' }, renderPlot(s.plot) as unknown as HTMLElement));
     wrap.appendChild(d);
   }
   const mk = Object.entries(r.metrics);
@@ -286,7 +322,25 @@ export function stationWorld(app: App): ExecutorWorld & { stop(): void } {
   };
 }
 
-export interface ActiveRun { model: ControlModelItem; hook: (dt: number) => void; done: boolean; rt?: ControlRuntime; exec?: AutomatonExecutor | PetriExecutor; stop(): void; status(): string; logLines(): string[] }
+export interface ActiveRun { model: ControlModelItem; hook: (dt: number) => void; done: boolean; rt?: ControlRuntime; exec?: AutomatonExecutor | PetriExecutor; fleet?: FleetRuntime; stop(): void; status(): string; logLines(): string[] }
+
+/** Run a group-control model (consensus / formation, swarm, coverage, safety, grid MAPF, warehouse fleet) on the mobile robots of the station. */
+export function startFleetRun(app: App, model: ControlModelItem, opts: { maxSeconds?: number } = {}): ActiveRun {
+  if (!isMrsKind(model.kind)) throw new Error('not a group-control model');
+  if (!RUNNABLE_KINDS.includes(model.kind)) throw new Error(`${kindLabel(model.kind)} is analysed, not executed; runnable kinds: ${RUNNABLE_KINDS.join(', ')}`);
+  const robots = app.station.itemsOfType<MobileRobot>(ItemType.MOBILE_ROBOT);
+  const log = (m: string) => app.log(`[fleet ${model.name}] ${m}`, /FAULT|DOUBLE|CONFLICT|failed|only \d+ of/.test(m) ? 'warn' : 'info');
+  const rt = new FleetRuntime({ kind: model.kind as MrsKind, source: model.source, robots, station: app.station, log, maxSeconds: opts.maxSeconds, createRobots: (name, x, y) => app.cmd(() => { const r = app.station.addChild(new MobileRobot(name)); r.setPose2D(x, y, 0); return r; }) });
+  const run: ActiveRun = {
+    model, fleet: rt, done: false,
+    hook: (dt) => { if (run.done) return; rt.tick(dt); if (rt.done) { run.done = true; const i = app.worldHooks.indexOf(run.hook); if (i >= 0) app.worldHooks.splice(i, 1); toast(rt.status(), 'ok', 6000); } },
+    stop: () => { const i = app.worldHooks.indexOf(run.hook); if (i >= 0) app.worldHooks.splice(i, 1); run.done = true; rt.stop(); },
+    status: () => rt.status(), logLines: () => rt.log,
+  };
+  app.worldHooks.push(run.hook); app.startWorld();
+  app.log(`[fleet] "${model.name}" (${model.kind}) started on ${rt.robots.map((r) => r.name).join(', ')}`);
+  return run;
+}
 
 /** Run an automaton or Petri-net model on the station until it is quiescent (or stopped). */
 export function startModelRun(app: App, model: ControlModelItem, opts: { maxSeconds?: number } = {}): ActiveRun {
@@ -333,7 +387,7 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   let lastReport: Report | null = null;
   const list = h('div', { class: 'ctl-list' });
   const nameIn = h('input', { type: 'text', class: 'ctl-name', placeholder: 'Model name' }) as HTMLInputElement;
-  const kindSel = h('select', { class: 'ctl-kind' }, ...CONTROL_KINDS.map((k) => h('option', { value: k.kind }, `${k.label} (ch. ${k.chapter})`))) as HTMLSelectElement;
+  const kindSel = h('select', { class: 'ctl-kind' }, ...CONTROL_KINDS.map((k) => h('option', { value: k.kind }, `${k.label} (${kindTag(k)})`))) as HTMLSelectElement;
   const editor = h('textarea', { class: 'ctl-editor', spellcheck: false, wrap: 'off', placeholder: t('Select a model on the left, or create one with New ▾ / Course examples ▾') }) as HTMLTextAreaElement;
   let view: 'text' | 'diagram' = 'text';
   // per-model undo / redo of the document text, shared by the text and diagram views (Ctrl+Z / Ctrl+Y in the diagrams, ↶ ↷ buttons)
@@ -373,18 +427,23 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
 
   const drop = (btn: HTMLElement, entries: () => MenuEntry[]) => { btn.addEventListener('click', () => { const r = btn.getBoundingClientRect(); contextMenu(r.left, r.bottom, entries()); }); return btn; };
   const groups = [...new Set(CONTROL_KINDS.map((k) => k.group))];
-  const newBtn = drop(h('button', { class: 'btn primary small' }, t('New') + ' ▾'), () => groups.flatMap((g, i) => [...(i ? [{ separator: true }] : []), ...CONTROL_KINDS.filter((k) => k.group === g).map((k) => ({ label: `${k.label} (ch. ${k.chapter})`, action: () => newControlModel(app, k.kind) }))]));
+  const newBtn = drop(h('button', { class: 'btn primary small' }, t('New') + ' ▾'), () => groups.flatMap((g, i) => [...(i ? [{ separator: true }] : []), { label: GROUP_LABELS[g], disabled: true }, ...CONTROL_KINDS.filter((k) => k.group === g).map((k) => ({ label: `${k.label} (${kindTag(k)})`, action: () => newControlModel(app, k.kind) }))]));
   const exBtn = drop(h('button', { class: 'btn small' }, t('Course examples') + ' ▾'), () => [
     { label: t('Add all examples'), action: () => { app.cmd(() => { for (const e of COURSE_EXAMPLES) addControlModel(app.station, e.kind, e.name, e.source); }); render(); toast(`${COURSE_EXAMPLES.length} models added`, 'ok'); } },
     { separator: true },
     ...COURSE_EXAMPLES.map((e) => ({ label: e.name, action: () => { const m = app.cmd(() => addControlModel(app.station, e.kind, e.name, e.source)); open(m); doAnalyse(); } })),
   ]);
+  const grpBtn = drop(h('button', { class: 'btn small', title: t('Course examples of the group-control module: practicum ПР1–ПР6, the warehouse homework and the chapter examples') }, t('Group examples') + ' ▾'), () => [
+    { label: t('Add all group examples'), action: () => { app.cmd(() => { for (const e of MRS_EXAMPLES) addControlModel(app.station, e.kind, e.name, e.source); }); render(); toast(`${MRS_EXAMPLES.length} models added`, 'ok'); } },
+    ...MRS_PARTS.flatMap((part) => [{ separator: true }, { label: part, disabled: true }, ...MRS_EXAMPLES.filter((e) => e.part === part).map((e) => ({ label: e.name, action: () => { const m = app.cmd(() => addControlModel(app.station, e.kind, e.name, e.source)); open(m); doAnalyse(); } }))]),
+  ]);
+  const sceneBtn = h('button', { class: 'btn small', title: t('Build the map, the station zones and the robots of the selected warehouse model'), onClick: () => { if (selected) buildWarehouseSceneFromModel(app, selected); renderRobots(); } }, t('Build scene'));
   const delBtn = h('button', { class: 'btn small', onClick: () => { if (!selected) return; const m = selected; app.deleteItems([m]); selected = null; render(); } }, t('Delete'));
   const analyseBtn = h('button', { class: 'btn primary', onClick: () => doAnalyse() }, t('Analyse'));
   const allBtn = h('button', { class: 'btn', onClick: () => analyseAll(app) }, t('Analyse all'));
   const detectBtn = h('button', { class: 'btn small', title: 'Detect the kind from the first line of the document', onClick: () => { const k = detectKind(editor.value); if (k && selected) { app.cmd(() => { selected!.kind = k; selected!.notify('kind'); }); kindSel.value = k; toast(`Kind: ${kindLabel(k)}`, 'info'); } else toast('Unknown document kind', 'warn'); } }, t('Detect kind'));
   const runBtn = h('button', { class: 'btn primary', onClick: () => doRun() }, '▶ ' + t('Run mission'));
-  const runLabel = () => { runBtn.textContent = '▶ ' + t(selected && (selected.kind === 'des' || selected.kind === 'petri') ? 'Run on station' : 'Run mission'); };
+  const runLabel = () => { runBtn.textContent = '▶ ' + t(selected && isMrsKind(selected.kind) ? 'Run on fleet' : selected && (selected.kind === 'des' || selected.kind === 'petri') ? 'Run on station' : 'Run mission'); sceneBtn.style.display = selected?.kind === 'warehouse' ? '' : 'none'; };
   const stopBtn = h('button', { class: 'btn', onClick: () => { if (run) { run.stop(); app.log('[control] run stopped'); } refreshStatus(); } }, '⏹ ' + t('Stop'));
   const exportBtn = drop(h('button', { class: 'btn' }, t('Export') + ' ▾'), () => {
     const m = selected; if (!m) return [{ label: t('No model selected'), disabled: true }];
@@ -396,15 +455,15 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
     if (m.kind === 'des') e.push({ separator: true },
       { label: t('Supervisor table (JSON)'), action: () => { const s = supervisorFromDes(m.source); if (!s) return toast('Specification is unrealisable — no supervisor', 'warn'); downloadText(`${m.name}.supervisor.json`, JSON.stringify(s, null, 1), 'application/json'); } },
       { label: t('Supervisor runtime (Python)'), action: () => { const s = supervisorFromDes(m.source); if (!s) return toast('Specification is unrealisable — no supervisor', 'warn'); downloadText(`${m.name.replace(/\W+/g, '_').toLowerCase()}_supervisor.py`, supervisorPython(s, m.name.replace(/\W+/g, '_').toLowerCase())); } });
-    if (run && run.model === m) { e.push({ separator: true }); if (run.rt) e.push({ label: t('Mission trace (CSV)'), action: () => downloadText(`${m.name}.trace.csv`, traceCsv(run!.rt!), 'text/csv') }); e.push({ label: t('Mission log'), action: () => downloadText(`${m.name}.log.txt`, run!.logLines().join('\n')) }); }
+    if (run && run.model === m) { e.push({ separator: true }); if (run.rt) e.push({ label: t('Mission trace (CSV)'), action: () => downloadText(`${m.name}.trace.csv`, traceCsv(run!.rt!), 'text/csv') }); e.push({ label: t(run.fleet ? 'Fleet log' : 'Mission log'), action: () => downloadText(`${m.name}.log.txt`, run!.logLines().join('\n')) }); }
     return e;
   });
 
-  const left = h('div', { class: 'ctl-left' }, h('div', { class: 'btn-row' }, newBtn, exBtn, delBtn), list);
+  const left = h('div', { class: 'ctl-left' }, h('div', { class: 'btn-row' }, newBtn, exBtn, grpBtn, delBtn), list);
   const right = h('div', { class: 'ctl-right' },
     h('div', { class: 'btn-row ctl-head' }, nameIn, kindSel, detectBtn, h('span', { class: 'ctl-view' }, viewBtns.text, viewBtns.diagram, viewBtns.expand, undoBtn, redoBtn), analyseBtn, allBtn, exportBtn),
     h('div', { class: 'ctl-split' }, editorWrap, report),
-    h('div', { class: 'btn-row ctl-run' }, h('b', null, t('Mission runtime:')), h('span', null, t('Robot')), robotSel, h('span', null, t('targets')), targetsIn, runBtn, stopBtn, status),
+    h('div', { class: 'btn-row ctl-run' }, h('b', null, t('Mission runtime:')), h('span', null, t('Robot')), robotSel, h('span', null, t('targets')), targetsIn, runBtn, stopBtn, sceneBtn, status),
     runLog);
   const el = h('div', { class: 'ctl-panel' }, left, right);
   // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z while a diagram is visible (and no text field has the focus): document-level so that
@@ -460,6 +519,10 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
     if (!selected) return toast('Select a model first', 'warn');
     if (run && !run.done) run.stop();
     if (view === 'text') selected.source = editor.value;
+    if (isMrsKind(selected.kind)) {
+      try { run = startFleetRun(app, selected); shownDone = false; } catch (e) { toast(`Cannot start: ${(e as Error).message}`, 'error', 7000); return; }
+      refreshStatus(); return;
+    }
     if (selected.kind === 'des' || selected.kind === 'petri') {
       try { run = startModelRun(app, selected); shownDone = false; } catch (e) { toast(`Cannot start: ${(e as Error).message}`, 'error', 6000); return; }
       refreshStatus(); return;
@@ -473,7 +536,7 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   const missionStatus = (m: MissionRun) => { const s = m.rt.summary(); return `${m.done ? '⏹' : '▶'} ${m.model.name} on ${m.robot.name}: ${s.status} · t=${fmt(s.time, 1)} s · ${s.ticks} ticks · ${t('plant')} ${s.plantState ?? '—'}${s.mode ? ` · ${t('mode')} ${s.mode}` : ''} · ${t('denied')} ${s.denied} · ${t('violations')} ${s.violations} · ${s.verdicts.map((v) => `${v.verdict} ${v.formula}`).join(' | ')}`; };
   const refreshStatus = () => {
     runLabel();
-    if (!run) { status.textContent = t(selected && (selected.kind === 'des' || selected.kind === 'petri') ? 'Run on station executes the automaton / net: entry actions and transition operations bound in the diagram inspector drive the robots, programs, targets and signals of the station.' : 'Zones named as in the tree (home, table, bin, dock) are used as goto targets; an item named "Human" is the human position.'); return; }
+    if (!run) { status.textContent = t(selected && isMrsKind(selected.kind) ? (RUNNABLE_KINDS.includes(selected.kind) ? 'Run on fleet drives the mobile robots of the station with the group law of the model (consensus / formation, swarm, coverage, safety filter, grid MAPF plan, warehouse fleet); a warehouse model builds its scene with Build scene.' : 'This group-control model is analysed only (report with charts); runnable kinds: consensus, swarm, coverage, safety, gridmapf, warehouse.') : selected && (selected.kind === 'des' || selected.kind === 'petri') ? 'Run on station executes the automaton / net: entry actions and transition operations bound in the diagram inspector drive the robots, programs, targets and signals of the station.' : 'Zones named as in the tree (home, table, bin, dock) are used as goto targets; an item named "Human" is the human position.'); return; }
     status.textContent = run.status();
     clear(runLog);
     for (const l of run.logLines().slice(-6)) runLog.appendChild(h('div', { class: /denied|VIOLATED|mismatch|failed|deadlock/.test(l) ? 'log-warn' : 'log-info' }, l));
@@ -488,6 +551,6 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   };
   let shownDone = false;
   setInterval(() => { if (run && (!run.done || !shownDone) && el.offsetParent !== null) { refreshStatus(); shownDone = run.done; } }, 300);
-  (app as any).controlPanel = { render, open: (m: ControlModelItem) => { open(m); }, current: () => selected, run: () => run, start: doRun, stop: () => { if (run) run.stop(); refreshStatus(); }, analyse: doAnalyse, setView, graph, btGraph, undo: undoEdit, redo: redoEdit, history: () => (selected ? histOf(selected) : null), graphSvgs: () => [...report.querySelectorAll<SVGSVGElement>('svg.ctl-graph')].map(standaloneSvg) };
+  (app as any).controlPanel = { render, open: (m: ControlModelItem) => { open(m); }, current: () => selected, run: () => run, start: doRun, stop: () => { if (run) run.stop(); refreshStatus(); }, analyse: doAnalyse, setView, graph, btGraph, undo: undoEdit, redo: redoEdit, history: () => (selected ? histOf(selected) : null), graphSvgs: () => [...report.querySelectorAll<SVGSVGElement>('svg.ctl-graph')].map(standaloneSvg), buildScene: () => { if (selected) buildWarehouseSceneFromModel(app, selected); renderRobots(); } };
   return { el, render, open: (m) => { open(m); } };
 }

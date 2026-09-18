@@ -12,8 +12,8 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 |---|---|
 | Code | ~30 k lines TypeScript in `src/` + server, Python `robodk` drop-in, Blender add-on |
 | Verification | 236 vitest tests (7 network tests skipped offline), Playwright smoke, 45 demo scenarios (`npm run scenarios`), GitHub Actions (typecheck, tests, builds, Sphinx `-W`) |
-| Docs | ~56 Read the Docs pages with screenshots generated from the running app, RoboDK guide map, integration page, scenario results, control-design section with the course demo guides |
-| Done this cycle | control-design layer (all 17 chapters of the control-of-robotic-complexes course as features: supervisory control, Petri nets, model checking, GR(1), behavior trees, planning, decisions, coordination, scheduling, real-time, safety, V&V; Control tab, DSL, reports with graph views, mission runtime under a supervisor, supervisor export, course examples A / B, 13 scenarios, demo guides); before that: machine-vision stack, navigation & SLAM stack, demo scenarios, rosbridge publishers, API params / webhooks |
+| Docs | ~67 Read the Docs pages with screenshots generated from the running app, RoboDK guide map, integration page, scenario results, control-design section with the course demo guides |
+| Done this cycle | group-control module (the course on distributed robotic systems as features: consensus / formations / W-MSR, swarms, allocation, grid MAPF, coverage and estimation, group safety with barrier functions, the warehouse homework fleet, games / RL / evolution / CA / fuzzy / resilience; 14 kinds, charts, fleet runtime, scene builder, 8 scenarios, 5 test suites, 11 docs pages); before that: control-design layer (all 17 chapters of the control-of-robotic-complexes course as features: supervisory control, Petri nets, model checking, GR(1), behavior trees, planning, decisions, coordination, scheduling, real-time, safety, V&V; Control tab, DSL, reports with graph views, mission runtime under a supervisor, supervisor export, course examples A / B, 13 scenarios, demo guides); before that: machine-vision stack, navigation & SLAM stack, demo scenarios, rosbridge publishers, API params / webhooks |
 
 ### Next up (приоритеты)
 
@@ -99,6 +99,19 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 - [ ] COLLADA / glTF assets inside `.vbstation` decoded by the add-on (today: STL/OBJ)
 - [ ] Import glTF animations from Blender onto robots (retargeting joint curves)
 - [ ] USD / OpenUSD export for Omniverse / Isaac Sim
+
+## 6b. Group control — multi-robot systems (управление распределёнными робототехническими системами)
+
+- [x] Graph / consensus core: Laplacian spectrum (Jacobi), λ₂, 1/Δmax, ρ and ε*, topologies, Metropolis weights, r-robustness, formation by offsets, Ji–Egerstedt rendezvous, W-MSR, event-triggered consensus, cooperative transport, potential fields; group simulator with radio model, failures, noise
+- [x] Swarm: boids, polarization, Vicsek torus model, PSO lbest, robot PSO with repulsion / noise / forgetting, ACO TSP, firefly, grey wolf, bee colony
+- [x] Allocation: greedy vs Hungarian, SSI with best insertion and exhaustive optimum, CBBA (bundle / consensus with release, stale-winner rule), Vickrey second price, contract-net traffic
+- [x] Grid MAPF: space-time A*, prioritized planning, first conflict, CBS, action dependency graph execution with delays vs naive
+- [x] Coverage / estimation: Voronoi labels, masses / centroids, coverage cost, Lloyd and limited-range Lloyd, information consensus, centralised estimate, covariance intersection
+- [x] Group safety: pair CBF, exact planar QP by active sets, decentralised controller, keep-right rule with hysteresis, stale-data constraints, antipodal / crossing scenarios
+- [x] Warehouse homework: warehouse model + A*, CBBA on orders with commitment and lost winners, executor FSM, cell reservation (settle / ack / priority / asymmetric detours), fleet simulator with orders, radio range / loss / latency, faults, protective layer, metrics
+- [x] Chapters: games (Nash, mixed 2×2, Pareto, best response, fictitious play, potential, replicator, Shapley, core), Q-learning / SARSA / IQL, GA / DE / ES, Wolfram / Life / pheromone, Mamdani fuzzy avoidance, Byzantine OM(1), trust consensus, degradation, switched-system dwell time
+- [x] DSL (14 kinds), analysers with charts (lines / paths / grid / bars), templates, 34 course documents, Group menu, Group examples, Run on fleet runtime (6 kinds), warehouse scene builder, 8 demo scenarios, tests (practicum acceptance, chapters, warehouse, documents + runtime), docs section with practicum guides
+- [ ] Follow-ups: 3-D consensus / formations with altitude, MAPF on the station's occupancy map instead of a text grid, ROS 2 export of the CBBA / reservation nodes (the homework's `urrts_fleet` package) from a warehouse model, CTDE / QMIX beyond independent learners
 
 ## 6a. Control design — course methods (проектирование верхнего уровня управления)
 

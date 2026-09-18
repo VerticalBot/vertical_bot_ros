@@ -41,6 +41,18 @@ into a design tool for real machines:
   transitions and action leaves are bound to the station's own robot programs, targets, zones and signals, so an
   automaton, a net or a tree runs the cell. The two worked
   examples of the course (mobile manipulator, production cell) are built in with step-by-step guides.
+- **Group control (multi-robot systems — the theory of control of distributed robotic systems as features)** — a
+  separate module (`studio/src/mrs/`) for groups of robots: communication graphs and the Laplacian (λ₂, admissible
+  step, convergence factor, topology table), consensus, formations, connectivity-preserving rendezvous, W-MSR,
+  event-triggered updates; swarms (Reynolds boids, Vicsek transition, PSO and robot source seeking, ACO,
+  firefly / GWO / bee); task allocation (greedy vs Hungarian, SSI auction, CBBA, Vickrey, contract net); grid MAPF
+  (space-time A*, prioritized, CBS, ADG execution with delays); Voronoi / Lloyd coverage and information-form
+  estimation with covariance intersection; group safety with barrier functions (exact QP filter, keep-right
+  deadlock rule, stale-data margins); the multi-robot warehouse of the course homework (CBBA on an order stream,
+  executor state machine, distributed cell reservation, faults, metrics); and the chapter examples (games, Q-learning
+  and independent MARL, GA / DE / ES, cellular automata, fuzzy control, Byzantine agreement, trust, switched systems).
+  Fourteen document kinds in the Control tab with reports and charts, six of them executable on the station robots
+  (**Run on fleet**), a warehouse scene builder, course examples ПР1–ПР6 / homework, eight demo scenarios.
 
 Everything is verified by 236 unit / integration tests and 45 published demo scenarios (one per localization
 method, vision task and control-design method), and wired to the outside world through documented ports and contracts
@@ -57,7 +69,8 @@ npm run server       # RoboDK-compatible API + drivers + VDA 5050 + vision infer
 
 - Documentation: https://vertical-bot-ros.readthedocs.io — start with *Getting started › Your first station*;
   for wiring see *Developer › Integration: ROS 2, custom nodes, protocols and ports*; results in *Reference › Demo scenarios*;
-  the control-design layer and the course demo guides are under *Control design (course methods)*.
+  the control-design layer and the course demo guides are under *Control design (course methods)*; the group-control
+  module and its practicum guides are under *Group control (multi-robot systems)*.
 - Roadmap / status: `studio/TODO.md` (published as the *Roadmap* page). Developer notes: `studio/README.md`, `studio/docs/`.
 
 ## ROS 2 packages

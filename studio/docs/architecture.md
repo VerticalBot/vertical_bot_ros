@@ -90,11 +90,24 @@ its pedestal) are reported once as warnings and ignored along the trajectory.
   `VisionModel` in `models.ts` if it is a new execution path, map it in `createModel`, and add a scenario.
 - New outgoing protocol: build the message in `src/ros/publishers.ts` and call it from `RosBridge.publishState`
   or the `onOutput` hook of `VisionRuntime`.
+- New group-control method: add the algorithm to the matching module in `src/mrs/`, a line to the kind's parser in
+  `src/mrs/dsl.ts`, a section in the analyser, a course document in `src/mrs/examples.ts` and a test.
 - New control-design method: add the algorithm to the matching module in `src/ctl/` (`des`, `petri`, `perf`,
   `bt`, `temporal`, `gr1`, `hybrid`, `planning`, `mdp`, `mrta`, `sched`, `realtime`, `reliability`, `vv`), a
   parser keyword in `dsl.ts`, a report section in `analysis.ts` (and a `GraphView` if it has a picture), a template
   in `TEMPLATES`, a course example in `examples_dsl.ts`, a scenario in `src/scenarios/control.ts` and a test. A
   new runtime action for behavior trees goes into `stationBindings` / `simulatedBindings` in `runtime.ts`.
+
+## Group-control module
+
+`src/mrs` is the second course as a separate package: pure algorithms per topic (`graph`, `consensus`, `sim`, `swarm`,
+`allocation`, `mapf`, `coverage`, `safety`, `warehouse`, `games`, `learning`, `evo`, `ca`, `fuzzy`, `resilience`), a text
+DSL (`dsl.ts`, 14 kinds, templates), analysers that produce report sections with charts (`an_practicum.ts`,
+`an_theory.ts`, dispatched by `analysis.ts`), the course documents (`examples.ts`) and a fleet runtime (`runtime.ts`)
+that drives station `MobileRobot`s inside the world loop and builds warehouse scenes. It plugs into the control-design
+layer through `ctl/model.ts` (the kinds join `CONTROL_KINDS` under the group `multi-robot`), `ctl/dsl.ts` (templates,
+detection) and `ctl/analysis.ts` (analyser map, `PlotView` in report sections); `ui/plots.ts` renders the charts and
+`ui/control_ui.ts` adds *Group examples*, **Run on fleet** and **Build scene**. Demo scenarios: `src/scenarios/group.ts`.
 
 ## Control-design layer
 

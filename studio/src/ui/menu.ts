@@ -111,6 +111,17 @@ export class MenuBar {
         { separator: true },
         { label: 'Demo scenarios: control design…', action: async () => { const { scenariosDialog } = await import('./scenarios_ui'); scenariosDialog(app); } },
       ]],
+      ['Group', () => [
+        { label: 'New group-control model…', action: async () => { const { newModelDialog } = await import('./control_ui'); newModelDialog(app, 'consensus'); } },
+        { label: 'Course examples: group control (ПР1–ПР6, warehouse homework, chapters)…', action: async () => { const { groupExamplesDialog } = await import('./control_ui'); groupExamplesDialog(app); } },
+        { label: 'Open Control tab', action: () => { (app as any).bottom?.show?.('control'); } },
+        { separator: true },
+        { label: 'Run selected model on the fleet (consensus, swarm, coverage, safety, MAPF, warehouse)', action: () => { (app as any).bottom?.show?.('control'); (app as any).controlPanel?.start?.(); } },
+        { label: 'Stop fleet run', action: () => { (app as any).controlPanel?.stop?.(); } },
+        { label: 'Build warehouse scene from the selected model', action: () => { (app as any).controlPanel?.buildScene?.(); } },
+        { separator: true },
+        { label: 'Demo scenarios: group control…', action: async () => { const { scenariosDialog } = await import('./scenarios_ui'); scenariosDialog(app, 'group'); } },
+      ]],
       ['Tools', () => [
         { label: 'Collision map…', action: () => collisionMapDialog(app) },
         { label: 'Measure (two selected items / item to TCP)', shortcut: 'M', action: () => measureDialog(app) },

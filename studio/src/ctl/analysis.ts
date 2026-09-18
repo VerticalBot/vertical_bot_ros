@@ -2,7 +2,8 @@
  * Analysis dispatcher: a control document (kind + DSL text) → structured report (sections, tables, graph views,
  * metrics) + Markdown. Every course method is reachable from here; the UI, the API and the demo scenarios all use it.
  */
-import { ControlKind } from './model';
+import { ControlKind, CtlKind } from './model';
+import { MRS_ANALYSERS } from '../mrs/analysis';
 import * as dsl from './dsl';
 import { DES, parallel, analyseBlocking, supcon, checkControllability, checkNonconflict, observer, checkObservability, checkDiagnosability, supervisorTable, AutomatonSpec } from './des';
 import { PetriNet, analysePetriNet, preventDeadlocks, simulateTimed, analyseGspn, buildS3PR } from './petri';
@@ -20,8 +21,11 @@ import { responseTimes, edfTest, blockingBounds, endToEndLatency, latencyBudget 
 import { systemReliability, minimalCutSets, topEventProbability, ftaSensitivity, requiredPL, achievedPL, mttfdClass, dcClass, plMeets, separationDistance, admissibleSpeed, detectionThreshold, optimalReplacement, fmeaTable, FmeaRow, Category } from './reliability';
 import { parseSTL, robustness, formatSTL, pairwise, ruleOfThree, clopperPearsonLower, trialsForTarget, simRealGap, acceptanceCheck, traceabilitySummary, Requirement } from './vv';
 
-export interface GraphView { kind: 'automaton' | 'petri' | 'tree' | 'modes' | 'statechart' | 'controller'; nodes: Array<{ id: string; label: string; kind?: string; initial?: boolean; marked?: boolean; tokens?: number }>; edges: Array<{ from: string; to: string; label?: string }> }
-export interface ReportSection { title: string; level: 'ok' | 'warn' | 'error' | 'info'; lines: string[]; table?: { head: string[]; rows: Array<Array<string | number>> }; graph?: GraphView }
+export interface GraphView { kind: 'automaton' | 'petri' | 'tree' | 'modes' | 'statechart' | 'controller' | 'network'; nodes: Array<{ id: string; label: string; kind?: string; initial?: boolean; marked?: boolean; tokens?: number }>; edges: Array<{ from: string; to: string; label?: string }>; /** draw edges without arrowheads (communication graphs) */ undirected?: boolean; /** pinned positions in model units (scaled to the drawing) */ positions?: Record<string, [number, number]> }
+/** A chart in a report section (time series, planar trajectories, a cell grid or bars); rendered as SVG by the Control tab. */
+export interface PlotSeries { name: string; points: Array<[number, number]>; color?: string; dashed?: boolean; markers?: boolean }
+export interface PlotView { kind: 'lines' | 'paths' | 'grid' | 'bars'; title?: string; xlabel?: string; ylabel?: string; series?: PlotSeries[]; /** grid cells (rows of values) */ cells?: number[][]; cellStyle?: 'binary' | 'heat' | 'labels'; /** rectangles (shelves, walls) in plot units */ obstacles?: Array<{ x: number; y: number; w: number; h: number }>; markers?: Array<{ x: number; y: number; label?: string; kind?: 'goal' | 'robot' | 'source' | 'station' | 'task' | 'start' | 'obstacle' }>; bars?: Array<{ label: string; value: number }>; equal?: boolean; width?: number; height?: number; ylog?: boolean }
+export interface ReportSection { title: string; level: 'ok' | 'warn' | 'error' | 'info'; lines: string[]; table?: { head: string[]; rows: Array<Array<string | number>> }; graph?: GraphView; plot?: PlotView }
 export interface Report { kind: ControlKind; title: string; ok: boolean; sections: ReportSection[]; metrics: Record<string, number | string | boolean>; markdown: string; error?: string; durationMs: number }
 
 const f = (v: number, d = 2) => (Number.isFinite(v) ? Number(v.toFixed(d)).toString() : String(v));
@@ -47,13 +51,14 @@ export function toMarkdown(title: string, sections: ReportSection[], metrics: Re
     out.push(`### ${{ ok: '✅', warn: '⚠️', error: '❌', info: 'ℹ️' }[s.level]} ${s.title}`, '');
     for (const l of s.lines) out.push(`- ${l}`);
     if (s.table) { out.push('', `| ${s.table.head.join(' | ')} |`, `|${s.table.head.map(() => '---').join('|')}|`); for (const r of s.table.rows) out.push(`| ${r.join(' | ')} |`); }
+    if (s.plot) out.push('', `*[chart: ${s.plot.title ?? s.plot.kind}]*`);
     out.push('');
   }
   if (Object.keys(metrics).length) { out.push('### Metrics', '', '| Metric | Value |', '|---|---|'); for (const [k, v] of Object.entries(metrics)) out.push(`| ${k} | ${v} |`); }
   return out.join('\n');
 }
 
-type Analyser = (src: string, sections: ReportSection[], metrics: Record<string, number | string | boolean>) => { title: string; ok: boolean };
+export type Analyser = (src: string, sections: ReportSection[], metrics: Record<string, number | string | boolean>) => { title: string; ok: boolean };
 
 function runChecks(k: Kripke, checks: Array<{ kind: 'ltl' | 'ctl'; formula: string; name?: string }>, sections: ReportSection[], fairness?: string[]): boolean {
   let ok = true;
@@ -72,7 +77,7 @@ function automatonGraph(g: DES, limit = 80): GraphView | undefined {
   return { kind: 'automaton', nodes: [...g.X].map((x) => ({ id: x, label: x, initial: x === g.x0, marked: g.xm.has(x) })), edges: g.transitions().map((t) => ({ from: t.from, to: t.to, label: t.event })) };
 }
 
-const ANALYSERS: Record<ControlKind, Analyser> = {
+const CTL_ANALYSERS: Record<CtlKind, Analyser> = {
   des: (src, S, M) => {
     const doc = dsl.parseDes(src); let ok = true;
     if (!doc.plant.length) throw new Error('no automaton blocks');
@@ -344,6 +349,7 @@ const ANALYSERS: Record<ControlKind, Analyser> = {
     return { title: doc.name, ok };
   },
 };
+const ANALYSERS: Record<ControlKind, Analyser> = { ...CTL_ANALYSERS, ...(MRS_ANALYSERS as Record<string, Analyser>) } as Record<ControlKind, Analyser>;
 
 function petriReport(parsed: { spec: import('./petri').PetriNetSpec; checks: Array<{ kind: 'ltl' | 'ctl'; formula: string; name?: string }>; horizon: number }, S: ReportSection[], M: Record<string, number | string | boolean>, title?: string): { title: string; ok: boolean } {
   const net = new PetriNet(parsed.spec); const a = analysePetriNet(net); let ok = a.live && a.bounded;

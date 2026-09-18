@@ -6,7 +6,9 @@ task family** (stereo picking, mono size-prior, segmentation / keypoints / class
 LiDAR rows, ToF canopy measurement, following, VLM, VLA, open vocabulary) and one per **control-design method**
 of the course (supervisor synthesis, Petri-net deadlock prevention, model checking, GR(1) synthesis, the mission
 runtime on a station robot, planning, decisions under uncertainty, coordination, scheduling, real-time analysis,
-safety, V&V, hybrid modes). Each scenario builds a small station, runs the simulation or the analysis headlessly,
+safety, V&V, hybrid modes), and one per **practicum of the group-control course** (consensus / formation /
+W-MSR, swarms, task allocation, grid MAPF, coverage and estimation, group safety, the warehouse homework, the
+chapter examples). Each scenario builds a small station, runs the simulation or the analysis headlessly,
 measures what matters for that method and compares it with an expectation derived from the catalogue (sensor
 error model, method accuracy and drift) or from the worked examples of the course (the numbers of examples A and B).
 

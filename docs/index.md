@@ -11,7 +11,10 @@ the station's cameras, export a ROS 2 perception package). The **control-design 
 control of robotic complexes into the same station: automata and supervisory control, Petri nets, behavior trees,
 model checking, reactive synthesis, planning, decision models, scheduling, coordination, real-time, reliability
 and V&V — with deadlock / livelock / realisability checks, synthesised supervisors and missions that run on the
-station robots. Every method has a published demo scenario.
+station robots. The **group-control module** does the same for multi-robot systems: consensus and formations on
+communication graphs, swarms, task allocation, multi-agent path finding, coverage, group safety with barrier
+functions and a warehouse fleet — analysed in reports with charts and executed on the station robots. Every method
+has a published demo scenario.
 
 This documentation is organised like a robot-programming manual: start with the **Basic Guide**, then go to the
 topic you need. Every page is generated from the repository (`docs/` folder) and published on Read the Docs.
@@ -23,6 +26,7 @@ topic you need. Every page is generated from the repository (`docs/` folder) and
 - Driving real machines? {doc}`api/server`, {doc}`api/drivers`, {doc}`mobile/vda5050`, and the wiring diagram in {doc}`developer/integration`.
 - Want to see it work first? {doc}`reference/scenarios` — demo cases for every navigation method, vision task and control-design method, with results.
 - Designing the upper control level (supervisors, missions, deadlock-free resource sharing)? Start with {doc}`control/overview` and the demo guides {doc}`control/example-a-mobile-manipulator` and {doc}`control/example-b-production-cell`.
+- Controlling a **group** of robots (consensus and formations, swarms, task allocation, MAPF, coverage, group safety, a warehouse fleet)? {doc}`group/overview` and the practicum guides {doc}`group/pr1-consensus` … {doc}`group/warehouse`.
 ```
 
 ```{toctree}
@@ -89,6 +93,23 @@ control/editors
 control/runtime
 control/dsl
 control/checks
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Group control (multi-robot systems)
+
+group/overview
+group/pr1-consensus
+group/pr2-swarm
+group/pr3-allocation
+group/pr4-mapf
+group/pr5-coverage
+group/pr6-safety
+group/warehouse
+group/chapters
+group/runtime
+group/dsl
 ```
 
 ```{toctree}
