@@ -5,6 +5,21 @@ comment; numbers, `true` / `false` and quoted strings are recognised; a point is
 by `;`. Errors are reported with the line number. The templates (*New ▾ › Group control*) contain every line as a
 comment.
 
+## `mission` (architectures, chapter 3)
+
+| Line | Meaning |
+|---|---|
+| `robots r1 r2 … [box= seed=]`, `robot <name> at=x,y [home=x,y speed=]` | the robots (station robots by name in a fleet run; random positions in the box for the analysis) |
+| `architecture centralized|decentralized|hybrid|compare` | which architecture to run (compare = all three in the report, hybrid on the fleet) |
+| `comm radius= drop= period= lost= settle=` | robot radio: range, loss, message period, silence after which a peer / the coordinator is lost, agreement time of the decentralised phase advance |
+| `coordinator at=x,y range= [fail= recover=]` | the fleet manager, its radio range and an outage window |
+| `phase form <circle|line|wedge|grid> r= [gain= at=x,y]` · `phase goto at=x,y|zone=<name> speed=` · `phase allocate targets=x,y;…|zones=A,B` · `phase gather` · `phase cover area=xmin,xmax,ymin,ymax` · `phase home` · `phase hold seconds=` | the phases, in order; `name=` and `tol=` on any phase |
+| `safety d_safe= gamma= sense=` | the barrier-function reflex of every robot |
+| `obstacle at=x,y r= [name=]`, `fail <robot> at=` | static obstacles (station `nogo` zones are added on the fleet), silent robot failures |
+| `duration s dt= seed= vmax=` | horizon, step, seed, speed limit |
+| `drive unicycle|pose` | on the fleet: (v, ω) through the robot's controller (default) or pose writing |
+| `supervisor <des model>`, `modes <hybrid model>` | station models that gate the phases (`<phase>_start` / `<phase>_done`) and limit the speed (`vmax` of the mode) |
+
 ## `consensus` (ПР1)
 
 | Line | Meaning |

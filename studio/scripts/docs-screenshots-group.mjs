@@ -63,6 +63,14 @@ await pickModel('Chapter 13 · Fuzzy'); await analyse(1500); await openAll(); aw
 await pickModel('Chapter 16 · Four agents'); await analyse(1500); await openAll(); await scrollReportTo('Switched linear'); await shot('76-ch16-resilience', { clip: await clipOf('.ctl-right') });
 await pickModel('Chapter 4 · Rule 90'); await analyse(1500); await openAll(); await shot('77-ch4-ca', { clip: await clipOf('.ctl-right') });
 await pickModel('Chapter 12 · GA'); await analyse(2500); await openAll(); await shot('78-ch12-evo', { clip: await clipOf('.ctl-right') });
+// 79 architectures report
+await pickModel('Architectures · Form, move'); await analyse(3500); await openAll(); await scrollReportTo('Architectures compared'); await shot('79-architectures-report', { clip: await clipOf('.ctl-right') });
+// 80 station mission on configured robots: load the Architectures scenario (robots, zones, supervisor, modes) and run
+await menu('Group', 'Demo scenarios: group control'); await page.waitForTimeout(500);
+await page.evaluate(() => { const rec = [...document.querySelectorAll('.nav-rec')].find((r) => /Architectures/.test(r.textContent)); rec.querySelector('button.primary').click(); }); await page.waitForTimeout(1200);
+await tallDock(360); await pickModel('Architectures · Station mission'); await page.waitForTimeout(300);
+await page.click('.ctl-run button:has-text("Run on fleet")'); await page.waitForTimeout(12000); await shot('80-architectures-station');
+await page.click('.ctl-run button:has-text("Stop")'); await page.waitForTimeout(300); await tallDock(620);
 // 70 scenarios dialog (group)
 await menu('Group', 'Demo scenarios: group control'); await page.waitForTimeout(500); await shot('70-group-scenarios', { clip: await clipOf('.dialog', 12) });
 await page.keyboard.press('Escape');

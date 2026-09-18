@@ -9,11 +9,12 @@
  * control-design models); the analysis is in mrs/analysis.ts, the DSL in mrs/dsl.ts, the fleet runtime in
  * mrs/runtime.ts.
  */
-export type MrsKind = 'consensus' | 'swarm' | 'allocation' | 'gridmapf' | 'coverage' | 'estimation' | 'safety' | 'warehouse' | 'game' | 'marl' | 'evo' | 'ca' | 'fuzzy' | 'resilience';
+export type MrsKind = 'mission' | 'consensus' | 'swarm' | 'allocation' | 'gridmapf' | 'coverage' | 'estimation' | 'safety' | 'warehouse' | 'game' | 'marl' | 'evo' | 'ca' | 'fuzzy' | 'resilience';
 
 export interface MrsKindInfo { kind: MrsKind; label: string; /** chapters of the group-control course */ chapter: string; /** practicum / homework that the kind implements */ practicum: string; /** can be executed on the station fleet (Run on fleet) */ runnable: boolean }
 
 export const MRS_KINDS: MrsKindInfo[] = [
+  { kind: 'mission', label: 'Group mission over configured robots: centralised / decentralised / hybrid', chapter: '3, 4, 10, 16', practicum: 'architectures', runnable: true },
   { kind: 'consensus', label: 'Consensus, formation, connectivity (graph Laplacian)', chapter: '4, 13, 16', practicum: 'ПР1', runnable: true },
   { kind: 'swarm', label: 'Swarm: boids, Vicsek, PSO / ACO source search', chapter: '5', practicum: 'ПР2', runnable: true },
   { kind: 'allocation', label: 'Task allocation: greedy, Hungarian, SSI, CBBA, Vickrey', chapter: '9–10', practicum: 'ПР3', runnable: false },

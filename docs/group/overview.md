@@ -21,7 +21,9 @@ document kinds with reports, charts and demo scenarios whose numbers match the c
 - *Group › Course examples…* adds the practicum documents (ПР1–ПР6), the warehouse homework and the chapter
   examples to the station; the guides are {doc}`pr1-consensus`, {doc}`pr2-swarm`, {doc}`pr3-allocation`,
   {doc}`pr4-mapf`, {doc}`pr5-coverage`, {doc}`pr6-safety`, {doc}`warehouse` and {doc}`chapters`.
-- {doc}`dsl` is the reference of the fourteen document languages; {doc}`runtime` explains **▶ Run on fleet**,
+- {doc}`architectures` shows how to build the group layer over the configured robots of the station and compares
+  the centralised, decentralised and hybrid control of the same mission; {doc}`guides` collects the how-to recipes.
+- {doc}`dsl` is the reference of the fifteen document languages; {doc}`runtime` explains **▶ Run on fleet**,
   the warehouse scene builder and how the same laws drive the station robots.
 - *Help › Demo scenarios…* → group *Group control* (or *Group › Demo scenarios: group control…*) runs the eight
   scenarios headlessly and compares the numbers with the course ({doc}`../reference/scenarios`).
@@ -39,11 +41,11 @@ redo. What is specific to the module:
 | Element | What it does |
 |---|---|
 | **Group** menu | *New group-control model…*, *Course examples: group control…*, *Run selected model on the fleet*, *Stop fleet run*, *Build warehouse scene from the selected model*, *Demo scenarios: group control…* |
-| **New ▾ › Group control** | the fourteen kinds, labelled with the practicum (ПР1 … ДЗ) and the chapters of the course |
+| **New ▾ › Group control** | the fifteen kinds, labelled with the practicum (ПР1 … ДЗ) and the chapters of the course |
 | **Group examples ▾** | the course documents grouped by practicum / homework / chapter, or *Add all group examples* |
 | report charts | time series (states, order parameter, coverage cost, fitness), planar trajectories with goals, sources, stations and shelves, cell grids (Voronoi labels, cellular automata, pheromone fields), bars (Shapley value); every chart exports as SVG with *Export ▾ › Graph view (SVG)* |
 | communication graph | drawn as an undirected graph view, pinned to the robot positions when the model gives them |
-| **▶ Run on fleet** | executes a `consensus`, `swarm`, `coverage`, `safety`, `gridmapf` or `warehouse` model on the mobile robots of the station in the world loop; the status line shows links, errors, distances, deliveries |
+| **▶ Run on fleet** | executes a `mission`, `consensus`, `swarm`, `coverage`, `safety`, `gridmapf` or `warehouse` model on the mobile robots of the station in the world loop; the status line shows links, errors, distances, deliveries; missions drive the configured robots through their own kinematic controllers ({doc}`architectures`) |
 | **Build scene** | for a `warehouse` model: the map with the shelves, one zone per station and the robots at their homes |
 
 ```{image} ../_static/screens/62-group-menu.png
@@ -58,7 +60,7 @@ redo. What is specific to the module:
 |---|---|---|---|---|
 | 1 Complex systems and distributed robotics | emergence, order–disorder transition, the consensus of three agents (§1.7) | the Vicsek phase transition, the consensus iterations of a small graph | `swarm`, `consensus` | ПР2 · Vicsek, ПР1 · Chain P₄ |
 | 2 Multi-agent systems | agents, interaction protocols, contract net | contract-net message count next to the auctions, CBBA as a consensus protocol | `allocation` | ПР3 · Nine tasks |
-| 3 Architectures | centralised / decentralised / hybrid, radio model | radio range, packet loss and latency of the fleet simulator, static vs disk communication graphs | `warehouse`, `consensus` | ДЗ · Short radio range |
+| 3 Architectures | centralised / decentralised / hybrid, radio model | `mission` documents: the same mission under the three architectures (coordinator, radio range / loss, outages, fallback), executed on the configured station robots under a supervisor and a mode automaton ({doc}`architectures`); radio model of the fleet simulator | `mission`, `warehouse`, `consensus` | Architectures · three documents, ДЗ · Short radio range |
 | 4 Graphs, consensus, formations | Laplacian, λ₂ (Fiedler), discrete step 1/Δmax, convergence factor ρ, optimal step 2/(λ₂+λₙ), topology table 4.1, formation by offsets, cooperative transport, potential fields, cellular automata (§4.6) | `consensus` documents: spectrum, λ₂, ρ, iterations to 1 %, the three iterations of §4.3.4, topology comparison, formation, transport regimes; `ca` documents: Wolfram rules, Life, pheromone | `consensus`, `ca` | ПР1 · Chain P₄, ПР1 · Formation, Chapter 4 · Rule 90 |
 | 5 Swarm intelligence | Reynolds rules, polarization, Vicsek, ACO, PSO (§5.6.4), bee / firefly / grey wolf | `swarm` documents: boids, Vicsek order vs noise, PSO lbest, robot source seeking with repulsion / noise / forgetting, ACO tour, firefly / GWO / bee optimisers | `swarm` | ПР2 · four documents, Chapter 5 · ACO |
 | 6 Agents and ontologies | FIPA-style protocols, contract net | contract-net traffic vs CBBA messages in the allocation report | `allocation` | ПР3 |
@@ -78,6 +80,7 @@ redo. What is specific to the module:
 
 | Kind | Document starts with | Practicum | Analyses |
 |---|---|---|---|
+| `mission` | `mission <name>` | ch. 3 | the same phased mission (form, goto, allocate, gather, cover, home, hold) under the centralised, decentralised and hybrid architectures: completion, phase durations, coordinator / peer messages, stalled and fallback time, travel, minimum distance, tasks; formation-error chart; executable on configured robots with zones, no-go obstacles, a `des` supervisor and a `hybrid` mode automaton |
 | `consensus` | `consensus <name>` | ПР1 | graph, Laplacian spectrum, λ₂, 1/Δmax, ρ, iterations, topology table, formation, connectivity-preserving rendezvous, W-MSR (+ robustness), event-triggered updates, cooperative transport |
 | `swarm` | `swarm <name>` | ПР2 | boids (polarization, distances, trajectories), Vicsek order vs noise, PSO / robot source seeking, ACO, firefly / GWO / bee |
 | `allocation` | `allocation <name>` | ПР3 | greedy vs Hungarian, SSI rounds and bids (with the exhaustive optimum on small instances), CBBA iterations / messages / conflicts, Vickrey payments, contract-net traffic |

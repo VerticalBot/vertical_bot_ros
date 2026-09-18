@@ -23,10 +23,11 @@
  */
 import { tokenize, lines, DslError, Opts } from '../ctl/dsl_core';
 import { MrsKind, MRS_KIND_SET } from './model';
-import { Vec2 } from './rng';
+import { Vec2, Rng } from './rng';
 import { FleetConfig, HOMEWORK_FLEET, HOMEWORK_WAREHOUSE } from './warehouse';
 import { Bimatrix, CharFn } from './games';
 import { FuzzyRule } from './fuzzy';
+import { MissionSpec, MissionPhase, Architecture, PhaseKind } from './mission';
 
 type L = { n: number; text: string; indent: number };
 const num = (o: Opts, k: string, d: number): number => (o[k] === undefined ? d : Number(o[k]));
@@ -314,11 +315,63 @@ export function parseResilience(src: string): ResilienceDoc {
   return d;
 }
 
-export type MrsDoc = ConsensusDoc | SwarmDoc | AllocationDoc | GridMapfDoc | CoverageDoc | EstimationDoc | SafetyDoc | WarehouseDoc | GameDoc | MarlDoc | EvoDoc | CaDoc | FuzzyDoc | ResilienceDoc;
-export const MRS_PARSERS: Record<MrsKind, (src: string) => MrsDoc> = { consensus: parseConsensus, swarm: parseSwarm, allocation: parseAllocation, gridmapf: parseGridMapf, coverage: parseCoverage, estimation: parseEstimation, safety: parseSafety, warehouse: parseWarehouse, game: parseGame, marl: parseMarl, evo: parseEvo, ca: parseCa, fuzzy: parseFuzzy, resilience: parseResilience };
+
+// --- mission (architectures) ----------------------------------------------------------------------------------------
+export function parseMission(src: string): MissionSpec {
+  const { name, ls } = header(src, 'mission');
+  const d: MissionSpec = { name, robots: [], architecture: 'compare', phases: [], comm: { radius: 4, drop: 0, period: 0.5, lost: 3, settle: 1 }, coordinator: { at: [0, 0], range: Infinity }, safety: { dSafe: 0.4, gamma: 2, sense: 1.5 }, obstacles: [], failures: [], duration: 300, dt: 0.1, seed: 1, vmax: 0.5, drive: 'unicycle' };
+  let box = 3, seed = 1;
+  for (const l of ls) {
+    const { words, opts } = tokenize(l.text); const k = words[0].toLowerCase();
+    if (k === 'robot') d.robots.push({ name: words[1] ?? `r${d.robots.length + 1}`, at: opts.at !== undefined ? pair(opts.at, l.n) : [NaN, NaN], home: opts.home !== undefined ? pair(opts.home, l.n) : undefined, speed: opts.speed !== undefined ? Number(opts.speed) : undefined });
+    else if (k === 'robots') { const names = words.slice(1); const n = names.length ? names.length : num(opts, 'n', 6); box = num(opts, 'box', box); seed = num(opts, 'seed', seed); for (let i = 0; i < n; i++) d.robots.push({ name: names[i] ?? `r${d.robots.length + 1}`, at: [NaN, NaN] }); }
+    else if (k === 'architecture') { const a = (words[1] ?? 'compare').toLowerCase(); if (!['centralized', 'centralised', 'decentralized', 'decentralised', 'hybrid', 'compare'].includes(a)) throw new DslError('architecture centralized | decentralized | hybrid | compare', l.n); d.architecture = (a.startsWith('cen') ? 'centralized' : a.startsWith('dec') ? 'decentralized' : a) as Architecture | 'compare'; }
+    else if (k === 'comm') { d.comm.radius = num(opts, 'radius', d.comm.radius); d.comm.drop = num(opts, 'drop', d.comm.drop); d.comm.period = num(opts, 'period', d.comm.period); d.comm.lost = num(opts, 'lost', d.comm.lost); d.comm.settle = num(opts, 'settle', d.comm.settle); }
+    else if (k === 'coordinator') { d.coordinator = { at: opts.at !== undefined ? pair(opts.at, l.n) : d.coordinator.at, range: num(opts, 'range', Infinity), fail: opts.fail !== undefined ? Number(opts.fail) : undefined, recover: opts.recover !== undefined ? Number(opts.recover) : undefined }; }
+    else if (k === 'phase') {
+      const kind = (words[1] ?? '').toLowerCase() as PhaseKind; if (!['form', 'goto', 'allocate', 'gather', 'cover', 'home', 'hold'].includes(kind)) throw new DslError('phase form | goto | allocate | gather | cover | home | hold', l.n);
+      const ph: MissionPhase = { kind, name: str(opts, 'name', `${kind}${d.phases.filter((x) => x.kind === kind).length ? ' ' + (d.phases.filter((x) => x.kind === kind).length + 1) : ''}`), shape: (words[2] && !words[2].includes('=') ? words[2] : str(opts, 'shape', 'circle')).toLowerCase(), r: num(opts, 'r', 1), gain: num(opts, 'gain', 1), at: opts.at !== undefined ? pair(opts.at, l.n) : undefined, zone: opts.zone !== undefined ? String(opts.zone) : undefined, targets: opts.targets !== undefined ? pairs(opts.targets, l.n) : [], targetNames: [], area: opts.area !== undefined ? (nums(opts.area) as [number, number, number, number]) : undefined, seconds: num(opts, 'seconds', 5), speed: num(opts, 'speed', 0.3), tol: num(opts, 'tol', 0.08) };
+      if (kind === 'goto' && !ph.at && !ph.zone) throw new DslError('phase goto needs at=x,y or zone=<name>', l.n);
+      if (kind === 'allocate' && !ph.targets.length && opts.zones === undefined) throw new DslError('phase allocate needs targets=x,y;x,y;… (or zones=Z1,Z2 on the station)', l.n);
+      if (kind === 'cover' && !ph.area) throw new DslError('phase cover needs area=xmin,xmax,ymin,ymax', l.n);
+      if (opts.zones !== undefined) ph.targetNames = list(opts.zones); if (!ph.targetNames.length) ph.targetNames = ph.targets.map((_, j) => `t${j + 1}`);
+      d.phases.push(ph);
+    }
+    else if (k === 'safety') { d.safety.dSafe = num(opts, 'd_safe', d.safety.dSafe); d.safety.gamma = num(opts, 'gamma', d.safety.gamma); d.safety.sense = num(opts, 'sense', d.safety.sense); }
+    else if (k === 'obstacle') d.obstacles.push({ at: pair(opts.at ?? words[1], l.n), r: num(opts, 'r', 0.5), name: opts.name !== undefined ? String(opts.name) : undefined });
+    else if (k === 'fail') { const idx = d.robots.findIndex((r) => r.name === words[1]); d.failures.push({ robot: idx >= 0 ? idx : Number(words[1]) - 1, at: num(opts, 'at', 0) }); }
+    else if (k === 'duration') { d.duration = Number(words[1]); d.dt = num(opts, 'dt', d.dt); d.seed = num(opts, 'seed', d.seed); d.vmax = num(opts, 'vmax', d.vmax); }
+    else if (k === 'drive') d.drive = (words[1] ?? 'unicycle') === 'pose' ? 'pose' : 'unicycle';
+    else if (k === 'supervisor') d.supervisor = words.slice(1).join(' ');
+    else if (k === 'modes') d.modes = words.slice(1).join(' ');
+    else throw new DslError(`unknown mission line "${k}"`, l.n);
+  }
+  if (!d.robots.length) for (let i = 0; i < 6; i++) d.robots.push({ name: `r${i + 1}`, at: [NaN, NaN] });
+  const rng = new Rng(seed); for (const r of d.robots) if (Number.isNaN(r.at[0])) r.at = [rng.uniform(-box, box), rng.uniform(-box, box)];
+  for (const f of d.failures) if (!(f.robot >= 0 && f.robot < d.robots.length)) throw new DslError(`fail: unknown robot`);
+  if (!d.phases.length) throw new DslError('give at least one phase line');
+  return d;
+}
+
+export type MrsDoc = MissionSpec | ConsensusDoc | SwarmDoc | AllocationDoc | GridMapfDoc | CoverageDoc | EstimationDoc | SafetyDoc | WarehouseDoc | GameDoc | MarlDoc | EvoDoc | CaDoc | FuzzyDoc | ResilienceDoc;
+export const MRS_PARSERS: Record<MrsKind, (src: string) => MrsDoc> = { mission: parseMission, consensus: parseConsensus, swarm: parseSwarm, allocation: parseAllocation, gridmapf: parseGridMapf, coverage: parseCoverage, estimation: parseEstimation, safety: parseSafety, warehouse: parseWarehouse, game: parseGame, marl: parseMarl, evo: parseEvo, ca: parseCa, fuzzy: parseFuzzy, resilience: parseResilience };
 
 // --- templates ------------------------------------------------------------------------------------------------------------------
 export const MRS_TEMPLATES: Record<MrsKind, string> = {
+  mission: `mission Form, move, allocate, return — three architectures
+robots r1 r2 r3 r4 r5 r6 box=3 seed=1      # names of station robots (positions from the station in Run on fleet)
+architecture compare                        # centralized | decentralized | hybrid | compare
+comm radius=4 drop=0.05 period=0.5 lost=3 settle=1
+coordinator at=0,0 range=12 fail=60 recover=110   # the fleet manager: radio range, outage window
+phase form circle r=1.2
+phase goto at=6,0 speed=0.3
+phase allocate targets=8,2;9,-1;7,-3;10,1;8,-2;9,3
+phase gather
+phase home
+safety d_safe=0.4 gamma=2 sense=1.5
+obstacle at=3,0.5 r=0.6
+fail r4 at=40
+duration 300 dt=0.1 seed=1 vmax=0.5`,
   consensus: `consensus Chain of four robots (§4.3.4)
 graph path n=4        # path | ring | star | complete | edges (edge i j) | disk radius=
 x0 0 4 8 12

@@ -26,7 +26,7 @@ topic you need. Every page is generated from the repository (`docs/` folder) and
 - Driving real machines? {doc}`api/server`, {doc}`api/drivers`, {doc}`mobile/vda5050`, and the wiring diagram in {doc}`developer/integration`.
 - Want to see it work first? {doc}`reference/scenarios` — demo cases for every navigation method, vision task and control-design method, with results.
 - Designing the upper control level (supervisors, missions, deadlock-free resource sharing)? Start with {doc}`control/overview` and the demo guides {doc}`control/example-a-mobile-manipulator` and {doc}`control/example-b-production-cell`.
-- Controlling a **group** of robots (consensus and formations, swarms, task allocation, MAPF, coverage, group safety, a warehouse fleet)? {doc}`group/overview` and the practicum guides {doc}`group/pr1-consensus` … {doc}`group/warehouse`.
+- Controlling a **group** of robots (consensus and formations, swarms, task allocation, MAPF, coverage, group safety, a warehouse fleet)? {doc}`group/overview`, the practicum guides {doc}`group/pr1-consensus` … {doc}`group/warehouse`, the three control architectures over configured robots in {doc}`group/architectures` and the recipes in {doc}`group/guides`.
 ```
 
 ```{toctree}
@@ -107,6 +107,8 @@ group/pr4-mapf
 group/pr5-coverage
 group/pr6-safety
 group/warehouse
+group/architectures
+group/guides
 group/chapters
 group/runtime
 group/dsl

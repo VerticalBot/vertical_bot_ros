@@ -12,8 +12,8 @@ import { MobileRobot } from '../src/mobile/items';
 const byId = (id: string) => MRS_EXAMPLES.find((e) => e.id === id)!;
 
 describe('group-control module — documents, templates, examples', () => {
-  it('the 14 kinds are registered in the Control kinds under the multi-robot group, with templates that detect and analyse', () => {
-    expect(MRS_KINDS.length).toBe(14); for (const k of MRS_KINDS) { const c = CONTROL_KINDS.find((x) => x.kind === k.kind)!; expect(c.group).toBe('multi-robot'); expect(c.practicum).toBe(k.practicum); expect(TEMPLATES[k.kind]).toBe(MRS_TEMPLATES[k.kind]); expect(detectKind(MRS_TEMPLATES[k.kind])).toBe(k.kind); const r = analyse(k.kind, MRS_TEMPLATES[k.kind]); expect(r.error, `${k.kind}: ${r.error}`).toBeUndefined(); expect(r.ok, `${k.kind} template should be OK`).toBe(true); expect(r.sections.some((s) => s.plot || s.graph || s.table)).toBe(true); }
+  it('the 15 kinds are registered in the Control kinds under the multi-robot group, with templates that detect and analyse', () => {
+    expect(MRS_KINDS.length).toBe(15); for (const k of MRS_KINDS) { const c = CONTROL_KINDS.find((x) => x.kind === k.kind)!; expect(c.group).toBe('multi-robot'); expect(c.practicum).toBe(k.practicum); expect(TEMPLATES[k.kind]).toBe(MRS_TEMPLATES[k.kind]); expect(detectKind(MRS_TEMPLATES[k.kind])).toBe(k.kind); const r = analyse(k.kind, MRS_TEMPLATES[k.kind]); expect(r.error, `${k.kind}: ${r.error}`).toBeUndefined(); expect(r.ok, `${k.kind} template should be OK`).toBe(true); expect(r.sections.some((s) => s.plot || s.graph || s.table)).toBe(true); }
   });
   it('every course example analyses without error and the verdicts match the course', () => {
     const R = Object.fromEntries(MRS_EXAMPLES.map((e) => [e.id, analyse(e.kind, e.source)]));

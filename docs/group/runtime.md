@@ -1,7 +1,7 @@
 # Fleet runtime: group laws on the station robots
 
 The reports answer *what does the theory predict?*; **▶ Run on fleet** answers *what does it look like on the
-robots?*. Six kinds are executable: `consensus`, `swarm`, `coverage`, `safety`, `gridmapf` and `warehouse`. The
+robots?*. Six kinds are executable: `consensus`, `swarm`, `coverage`, `safety`, `gridmapf`, `warehouse` and `mission`. The
 runtime (`studio/src/mrs/runtime.ts`) steps the same algorithms as the analysis in the world loop of the studio
 (the clock shared with fleets, process components and the mission runtime), reads the robots' positions in metres
 (station mm / 1000), computes the group law and writes the poses back every tick — so the 3D view shows the
@@ -29,12 +29,23 @@ limit).
 
 | Kind | Law on the robots | Status line | Stops when |
 |---|---|---|---|
+| `mission` | the phased mission under the chosen architecture, closed loop on the measured robot positions; `goto zone=` / `allocate zones=` resolve station zones, `nogo` zones become obstacles; optional `des` supervisor gating and `hybrid` speed modes ({doc}`architectures`) | phase, coordinator state, messages, fallback, min distance, per-robot phase; plant state / denials; mode | every live robot past the last phase |
 | `consensus` | formation by offsets (`formation`), connectivity-preserving rendezvous (`rendezvous`), or plain consensus on positions (gather at the centroid); the graph is the document's topology, or a disk graph on the live positions with `comm radius= drop=`; `fail` lines stop a robot at a time | links, formation error / disagreement, failed robots | error < 1 mm |
 | `swarm` | `boids`: the Reynolds rules at the document's `dt`; `vicsek`: one step per second on a torus of side `box` around the initial centroid, first η; `pso robots=true`: one PSO step per second, the robots move between way-points with repulsion, noisy measurements at the real positions; ACO / firefly / GWO / bee are analysis-only | polarization and minimum distance; order; best value and distance to the source | never (boids, Vicsek); swarm centre within 0.1 m of the source |
 | `coverage` | Lloyd (or limited-range Lloyd) centroids recomputed every second on the document's area and density; robots drive towards their centroids | H and whether the robots still move | robots settled |
 | `safety` | the barrier-function filter with the document's parameters; goals: `custom` robots' goals, `antipodal` mirror images through the centroid, `crossing` the first two swap; `unstuck` and `uncooperative` honoured | minimum distance, max goal error | all within 5 cm of their goals |
 | `gridmapf` | CBS (or prioritized) plan for the station robots from the document's starts / goals, executed through the ADG with random delays 0.5–1.5 s; cells are `map cell=` metres, row 0 at y = 0 | moves done, robots at their goals | plan complete |
 | `warehouse` | the fleet simulator (CBBA, executors, reservation, faults) at the document's `dt`; robots named as in the document (created at their homes when missing) | deliveries, open orders, latency, double commits, path conflicts, executor states | `duration` elapsed |
+
+## Drive modes
+
+`FleetRuntime` has two ways of moving a robot. `pose` (the default of the practicum kinds) writes the pose computed
+by the group law — the fast model view. `unicycle` (the default of `mission`, and available to every kind through
+the `drive` option of the API) sends the law's velocity reference to the configured robot as (v, ω) through a point
+ahead of the axle and integrates it with the robot's kinematic limits (max speed, acceleration, yaw rate, minimum
+turning radius for Ackermann platforms); the robot then tracks the model point with a proportional law. This is
+how the group layer sits *on top of* the control system of the configured robots: the group decides where, the
+robot decides how.
 
 ## Scenes
 

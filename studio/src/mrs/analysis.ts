@@ -5,11 +5,13 @@
  */
 import type { Analyser } from '../ctl/analysis';
 import { MrsKind } from './model';
-import { parseConsensus, parseSwarm, parseAllocation, parseGridMapf, parseCoverage, parseEstimation, parseSafety, parseWarehouse, parseGame, parseMarl, parseEvo, parseCa, parseFuzzy, parseResilience } from './dsl';
+import { parseMission, parseConsensus, parseSwarm, parseAllocation, parseGridMapf, parseCoverage, parseEstimation, parseSafety, parseWarehouse, parseGame, parseMarl, parseEvo, parseCa, parseFuzzy, parseResilience } from './dsl';
 import { analyseConsensus, analyseSwarm, analyseAllocation, analyseGridMapf, analyseCoverage, analyseEstimation, analyseSafety, analyseWarehouse } from './an_practicum';
+import { analyseMission } from './an_mission';
 import { analyseGame, analyseMarl, analyseEvo, analyseCa, analyseFuzzy, analyseResilience } from './an_theory';
 
 export const MRS_ANALYSERS: Record<MrsKind, Analyser> = {
+  mission: (src, S, M) => { const d = parseMission(src); return { title: `Group mission (${d.architecture}): ${d.name}`, ok: analyseMission(d, S, M) }; },
   consensus: (src, S, M) => { const d = parseConsensus(src); return { title: `Consensus & formation: ${d.name}`, ok: analyseConsensus(d, S, M) }; },
   swarm: (src, S, M) => { const d = parseSwarm(src); return { title: `Swarm (${d.model}): ${d.name}`, ok: analyseSwarm(d, S, M) }; },
   allocation: (src, S, M) => { const d = parseAllocation(src); return { title: `Task allocation: ${d.name}`, ok: analyseAllocation(d, S, M) }; },

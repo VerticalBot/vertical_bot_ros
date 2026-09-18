@@ -11,6 +11,7 @@ import { addControlModel, ControlKind } from '../ctl/model';
 import { MRS_EXAMPLES, MrsExample } from '../mrs/examples';
 import { parseWarehouse } from '../mrs/dsl';
 import { buildWarehouseScene, FleetRuntime } from '../mrs/runtime';
+import { ZoneItem } from '../mobile/items';
 import type { Scenario, ScenarioResult, ScenarioMetric } from './index';
 
 const M = (v: number, d = 0) => Number(v.toFixed(d));
@@ -72,4 +73,38 @@ export const GROUP_SCENARIOS: Scenario[] = [
     description: 'The worked examples of the theory chapters: Nash equilibria and the mixed payoff 5.2, Shapley (26.67, 41.67, 51.67) in the core; table 7.2 of Q-learning and the optimum 6.2 / 8 / 10; the GA generation of §12.2.6 and x* = 31; rule 90 vs rule 30 and the glider; the fuzzy controller firing rules 5 and 2 at 0.4 / 0.3; four agents with one traitor agree, three do not; switching between two stable modes destabilises below the dwell time.',
     evaluate: () => { const g = A(ex('ch9-game')), q = A(ex('ch7-qlearning')), e = A(ex('ch12-evo')), c = A(ex('ch4-ca')), fz = A(ex('ch13-fuzzy')), r = A(ex('ch16-resilience')), t = A(ex('ch16-three')); return { metrics: [metric('pure Nash equilibria', num(g.metrics['pure equilibria']), undefined, g.metrics['pure equilibria'] === 2, '= 2'), metric('mixed payoff', num(g.metrics['mixed payoff']), undefined, g.metrics['mixed payoff'] === 5.2, '= 5.2'), metric('Shapley in the core', String(g.metrics['shapley']), undefined, g.metrics['in core'] === true, '(26.67, 41.67, 51.67)'), metric('Q*(s₁)', num(q.metrics['Q*(start)']), undefined, q.metrics['Q*(start)'] === 6.2, '= 6.2'), metric('GA optimum', num(e.metrics['ga best x']), undefined, e.metrics['ga best x'] === 31, 'x* = 31'), metric('ES step vs ε*', `${e.metrics['es eps']} vs ${e.metrics['eps optimum']}`, undefined, e.ok, 'ES finds 2/(λ₂ + λₙ)'), metric('glider period', num(c.metrics['life period']), undefined, c.metrics['life period'] === 4, '= 4'), metric('fuzzy v', num(fz.metrics['v']), undefined, num(fz.metrics['v']) > 0.25 && num(fz.metrics['v']) < 0.5, '0.3–0.4 of max'), metric('Byzantine n = 4', String(r.metrics['byzantine agreement']), undefined, r.metrics['byzantine agreement'] === true, 'agree'), metric('Byzantine n = 3', t.sections[0].lines[1].includes('tied') ? 'ambiguous' : 'decided', undefined, t.sections[0].lines[1].includes('tied'), 'evidence ties'), metric('dwell time', String(r.metrics['dwell time']), 's', r.metrics['dwell time'] !== 'none', 'found')] }; },
   }),
+  scenario({
+    id: 'grp_architectures', title: 'Architectures: the same mission centralised, decentralised and hybrid — coordinator outage, robot failure, partition (chapter 3)', method: 'mission / architectures',
+    docs: [ex('arch-compare'), ex('arch-partition'), ex('arch-station')],
+    setup: (st) => { for (let i = 0; i < 4; i++) { const r = st.addChild(new MobileRobot(`r${i + 1}`)); r.setPose2D(i * 1200, 0, 0); r.kin.maxSpeed = 700; r.home = { x: i * 1200, y: 0, theta: 0 }; } const zone = (name: string, x: number, y: number, kind: ZoneItem['kind'] = 'work', half = 600) => { const z = st.addChild(new ZoneItem(name)); z.kind = kind; z.polygon = [[x - half, y - half], [x + half, y - half], [x + half, y + half], [x - half, y + half]]; }; zone('Dock', 6000, 0); zone('Shelf A', 9000, 2000); zone('Shelf B', 9000, -2000); zone('Shelf C', 11000, 2000); zone('Shelf D', 11000, -2000); zone('Pillar', 3000, 2000, 'nogo', 400); addControlModel(st, 'des', 'Fleet supervisor', FLEET_SUPERVISOR); addControlModel(st, 'hybrid', 'Fleet modes', FLEET_MODES); },
+    description: 'A five-phase mission (formation, move, task allocation, gathering, return) with a robot failure at 40 s and a coordinator outage 60–110 s runs under the three architectures of chapter 3: the centralised group stalls while its coordinator is down, the decentralised group never depends on it (but takes slots by index and needs agreement time), the hybrid group plans globally, keeps the formation locally and falls back during the outage. A second document puts robots beyond the coordinator\'s range (radio 3.5 m with 20 % loss, coordinator 3 m); a third runs on configured station robots with zones, a no-go pillar, a des supervisor and a mode automaton.',
+    evaluate: (st) => {
+      const c = A(ex('arch-compare')), p = A(ex('arch-partition')); const robots = st.itemsOfType<MobileRobot>(ItemType.MOBILE_ROBOT);
+      const rt = new FleetRuntime({ kind: 'mission', source: ex('arch-station').source, robots, station: st }); for (let t = 0; t < 420 && !rt.done; t += 0.1) rt.tick(0.1);
+      const home = robots.every((r) => Math.hypot(r.state.x - r.home!.x, r.state.y - r.home!.y) < 400);
+      return { metrics: [metric('all architectures complete', String(c.metrics['all complete']), undefined, c.metrics['all complete'] === true, 'true'), metric('centralised stalled', num(c.metrics['centralized stalled s']), 's', num(c.metrics['centralized stalled s']) > 40, '≈ outage 50 s'), metric('decentralised stalled', num(c.metrics['decentralized stalled s']), 's', c.metrics['decentralized stalled s'] === 0, '= 0'), metric('hybrid fallback', num(c.metrics['hybrid fallback s']), 's', num(c.metrics['hybrid fallback s']) > 0 && num(c.metrics['hybrid fallback s']) < 60, '> 0, < outage'), metric('min distance (all)', Math.min(num(c.metrics['centralized min distance']), num(c.metrics['decentralized min distance']), num(c.metrics['hybrid min distance'])), 'm', Math.min(num(c.metrics['centralized min distance']), num(c.metrics['decentralized min distance']), num(c.metrics['hybrid min distance'])) >= 0.395, '≥ d_safe'), metric('beyond the coordinator: decentralised completes', String(p.metrics['decentralized time'] !== 'incomplete'), undefined, p.metrics['decentralized time'] !== 'incomplete', 'true'), metric('beyond the coordinator: hybrid completes with fallback', `${p.metrics['hybrid time']} s, fallback ${p.metrics['hybrid fallback s']} s`, undefined, p.metrics['hybrid time'] !== 'incomplete' && num(p.metrics['hybrid fallback s']) > 0, 'complete, fallback > 0'), metric('beyond the coordinator: centralised incomplete, stalled', num(p.metrics['centralized stalled s']), 's', p.metrics['centralized time'] === 'incomplete' && num(p.metrics['centralized stalled s']) > 100, 'incomplete, stalled > 100 s'), metric('station mission (hybrid, zones, supervisor, modes)', rt.done && home ? 'complete, robots home' : 'incomplete', undefined, rt.done && home, 'phases through Dock and the shelves, plant P10')], notes: [rt.status()] };
+    },
+  }),
 ];
+const FLEET_SUPERVISOR = `des Fleet supervisor
+automaton Mission
+  initial P0
+  marked P0 P1 P2 P3 P4 P5 P6 P7 P8 P9 P10
+  P0 -form_start-> P1
+  P1 -form_done-> P2
+  P2 -goto_start-> P3
+  P3 -goto_done-> P4
+  P4 -allocate_start-> P5
+  P5 -allocate_done-> P6
+  P6 -gather_start-> P7
+  P7 -gather_done-> P8
+  P8 -home_start-> P9
+  P9 -home_done-> P10
+uncontrollable form_done goto_done allocate_done gather_done home_done`;
+const FLEET_MODES = `hybrid Fleet modes
+var dist_human=10 phase=0
+initial NORMAL
+mode NORMAL vmax=0.6
+mode SLOW vmax=0.1
+NORMAL -> SLOW when dist_human < 2 dwell=0.2
+SLOW -> NORMAL when dist_human > 3 dwell=0.2`;

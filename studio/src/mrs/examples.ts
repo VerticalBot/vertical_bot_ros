@@ -168,6 +168,45 @@ cbba capacity=3 discount=0.98 period=0.5 stale=3 commit=2 lost=6
 fault r2 at=120 kind=stop
 fault r2 at=400 kind=recover
 duration 600 dt=0.1 seed=1` },
+  // ---------------------------------------------------------------- architectures (chapter 3) over configured robots
+  { id: 'arch-compare', kind: 'mission', part: 'architectures', chapter: '3, 4, 10, 16', name: 'Architectures · Form, move, allocate, gather, home — centralised vs decentralised vs hybrid', summary: 'The same five-phase mission with a robot failure at 40 s and a coordinator outage 60–110 s: the centralised group stalls during the outage, the decentralised one never depends on it, the hybrid one falls back and resynchronises.', source: `mission Form, move, allocate, return — three architectures
+robots r1 r2 r3 r4 r5 r6 box=3 seed=1
+architecture compare
+comm radius=4 drop=0.05 period=0.5 lost=3 settle=1
+coordinator at=0,0 range=12 fail=60 recover=110
+phase form circle r=1.2
+phase goto at=6,0 speed=0.3
+phase allocate targets=8,2;9,-1;7,-3;10,1;8,-2;9,3
+phase gather
+phase home
+safety d_safe=0.4 gamma=2 sense=1.5
+obstacle at=3,0.5 r=0.6
+fail r4 at=40
+duration 300 dt=0.1 seed=1 vmax=0.5` },
+  { id: 'arch-partition', kind: 'mission', part: 'architectures', chapter: '3, 4', name: 'Architectures · Short radio: robots beyond the coordinator', summary: 'Radio 3.5 m with 20 % loss, coordinator range 3 m on a wide start: the robots the coordinator cannot reach never move in the centralised variant; the decentralised group forms and gathers on its own; the hybrid group forms with the far robots in fallback.', source: `mission Robots beyond the coordinator's range
+robots r1 r2 r3 r4 r5 r6 box=4 seed=2
+architecture compare
+comm radius=3.5 drop=0.2 period=0.5 lost=3 settle=1
+coordinator at=0,0 range=3
+phase form circle r=1.5
+phase gather
+phase home
+safety d_safe=0.4 gamma=2 sense=1.5
+duration 240 dt=0.1 seed=2 vmax=0.5` },
+  { id: 'arch-station', kind: 'mission', part: 'architectures', chapter: '3, 10', name: 'Architectures · Station mission over configured robots (zones, no-go, supervisor)', summary: 'For Run on fleet: phases refer to station zones (goto zone=Dock, allocate zones=…), no-go zones become obstacles, a des supervisor named "Fleet supervisor" gates the phases and a hybrid model "Fleet modes" limits the speed near a human.', source: `mission Station mission (hybrid)
+robots r1 r2 r3 r4
+architecture hybrid
+comm radius=6 drop=0 period=0.5 lost=3 settle=1
+coordinator at=0,0 range=30
+phase form wedge r=1.0
+phase goto zone=Dock at=6,0 speed=0.3            # zone on the station; at= for the analysis
+phase allocate zones="Shelf A,Shelf B,Shelf C,Shelf D" targets=9,2;9,-2;11,2;11,-2
+phase gather
+phase home
+safety d_safe=0.5 gamma=2 sense=2
+supervisor Fleet supervisor
+modes Fleet modes
+duration 400 dt=0.1 seed=2 vmax=0.6` },
   // ---------------------------------------------------------------- chapters
   { id: 'ch9-game', kind: 'game', part: 'ch. 9', chapter: '9', name: 'Chapter 9 · Task allocation game and a cooperative game (§9.3.4, §9.5.3)', summary: 'Pure equilibria (Z1, Z2), (Z2, Z1), mixed q = 0.8 with payoff 5.2; Shapley value (26.67, 41.67, 51.67) in the core.', source: `game Task allocation between two robots (§9.3.4)
 players R1 R2
@@ -232,4 +271,4 @@ agent A continue
 agent B evacuate
 agent C continue lies A=continue B=evacuate` },
 ];
-export const MRS_PARTS = ['ПР1', 'ПР2', 'ПР3', 'ПР4', 'ПР5', 'ПР6', 'ДЗ', 'ch. 4', 'ch. 7', 'ch. 9', 'ch. 12', 'ch. 13', 'ch. 16'];
+export const MRS_PARTS = ['ПР1', 'ПР2', 'ПР3', 'ПР4', 'ПР5', 'ПР6', 'ДЗ', 'architectures', 'ch. 4', 'ch. 7', 'ch. 9', 'ch. 12', 'ch. 13', 'ch. 16'];

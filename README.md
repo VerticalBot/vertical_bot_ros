@@ -51,8 +51,12 @@ into a design tool for real machines:
   deadlock rule, stale-data margins); the multi-robot warehouse of the course homework (CBBA on an order stream,
   executor state machine, distributed cell reservation, faults, metrics); and the chapter examples (games, Q-learning
   and independent MARL, GA / DE / ES, cellular automata, fuzzy control, Byzantine agreement, trust, switched systems).
-  Fourteen document kinds in the Control tab with reports and charts, six of them executable on the station robots
-  (**Run on fleet**), a warehouse scene builder, course examples ПР1–ПР6 / homework, eight demo scenarios.
+  Group **missions over the configured robots** run the same phased mission under the centralised, decentralised
+  and hybrid architectures of the course (coordinator outages, radio partitions, robot failures) and execute it on
+  the station robots through their own kinematic controllers, with station zones, no-go obstacles, a supervisor and
+  a mode automaton. Fifteen document kinds in the Control tab with reports and charts, seven of them executable on
+  the station robots (**Run on fleet**), a warehouse scene builder, course examples ПР1–ПР6 / homework /
+  architectures, nine demo scenarios, how-to guides.
 
 Everything is verified by 236 unit / integration tests and 45 published demo scenarios (one per localization
 method, vision task and control-design method), and wired to the outside world through documented ports and contracts

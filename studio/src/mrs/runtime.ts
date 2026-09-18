@@ -5,7 +5,15 @@
  * visible in the 3D view. Independent of the UI: the app wires `tick` into `app.worldHooks` (see ui/control_ui.ts).
  */
 import { MobileRobot, MapItem, ZoneItem } from '../mobile/items';
-import { Station } from '../core/items/item';
+import { Station, ItemType } from '../core/items/item';
+import { integrate } from '../mobile/controller';
+import { DEG, RAD } from '../core/math/pose';
+import { unicycleFromVelocity } from './sim';
+import { MissionSim, MissionSpec } from './mission';
+import { parseMission, parseDes, parseHybrid } from './dsl_bridge';
+import { DES, parallel, supcon, supervisorTable, SupervisorRuntime, SupervisorViolation } from '../ctl/des';
+import { ModeMachine } from '../ctl/hybrid';
+import { controlModels } from '../ctl/model';
 import { Rng, Vec2, dist, clampNorm, mean2 } from './rng';
 import { MrsKind } from './model';
 import { parseConsensus, parseSwarm, parseCoverage, parseSafety, parseGridMapf, parseWarehouse, ConsensusDoc, SwarmDoc, CoverageDoc, SafetyDoc, GridMapfDoc, WarehouseDoc } from './dsl';
@@ -18,19 +26,24 @@ import { cbfController, unstuckNominal, goToGoal, speedPolygon, safeVelocity, pa
 import { cbs, prioritizedPlanning, actionDependencies, Path, Action } from './mapf';
 import { FleetSim, FleetConfig, Warehouse } from './warehouse';
 
-export const RUNNABLE_KINDS: MrsKind[] = ['consensus', 'swarm', 'coverage', 'safety', 'gridmapf', 'warehouse'];
-export interface FleetRuntimeOptions { kind: MrsKind; source: string; robots: MobileRobot[]; station: Station; log?: (m: string) => void; /** model metres per station mm (default 1/1000) */ scale?: number; /** speed limit, m/s (default: from the document or 0.5) */ vmax?: number; maxSeconds?: number; /** create missing robots (warehouse names) */ createRobots?: (name: string, x: number, y: number) => MobileRobot }
+export const RUNNABLE_KINDS: MrsKind[] = ['mission', 'consensus', 'swarm', 'coverage', 'safety', 'gridmapf', 'warehouse'];
+export interface FleetRuntimeOptions { kind: MrsKind; source: string; robots: MobileRobot[]; station: Station; log?: (m: string) => void; /** model metres per station mm (default 1/1000) */ scale?: number; /** speed limit, m/s (default: from the document or 0.5) */ vmax?: number; maxSeconds?: number; /** create missing robots (warehouse names) */ createRobots?: (name: string, x: number, y: number) => MobileRobot; /** how the reference of the group law reaches the robot: `pose` writes the pose, `unicycle` sends (v, ω) through the robot's own kinematic controller (limits of the configured robot apply) */ drive?: 'pose' | 'unicycle'; /** distance ahead of the axle of the tracked point for the unicycle transform, m */ lookahead?: number; /** environment for the mode machine / supervisor (human position, e-stop…) */ env?: () => Record<string, number | boolean> }
 
-interface Driver { name: string; tick(dt: number): void; status(): string; done(): boolean; positions(): Vec2[]; robots: MobileRobot[] }
+interface Driver { name: string; tick(dt: number): void; status(): string; done(): boolean; positions(): Vec2[]; robots: MobileRobot[]; /** the underlying model (missions expose their `MissionSim`) */ model?: unknown }
 
 export class FleetRuntime {
-  time = 0; ticks = 0; done = false; log: string[] = []; readonly driver: Driver; readonly kind: MrsKind; private say: (m: string) => void; private maxSeconds: number;
+  time = 0; ticks = 0; done = false; log: string[] = []; readonly driver: Driver; readonly kind: MrsKind; private say: (m: string) => void; private maxSeconds: number; private beforeTick: (dt: number) => void = () => {};
   constructor(o: FleetRuntimeOptions) {
     this.kind = o.kind; this.maxSeconds = o.maxSeconds ?? 3600; this.say = (m) => { this.log.push(m); if (this.log.length > 500) this.log.shift(); o.log?.(m); };
     const scale = o.scale ?? 1 / 1000; const toM = (r: MobileRobot): Vec2 => [r.state.x * scale, r.state.y * scale];
-    const place = (robots: MobileRobot[], p: Vec2[], u?: Vec2[]) => { robots.forEach((r, i) => { if (!p[i]) return; const x = p[i][0] / scale, y = p[i][1] / scale; const v = u?.[i]; const th = v && Math.hypot(v[0], v[1]) > 1e-6 ? (Math.atan2(v[1], v[0]) * 180) / Math.PI : r.state.theta; r.setPose2D(x, y, th); r.state.v = v ? Math.hypot(v[0], v[1]) / scale : 0; r.state.status = v && Math.hypot(v[0], v[1]) > 1e-4 ? 'moving' : 'idle'; }); };
+    const drive = o.drive ?? (o.kind === 'mission' ? parseMission(o.source).drive : 'pose'); const look = o.lookahead ?? 0.15; let lastDt = 0.05;
+    /** Track the model point p[i] (feed-forward u[i]) with the configured robot's own controller: desired point velocity → (v, ω) through a point `look` m ahead of the axle → `integrate` with the kinematic limits of the robot. */
+    const driveTo = (r: MobileRobot, target: Vec2, uff: Vec2, dt: number) => { const th = r.state.theta * DEG; const px = r.state.x * scale + look * Math.cos(th), py = r.state.y * scale + look * Math.sin(th); const k = 1.5; const ux = uff[0] + k * (target[0] - px), uy = uff[1] + k * (target[1] - py); const { v, w } = unicycleFromVelocity(th, [ux, uy], look); integrate(r, { v: v / scale, omega: w * RAD }, dt); r.syncPoseFromState(); r.state.status = Math.abs(r.state.v) > 1 ? 'moving' : 'idle'; };
+    const place = (robots: MobileRobot[], p: Vec2[], u?: Vec2[]) => { robots.forEach((r, i) => { if (!p[i]) return; if (drive === 'unicycle') { driveTo(r, p[i], u?.[i] ?? [0, 0], lastDt); return; } const x = p[i][0] / scale, y = p[i][1] / scale; const v = u?.[i]; const th = v && Math.hypot(v[0], v[1]) > 1e-6 ? (Math.atan2(v[1], v[0]) * 180) / Math.PI : r.state.theta; r.setPose2D(x, y, th); r.state.v = v ? Math.hypot(v[0], v[1]) / scale : 0; r.state.status = v && Math.hypot(v[0], v[1]) > 1e-4 ? 'moving' : 'idle'; }); };
+    this.beforeTick = (dt) => { lastDt = dt; };
     const kinVmax = (rs: MobileRobot[]) => Math.min(...rs.map((r) => r.kin.maxSpeed * scale));
     switch (o.kind) {
+      case 'mission': this.driver = missionDriver(parseMission(o.source), o.robots, o.station, drive === 'unicycle' ? (r) => { const th = r.state.theta * DEG; return [r.state.x * scale + look * Math.cos(th), r.state.y * scale + look * Math.sin(th)] as Vec2; } : toM, o.log ?? (() => {}), this.say, o.env, (r, u, dt) => { if (drive === 'unicycle') { const th = r.state.theta * DEG; const { v, w } = unicycleFromVelocity(th, u, look); integrate(r, { v: v / scale, omega: w * RAD }, dt); r.syncPoseFromState(); r.state.status = Math.abs(r.state.v) > 1 ? 'moving' : 'idle'; } else { r.setPose2D(r.state.x + (u[0] * dt) / scale, r.state.y + (u[1] * dt) / scale, Math.hypot(u[0], u[1]) > 1e-6 ? (Math.atan2(u[1], u[0]) * 180) / Math.PI : r.state.theta); r.state.v = Math.hypot(u[0], u[1]) / scale; r.state.status = Math.hypot(u[0], u[1]) > 1e-4 ? 'moving' : 'idle'; } }); break;
       case 'consensus': this.driver = consensusDriver(parseConsensus(o.source), o.robots, toM, place, o.vmax ?? Math.min(0.5, kinVmax(o.robots)), this.say); break;
       case 'swarm': this.driver = swarmDriver(parseSwarm(o.source), o.robots, toM, place, this.say); break;
       case 'coverage': this.driver = coverageDriver(parseCoverage(o.source), o.robots, toM, place, o.vmax ?? Math.min(0.5, kinVmax(o.robots)), this.say); break;
@@ -42,7 +55,7 @@ export class FleetRuntime {
     this.say(`fleet run "${this.driver.name}" on ${this.driver.robots.map((r) => r.name).join(', ')}`);
   }
   get robots(): MobileRobot[] { return this.driver.robots; }
-  tick(dt: number): void { if (this.done) return; this.driver.tick(dt); this.time += dt; this.ticks++; if (this.driver.done() || this.time >= this.maxSeconds) { this.done = true; this.say(`finished after ${this.time.toFixed(1)} s: ${this.driver.status()}`); } }
+  tick(dt: number): void { if (this.done) return; this.beforeTick(dt); this.driver.tick(dt); this.time += dt; this.ticks++; if (this.driver.done() || this.time >= this.maxSeconds) { this.done = true; this.say(`finished after ${this.time.toFixed(1)} s: ${this.driver.status()}`); } }
   status(): string { return `${this.done ? '⏹' : '▶'} ${this.driver.name}: t=${this.time.toFixed(1)} s · ${this.driver.status()}`; }
   stop(): void { this.done = true; for (const r of this.driver.robots) { r.state.v = 0; r.state.status = 'idle'; } }
 }
@@ -104,6 +117,54 @@ function warehouseDriver(d: WarehouseDoc, all: MobileRobot[], station: Station, 
   const sim = new FleetSim(d.cfg); const robots = sim.robots.map((fr) => { let r = all.find((m) => m.name === fr.name); if (!r) { if (!create) throw new Error(`robot ${fr.name} is not on the station (Group › Build warehouse scene)`); r = create(fr.name, fr.x * 1000, fr.y * 1000); say(`added robot ${fr.name} at its home ${fr.home}`); } return r; }); void station;
   let prev = sim.robots.map((r) => [r.x, r.y] as Vec2); place(robots, prev); let logged = 0; let acc = 0;
   return { name: `${d.name} — warehouse fleet`, robots, positions: () => sim.robots.map((r) => [r.x, r.y] as Vec2), tick(dt) { acc += dt; while (acc >= d.cfg.dt - 1e-9) { acc -= d.cfg.dt; sim.step(d.cfg.dt); } const p = sim.robots.map((r) => [r.x, r.y] as Vec2); const u = p.map((q, i) => [(q[0] - prev[i][0]) / Math.max(dt, 1e-6), (q[1] - prev[i][1]) / Math.max(dt, 1e-6)] as Vec2); prev = p; place(robots, p, u); for (; logged < sim.log.length; logged++) say(sim.log[logged]); }, status: () => { const m = sim.metrics(); return `${m.delivered} delivered / ${m.created} created · open ${m.open} · latency ${m.meanLatency.toFixed(0)} s · double commits ${m.doubleCommits} · path conflicts ${m.pathConflicts} · ${sim.robots.map((r) => `${r.name} ${r.exec.state}${r.exec.order ? ' ' + r.exec.order : ''}`).join(', ')}`; }, done: () => sim.time >= d.cfg.duration };
+}
+
+/**
+ * Group mission over the configured robots of the station: closed loop (the measured robot positions feed the
+ * mission model every tick, the velocity references go to the robots through their own controller), station
+ * zones resolve `goto zone=` / `allocate zones=` and `nogo` zones become obstacles, an optional `des` supervisor of
+ * the station gates the phase transitions (controllable events `<phase>_start`, observed `<phase>_done`) and an
+ * optional `hybrid` mode automaton limits the speed (its `vMax`).
+ */
+function missionDriver(d: MissionSpec, all: MobileRobot[], station: Station, toM: (r: MobileRobot) => Vec2, appLog: (m: string) => void, say: (m: string) => void, env: (() => Record<string, number | boolean>) | undefined, apply: (r: MobileRobot, u: Vec2, dt: number) => void): Driver {
+  void appLog;
+  const robots = useRobots(all, d.robots.map((r) => r.name), d.robots.length, say); const n = robots.length;
+  const zones = station.itemsOfType<ZoneItem>(ItemType.ZONE); const zoneByName = (name: string) => zones.find((z) => z.name.toLowerCase() === name.toLowerCase()); const centroidM = (z: ZoneItem): Vec2 => { const c = z.centroid(); return [c[0] / 1000, c[1] / 1000]; };
+  const spec: MissionSpec = JSON.parse(JSON.stringify({ ...d, robots: robots.map((r, i) => ({ name: r.name, at: toM(r), home: d.robots[i]?.home ?? (r.home ? [r.home.x / 1000, r.home.y / 1000] : toM(r)), speed: d.robots[i]?.speed ?? Math.min(d.vmax, r.kin.maxSpeed / 1000) })), failures: d.failures.filter((f) => f.robot < n) }));
+  for (const ph of spec.phases) { if (ph.zone) { const z = zoneByName(ph.zone); if (!z) throw new Error(`zone ${ph.zone} not found on the station`); ph.at = centroidM(z); } if (ph.kind === 'allocate' && ph.targetNames.some((nm) => zoneByName(nm))) { ph.targets = ph.targetNames.map((nm) => { const z = zoneByName(nm); if (!z) throw new Error(`zone ${nm} not found on the station`); return centroidM(z); }); } }
+  for (const z of zones) if (z.kind === 'nogo' && z.polygon.length) { const c = centroidM(z); const r = Math.max(...z.polygon.map((q) => Math.hypot(q[0] / 1000 - c[0], q[1] / 1000 - c[1]))); spec.obstacles.push({ at: c, r, name: z.name }); }
+  if (spec.obstacles.length > d.obstacles.length) say(`no-go zones as obstacles: ${spec.obstacles.slice(d.obstacles.length).map((o) => o.name).join(', ')}`);
+  const arch = spec.architecture === 'compare' ? 'hybrid' : spec.architecture; if (spec.architecture === 'compare') say('architecture "compare" runs hybrid on the fleet (set architecture centralized | decentralized | hybrid to choose)');
+  const sim = new MissionSim(spec, arch); spec.duration = Math.max(spec.duration, 3600);
+  // supervisor of the station (des model) gating the phases; mode automaton (hybrid model) limiting the speed
+  let sup: SupervisorRuntime | null = null, supName = ''; const supSigma = new Set<string>(); let modes: ModeMachine | null = null; let denied = 0, mismatches = 0;
+  const models = controlModels(station);
+  if (d.supervisor) { const m = models.find((x) => x.kind === 'des' && x.name === d.supervisor); if (!m) throw new Error(`supervisor model "${d.supervisor}" not found`); const doc = parseDes(m.source); const g = parallel(...doc.plant.map((a) => DES.fromSpec(a))); const r = supcon(g, doc.specs.map((a) => DES.fromSpec(a)), doc.uncontrollable); if (!r.realizable) throw new Error(`supervisor "${d.supervisor}" is unrealisable`); sup = new SupervisorRuntime(supervisorTable(r.supervisor, doc.uncontrollable, doc.unobservable, doc.plant.length)); supName = m.name; for (const e of g.sigma) supSigma.add(e); for (const a of doc.specs) for (const e of a.events) supSigma.add(e); say(`supervisor "${supName}" gates the phases (events <phase>_start / <phase>_done)`); }
+  if (d.modes) { const m = models.find((x) => x.kind === 'hybrid' && x.name === d.modes); if (!m) throw new Error(`mode model "${d.modes}" not found`); modes = new ModeMachine(parseHybrid(m.source)); say(`mode automaton "${m.name}" limits the speed`); }
+  let gatedPhase = -1; let gateDenied = false; let elapsed = 0; let logged = 0; let vmaxMode: number | null = null; const reportedDone = new Set<number>();
+  const currentPhase = () => (arch === 'centralized' ? sim.coordPhase : Math.min(...sim.robots.filter((_, i) => sim.alive[i]).map((r) => r.phase)));
+  const observe = (ev: string) => { if (!sup) return; try { sup.observe(ev); } catch (e) { if (e instanceof SupervisorViolation) { mismatches++; say(`model mismatch: ${e.message}`); } else throw e; } };
+  return {
+    name: `${d.name} — ${arch} mission`, robots, positions: () => sim.p, model: sim,
+    tick(dt) {
+      elapsed += dt; const ph = currentPhase();
+      if (sup && ph !== gatedPhase && ph < spec.phases.length) {
+        const known = (ev: string) => supSigma.has(ev); // events outside the alphabet of the supervisor are not gated; an event in the alphabet that is never enabled is a permanent hold
+        if (ph > 0 && !reportedDone.has(ph - 1)) { reportedDone.add(ph - 1); const prev = `${spec.phases[ph - 1].name.replace(/\W+/g, '_')}_done`; if (known(prev)) observe(prev); } // the previous phase ended: report it before asking for the next one
+        const ev = `${spec.phases[ph].name.replace(/\W+/g, '_')}_start`;
+        if (known(ev)) { if (!sup.allowed(ev)) { if (!gateDenied) { denied++; say(`supervisor denied ${ev} in plant state ${sup.plantState().join(',')} — the group holds`); } gateDenied = true; } else { observe(ev); gateDenied = false; gatedPhase = ph; } } else gatedPhase = ph;
+      }
+      if (modes) { const e = env?.() ?? {}; const m = modes.step(elapsed, { ...(modes.spec.vars ?? {}), ...e, phase: ph, time: elapsed }); vmaxMode = modes.current().vMax ?? null; void m; }
+      const p = robots.map(toM); let u: Vec2[];
+      if (gateDenied) u = p.map(() => [0, 0]); else u = sim.step(dt, p);
+      if (vmaxMode !== null) u = u.map((w) => clampNorm(w, vmaxMode!));
+      robots.forEach((r, i) => { if (sim.alive[i]) apply(r, u[i], dt); else { r.state.v = 0; r.state.status = 'idle'; } });
+      { const after = currentPhase(); if (sup && after >= spec.phases.length && !reportedDone.has(after - 1)) { reportedDone.add(after - 1); const last = `${spec.phases[after - 1].name.replace(/\W+/g, '_')}_done`; if (supSigma.has(last)) observe(last); } } // the last phase ended in this very tick: report it before the run stops
+      for (; logged < sim.log.length; logged++) say(sim.log[logged]);
+    },
+    status: () => `${sim.status()}${sup ? ` · supervisor ${supName}: plant ${sup.plantState().join(',')}, denied ${denied}, mismatches ${mismatches}` : ''}${modes ? ` · mode ${modes.mode}${vmaxMode !== null ? ` (vmax ${vmaxMode})` : ''}` : ''}`,
+    done: () => sim.done && !gateDenied,
+  };
 }
 
 /** Build the station scene of a warehouse model: a map with the shelves, one zone per station and the robots at their homes. */
