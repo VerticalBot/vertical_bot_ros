@@ -164,6 +164,15 @@ Because the tree is written back to the DSL, **Analyse** (structure, finite-time
 abstraction) and **▶ Run mission** work on the drawn tree exactly as on the typed one — and a `program` or `move`
 action in the tree runs the station's own robot program or target motion during the mission.
 
+## Undo and redo
+
+Every edit made in a diagram (a dragged node, a new state or arc, an inspector change, a drop) and every change
+committed in the text view is one step of the model's **history**: **↶ / ↷** next to the view buttons, or
+`Ctrl+Z` / `Ctrl+Y` (`Ctrl+Shift+Z`) while a diagram is shown and no text field has the focus (inside a field the
+browser's own undo applies). Undo restores the previous text of the document and redraws the diagram, so a text
+edit can be undone from the diagram and a diagram edit from the text. The history is kept per model for the
+session (200 steps).
+
 ## Layout and text
 
 Positions are written as `layout` lines (`layout Base H=100,80 mT=220,80 …` per automaton, `layout p1=50,60 …`

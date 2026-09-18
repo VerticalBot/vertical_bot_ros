@@ -113,7 +113,7 @@ Legend: `[x]` done · `[~]` partial / best-effort · `[ ]` open
 - [ ] Symbolic (BDD / SAT) engines for plants beyond ~10⁶ product states; timed automata; probabilistic model checking
 - [x] Graphical editors for automata and Petri nets synchronised with the DSL text (Diagram / Text views, `layout` lines), inspector with robot-action bindings (programs, targets, zones, signals) and executors that run an automaton / a net on the station
 - [x] Graphical behavior-tree editor (tree layout, type menu, reorder / drag to reparent, inspector with bindings, contracts, supervisor events, monitors)
-- [ ] Undo integration for diagram edits
+- [x] Undo / redo of diagram and text edits per model (↶ ↷, Ctrl+Z / Ctrl+Y in the diagrams)
 - [ ] Deploy the exported supervisor / behavior tree as a ROS 2 node (BehaviorTree.CPP XML export) and drive a real robot through the studio server
 
 ## 7. Platform & quality (платформа и качество)

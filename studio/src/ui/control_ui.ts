@@ -336,14 +336,24 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   const kindSel = h('select', { class: 'ctl-kind' }, ...CONTROL_KINDS.map((k) => h('option', { value: k.kind }, `${k.label} (ch. ${k.chapter})`))) as HTMLSelectElement;
   const editor = h('textarea', { class: 'ctl-editor', spellcheck: false, wrap: 'off', placeholder: t('Select a model on the left, or create one with New ▾ / Course examples ▾') }) as HTMLTextAreaElement;
   let view: 'text' | 'diagram' = 'text';
-  const graph = buildGraphEditor({ onChange: (src) => { editor.value = src; if (selected) { selected.source = src; selected.notify('source'); } }, catalog: () => actionCatalog(app) });
+  // per-model undo / redo of the document text, shared by the text and diagram views (Ctrl+Z / Ctrl+Y in the diagrams, ↶ ↷ buttons)
+  const history = new Map<string, { undo: string[]; redo: string[] }>();
+  const histOf = (m: ControlModelItem) => { let hh = history.get(m.id); if (!hh) { hh = { undo: [], redo: [] }; history.set(m.id, hh); } return hh; };
+  const commit = (src: string) => { if (!selected) return; const m = selected; if (m.source !== src) { const hh = histOf(m); hh.undo.push(m.source); if (hh.undo.length > 200) hh.undo.shift(); hh.redo.length = 0; } m.source = src; editor.value = src; m.notify('source'); updateHistoryBtns(); };
+  const restore = (src: string) => { const m = selected!; m.source = src; editor.value = src; m.notify('source'); if (view === 'diagram') { try { loadDiagram(m.kind, src); } catch { setView('text'); } } updateHistoryBtns(); };
+  const undoEdit = () => { if (!selected) return; const hh = histOf(selected); const prev = hh.undo.pop(); if (prev === undefined) return; hh.redo.push(selected.source); restore(prev); };
+  const redoEdit = () => { if (!selected) return; const hh = histOf(selected); const next = hh.redo.pop(); if (next === undefined) return; hh.undo.push(selected.source); restore(next); };
+  const graph = buildGraphEditor({ onChange: (src) => commit(src), catalog: () => actionCatalog(app) });
   graph.el.style.display = 'none';
-  const btGraph = buildBtEditor({ onChange: (src) => { editor.value = src; if (selected) { selected.source = src; selected.notify('source'); } }, catalog: () => actionCatalog(app) });
+  const btGraph = buildBtEditor({ onChange: (src) => commit(src), catalog: () => actionCatalog(app) });
   btGraph.el.style.display = 'none';
   const editorWrap = h('div', { class: 'ctl-editor-wrap' }, editor, graph.el, btGraph.el);
   const canDiagram = (k: string) => k === 'des' || k === 'petri' || k === 'bt';
   const loadDiagram = (kind: string, src: string) => { if (kind === 'bt') btGraph.load(src); else graph.load(kind as EditorKind, src); };
   const activeGraph = () => (selected?.kind === 'bt' ? btGraph : graph);
+  const undoBtn = h('button', { class: 'btn small', title: t('Undo the last edit of this model (Ctrl+Z in the diagram)'), onClick: () => undoEdit() }, '↶');
+  const redoBtn = h('button', { class: 'btn small', title: t('Redo (Ctrl+Y / Ctrl+Shift+Z in the diagram)'), onClick: () => redoEdit() }, '↷');
+  const updateHistoryBtns = () => { const hh = selected ? histOf(selected) : null; undoBtn.disabled = !hh || !hh.undo.length; redoBtn.disabled = !hh || !hh.redo.length; };
   const viewBtns = { text: h('button', { class: 'btn small on', onClick: () => setView('text') }, t('Text')), diagram: h('button', { class: 'btn small', onClick: () => setView('diagram') }, t('Diagram')), expand: h('button', { class: 'btn small', title: t('Expand the editor over the model list and the report'), onClick: () => { el.classList.toggle('ge-expanded'); viewBtns.expand.classList.toggle('on', el.classList.contains('ge-expanded')); activeGraph().render(); } }, '⛶') };
   const setView = (v: 'text' | 'diagram') => {
     if (v === 'diagram') {
@@ -392,16 +402,26 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
 
   const left = h('div', { class: 'ctl-left' }, h('div', { class: 'btn-row' }, newBtn, exBtn, delBtn), list);
   const right = h('div', { class: 'ctl-right' },
-    h('div', { class: 'btn-row ctl-head' }, nameIn, kindSel, detectBtn, h('span', { class: 'ctl-view' }, viewBtns.text, viewBtns.diagram, viewBtns.expand), analyseBtn, allBtn, exportBtn),
+    h('div', { class: 'btn-row ctl-head' }, nameIn, kindSel, detectBtn, h('span', { class: 'ctl-view' }, viewBtns.text, viewBtns.diagram, viewBtns.expand, undoBtn, redoBtn), analyseBtn, allBtn, exportBtn),
     h('div', { class: 'ctl-split' }, editorWrap, report),
     h('div', { class: 'btn-row ctl-run' }, h('b', null, t('Mission runtime:')), h('span', null, t('Robot')), robotSel, h('span', null, t('targets')), targetsIn, runBtn, stopBtn, status),
     runLog);
   const el = h('div', { class: 'ctl-panel' }, left, right);
+  // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z while a diagram is visible (and no text field has the focus): document-level so that
+  // the shortcut works right after a toolbar click, an inspector edit or a canvas click
+  document.addEventListener('keydown', (e) => {
+    if (view !== 'diagram' || !(e.ctrlKey || e.metaKey) || el.offsetParent === null) return;
+    const a = document.activeElement as HTMLElement | null; const tag = a?.tagName ?? '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || a?.isContentEditable) return; // native undo inside fields
+    if (!(a === document.body || el.contains(a))) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undoEdit(); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redoEdit(); }
+  });
 
   nameIn.addEventListener('change', () => { if (selected && nameIn.value.trim()) { const m = selected; app.cmd(() => m.setName(nameIn.value.trim())); renderList(); } });
   kindSel.addEventListener('change', () => { if (selected) { const m = selected; app.cmd(() => { m.kind = kindSel.value as ControlKind; m.notify('kind'); }); renderList(); viewBtns.diagram.disabled = !canDiagram(m.kind); if (view === 'diagram') setView(canDiagram(m.kind) ? 'diagram' : 'text'); } });
   editor.addEventListener('input', () => { if (selected) { selected.source = editor.value; } });
-  editor.addEventListener('change', () => { if (selected) { const m = selected; const v = editor.value; app.cmd(() => { m.source = v; m.notify('source'); }); } });
+  editor.addEventListener('change', () => { if (selected) commit(editor.value); });
   editor.addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); const s = editor.selectionStart; editor.setRangeText('  ', s, editor.selectionEnd, 'end'); editor.dispatchEvent(new Event('input')); } if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doAnalyse(); } });
 
   const renderList = () => {
@@ -426,7 +446,7 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
     if (view === 'diagram') { if (canDiagram(m.kind)) { try { loadDiagram(m.kind, m.source); graph.el.style.display = m.kind === 'bt' ? 'none' : ''; btGraph.el.style.display = m.kind === 'bt' ? '' : 'none'; } catch (e) { toast(`Cannot draw the document: ${(e as Error).message}`, 'warn'); setView('text'); } } else setView('text'); }
     clear(report); lastReport = null;
     if (m.lastReport) report.appendChild(h('div', { class: 'hint' }, t('Last verdict:') + ` ${m.lastOk ? '✅ OK' : '❌ issues found'} — ${t('press Analyse (Ctrl+Enter) for the full report')}`));
-    renderList(); refreshStatus();
+    renderList(); refreshStatus(); updateHistoryBtns();
     if (m.kind === 'bt') doAnalyse();
   };
   const doAnalyse = () => {
@@ -468,6 +488,6 @@ export function buildControlPanel(app: App): { el: HTMLElement; render: () => vo
   };
   let shownDone = false;
   setInterval(() => { if (run && (!run.done || !shownDone) && el.offsetParent !== null) { refreshStatus(); shownDone = run.done; } }, 300);
-  (app as any).controlPanel = { render, open: (m: ControlModelItem) => { open(m); }, current: () => selected, run: () => run, start: doRun, stop: () => { if (run) run.stop(); refreshStatus(); }, analyse: doAnalyse, setView, graph, btGraph, graphSvgs: () => [...report.querySelectorAll<SVGSVGElement>('svg.ctl-graph')].map(standaloneSvg) };
+  (app as any).controlPanel = { render, open: (m: ControlModelItem) => { open(m); }, current: () => selected, run: () => run, start: doRun, stop: () => { if (run) run.stop(); refreshStatus(); }, analyse: doAnalyse, setView, graph, btGraph, undo: undoEdit, redo: redoEdit, history: () => (selected ? histOf(selected) : null), graphSvgs: () => [...report.querySelectorAll<SVGSVGElement>('svg.ctl-graph')].map(standaloneSvg) };
   return { el, render, open: (m) => { open(m); } };
 }
